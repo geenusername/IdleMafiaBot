@@ -42,12 +42,6 @@ Get `IdleMafiaBot-<version>.zip` from [Releases](https://github.com/geenusername
   keyboard.
 - Everything it keeps stays in its own folder on your PC.
 
-## Use it at your own risk
-
-Roblox's rules forbid "automation programmed to run disruptive tasks". Using a macro like this one may get your
-Roblox account banned: only use it if you accept that risk. Idle Mafia Bot is not made or approved by Roblox or by
-the makers of Idle Mafia Game.
-
 ## Updates
 
 Close the bot, download the new zip and replace `IdleMafiaBot.exe` and `README.txt` in your bot's folder. Your
