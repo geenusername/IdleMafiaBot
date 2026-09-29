@@ -24,8 +24,6 @@ Get `IdleMafiaBot-<version>.zip` from [Releases](https://github.com/geenusername
    minute and suggests settings for your level, each with its reason. Nothing changes until you say so.
 4. Press **Start** (or F6).
 
-The `README.txt` in the zip explains every page and setting.
-
 ## What you need
 
 - Windows 10 or 11 with English text recognition (if it's missing, the bot tells you how to add it).
@@ -34,8 +32,8 @@ The `README.txt` in the zip explains every page and setting.
 ## Safety
 
 - Every press is checked against a list of buttons the bot never presses: anything with a Robux price, the refill
-  buttons, UPGRADE, WITHDRAW, SABOTAGE, DELETE, LEAVE FAMILY, DONATE, Trade, the Black Market and more (all listed in
-  the README). If a Robux purchase window ever appears, it stops.
+  buttons, UPGRADE, WITHDRAW, SABOTAGE, DELETE, LEAVE FAMILY, DONATE, Trade, the Black Market and more (all listed on
+  the bot's Settings page). If a Robux purchase window ever appears, it stops.
 - It only takes the mouse once you've left the PC alone for a moment, and stops the moment you touch the mouse or
   keyboard.
 - Everything it keeps stays in its own folder on your PC.
