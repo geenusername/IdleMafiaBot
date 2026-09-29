@@ -1,5 +1,9 @@
 # Idle Mafia Bot
 
+[![Discord](https://img.shields.io/badge/Discord-support-5865F2?logo=discord&logoColor=white)](https://discord.gg/xw56YcDFyg)
+
+**Questions, problems or ideas? Join the [Discord](https://discord.gg/xw56YcDFyg).**
+
 Plays the Roblox game **Idle Mafia Game** for you while you do other things on your PC: jobs, properties, heists,
 bosses, the bank, operations, rewards, crates, your crew's gear, skill points and your family's free Takedown
 attacks. Every part has its own switch.
@@ -49,7 +53,10 @@ settings, job lists and logs stay as they are.
 
 ## Something went wrong?
 
-Press **Report a problem** on the bot's Settings page: it puts the log, its screenshots, your settings and a few
-facts about your PC in one zip on your Desktop. Then [open an issue](https://github.com/geenusername/IdleMafiaBot/issues),
-say what went wrong and attach the zip. Issues are public and the screenshots show your Roblox name, so leave the zip
-out if you'd rather not share that.
+Ask in the [Discord](https://discord.gg/xw56YcDFyg): that's the quickest way to get help.
+
+To report a bug, press **Report a problem** on the bot's Settings page: it puts the log, its screenshots, your
+settings and a few facts about your PC in one zip on your Desktop. Post it in the
+[Discord](https://discord.gg/xw56YcDFyg) with a few words about what went wrong, or
+[open an issue](https://github.com/geenusername/IdleMafiaBot/issues) here and attach it. The screenshots show your
+Roblox name, so leave the zip out if you'd rather not share that.
