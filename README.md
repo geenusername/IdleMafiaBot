@@ -4,9 +4,10 @@
 
 **Questions, problems or ideas? Join the [Discord](https://discord.gg/xw56YcDFyg).**
 
-Plays the Roblox game **Idle Mafia Game** for you while you do other things on your PC: jobs, properties, heists,
-bosses, the bank, operations, rewards, crates, your crew's gear, skill points and your family's free Takedown
-attacks. Every part has its own switch.
+Plays the Roblox game **Idle Mafia Game** for you while you do other things on your PC: jobs and mastery, properties,
+heists, bosses, the bank, operations, daily rewards and contracts, the shop, crates, your crew (new slots, hires,
+rerolls and its gear), the safehouse, skill points, and your family's free Takedown attacks and stamina perks. Every
+part has its own switch.
 
 It plays like someone at your PC would: it reads the game from the screen with Windows' own text recognition and
 moves the mouse. It never changes Roblox or reads its memory, never connects to the internet, never asks for your
@@ -32,8 +33,11 @@ Get `IdleMafiaBot-<version>.zip` from [Releases](https://github.com/geenusername
 ## Safety
 
 - Every press is checked against a list of buttons the bot never presses: anything with a Robux price, the refill
-  buttons, UPGRADE, WITHDRAW, SABOTAGE, DELETE, LEAVE FAMILY, DONATE, Trade, the Black Market and more (all listed on
-  the bot's Settings page). If a Robux purchase window ever appears, it stops.
+  buttons, SABOTAGE, DELETE, LEAVE FAMILY, DONATE, Trade, the Black Market and more (all listed on the bot's Settings
+  page). If a Robux purchase window ever appears, it stops.
+- A few buttons are only pressed by a part you have switched on, and only in their own spot: the safehouse's
+  UPGRADE, the bank's WITHDRAW ALL (only without the bank fee, to pay for a purchase, and the rest goes straight
+  back) and a henchman's DISMISS for a reroll (rerolls are off until you switch them on).
 - It only takes the mouse once you've left the PC alone for a moment, and stops the moment you touch the mouse or
   keyboard.
 - Everything it keeps stays in its own folder on your PC.
@@ -47,14 +51,15 @@ the makers of Idle Mafia Game.
 ## Updates
 
 Close the bot, download the new zip and replace `IdleMafiaBot.exe` and `README.txt` in your bot's folder. Your
-settings, job lists and logs stay as they are.
+settings, job lists and logs stay as they are. The bot's Home page has a button to this page.
 
 ## Something went wrong?
 
-Ask in the [Discord](https://discord.gg/xw56YcDFyg): that's the quickest way to get help.
+Ask in the [Discord](https://discord.gg/xw56YcDFyg): that's the quickest way to get help. The bot's Home page has a
+button for it too.
 
-To report a bug, press **Report a problem** on the bot's Settings page: it puts the log, its screenshots, your
-settings and a few facts about your PC in one zip on your Desktop. Post it in the
+To report a bug, press **Report a problem** on the bot's Home or Settings page: it puts the log, its screenshots,
+your settings and a few facts about your PC in one zip on your Desktop. Post it in the
 [Discord](https://discord.gg/xw56YcDFyg) with a few words about what went wrong, or
 [open an issue](https://github.com/geenusername/IdleMafiaBot/issues) here and attach it. The screenshots show your
 Roblox name, so leave the zip out if you'd rather not share that.
