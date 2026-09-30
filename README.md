@@ -37,7 +37,7 @@ Get `IdleMafiaBot-<version>.zip` from [Releases](https://github.com/geenusername
   page). If a Robux purchase window ever appears, it stops.
 - A few buttons are only pressed by a part you have switched on, and only in their own spot: the safehouse's
   UPGRADE, the bank's WITHDRAW ALL (to pay for a property, the safehouse or a crew slot, and the rest goes back into
-  the bank) and a henchman's DISMISS for a reroll (rerolls are off until you switch them on).
+  the bank) and a henchman's DISMISS for a reroll, with the game's "are you sure?" that follows it for a Mythic (rerolls are off until you switch them on).
 - It only takes the mouse once you've left the PC alone for a moment, and stops the moment you touch the mouse or
   keyboard.
 - Everything it keeps stays in its own folder on your PC.
