@@ -4,7 +4,8 @@
 
 **Questions, problems or ideas? Join the [Discord](https://discord.gg/xw56YcDFyg).**
 
-Plays the Roblox game **Idle Mafia Game** for you while you do other things on your PC: jobs and mastery, properties,
+Plays the Roblox game **Idle Mafia Game** for you while you do other things on your PC: jobs and mastery, properties
+(building and replacing them),
 heists, bosses, the bank, operations, daily rewards and contracts, the shop, crates, your crew (new slots, hires,
 rerolls and its gear), the safehouse, skill points, and your family's free Takedown attacks and stamina perks. Every
 part has its own switch.
@@ -37,7 +38,9 @@ Get `IdleMafiaBot-<version>.zip` from [Releases](https://github.com/geenusername
   page). If a Robux purchase window ever appears, it stops.
 - A few buttons are only pressed by a part you have switched on, and only in their own spot: the safehouse's
   UPGRADE, the bank's WITHDRAW ALL (to pay for a property, the safehouse or a crew slot, and the rest goes back into
-  the bank) and a henchman's DISMISS for a reroll, with the game's "are you sure?" that follows it for a Mythic (rerolls are off until you switch them on).
+  the bank), a henchman's DISMISS for a reroll, with the game's "are you sure?" that follows it for a Mythic (rerolls
+  are off until you switch them on), and a property's DEMOLISH when a much better property takes the place of your
+  worst one (only that lot, once the game's own question names it).
 - It only takes the mouse once you've left the PC alone for a moment, and stops the moment you touch the mouse or
   keyboard.
 - Everything it keeps stays in its own folder on your PC.
