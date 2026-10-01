@@ -1,62 +1,36 @@
 # Idle Mafia Bot
 
+[![Download](https://img.shields.io/github/v/release/geenusername/IdleMafiaBot?label=download&color=d4af37)](https://github.com/geenusername/IdleMafiaBot/releases/latest)
 [![Discord](https://img.shields.io/badge/Discord-support-5865F2?logo=discord&logoColor=white)](https://discord.gg/xw56YcDFyg)
 
-**Questions, problems or ideas? Join the [Discord](https://discord.gg/xw56YcDFyg).**
+Plays the Roblox game **Idle Mafia Game** for you while you're away: jobs, properties, heists, bosses, the bank,
+operations, daily rewards, the shop, crates, your crew, the safehouse and your family. Every part has its own switch.
 
-Plays the Roblox game **Idle Mafia Game** for you while you do other things on your PC: jobs and mastery, properties
-(building and replacing them),
-heists, bosses, the bank, operations, daily rewards and contracts, the shop, crates, your crew (new slots, hires,
-rerolls and its gear), the safehouse, skill points, and your family's free Takedown attacks and stamina perks. Every
-part has its own switch.
+![The bot's Home page](screenshots/home.png)
 
-It plays like someone at your PC would: it reads the game from the screen with Windows' own text recognition and
-moves the mouse. It never changes Roblox or reads its memory, never connects to the internet, never asks for your
-password and never presses anything that costs Robux.
+<p><img src="screenshots/crew.png" width="49%" alt="The Crew page"> <img src="screenshots/money.png" width="49%" alt="The Money page"></p>
+
+It only reads the screen and moves the mouse, like someone at your PC, and only while you leave the PC alone. It never
+changes Roblox, never goes online, never asks for your password and never presses anything that costs Robux (the full
+list of buttons it never presses is on its Settings page).
 
 ## Download
 
-Get `IdleMafiaBot-<version>.zip` from [Releases](https://github.com/geenusername/IdleMafiaBot/releases).
+1. Get the zip from [Releases](https://github.com/geenusername/IdleMafiaBot/releases/latest) and unzip it anywhere
+   (not in Program Files).
+2. Double-click `IdleMafiaBot.exe`. If Windows says "Windows protected your PC", press **More info**, then
+   **Run anyway**.
+3. Open Idle Mafia Game in Roblox, press **Check my game** for settings that suit your level, then **Start** (or F6).
 
-1. Unzip it and put the **Idle Mafia Bot** folder where you like (not in Program Files). The bot keeps its
-   settings, log and screenshots next to it.
-2. Double-click `IdleMafiaBot.exe`. The first time, Windows may say "Windows protected your PC", because the bot
-   isn't signed by a big company: press **More info**, then **Run anyway**.
-3. Read the welcome, open Idle Mafia Game in Roblox and press **Check my game**. The bot reads your game for about a
-   minute and suggests settings for your level, each with its reason. Nothing changes until you say so.
-4. Press **Start** (or F6).
-
-## What you need
-
-- Windows 10 or 11 with English text recognition (if it's missing, the bot tells you how to add it).
-- The Roblox app with Idle Mafia Game open. Any window size works, and the bot never changes it.
-
-## Safety
-
-- Every press is checked against a list of buttons the bot never presses: anything with a Robux price, the refill
-  buttons, SABOTAGE, DELETE, LEAVE FAMILY, DONATE, Trade, the Black Market and more (all listed on the bot's Settings
-  page). If a Robux purchase window ever appears, it stops.
-- A few buttons are only pressed by a part you have switched on, and only in their own spot: the safehouse's
-  UPGRADE, the bank's WITHDRAW ALL (to pay for a property, the safehouse or a crew slot, and the rest goes back into
-  the bank), a henchman's DISMISS for a reroll, with the game's "are you sure?" that follows it for a Mythic (rerolls
-  are off until you switch them on), and a property's DEMOLISH when a much better property takes the place of your
-  worst one (only that lot, once the game's own question names it).
-- It only takes the mouse once you've left the PC alone for a moment, and stops the moment you touch the mouse or
-  keyboard.
-- Everything it keeps stays in its own folder on your PC.
+You need Windows 10 or 11 with English text recognition (the bot tells you if it's missing). Any Roblox window size
+works.
 
 ## Updates
 
-Close the bot, download the new zip and replace `IdleMafiaBot.exe` and `README.txt` in your bot's folder. Your
-settings, job lists and logs stay as they are. The bot's Home page has a button to this page.
+Close the bot and replace `IdleMafiaBot.exe` with the one from the new zip. Your settings stay.
 
-## Something went wrong?
+## Help
 
-Ask in the [Discord](https://discord.gg/xw56YcDFyg): that's the quickest way to get help. The bot's Home page has a
-button for it too.
-
-To report a bug, press **Report a problem** on the bot's Home or Settings page: it puts the log, its screenshots,
-your settings and a few facts about your PC in one zip on your Desktop. Post it in the
-[Discord](https://discord.gg/xw56YcDFyg) with a few words about what went wrong, or
-[open an issue](https://github.com/geenusername/IdleMafiaBot/issues) here and attach it. The screenshots show your
-Roblox name, so leave the zip out if you'd rather not share that.
+Ask in the [Discord](https://discord.gg/xw56YcDFyg). Found a bug? Press **Report a problem** in the bot and post the
+zip it puts on your Desktop in the Discord or in an [issue](https://github.com/geenusername/IdleMafiaBot/issues). The
+zip shows your Roblox name.
