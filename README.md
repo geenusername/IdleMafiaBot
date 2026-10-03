@@ -34,3 +34,5 @@ Close the bot and replace `IdleMafiaBot.exe` with the one from the new zip. Your
 Ask in the [Discord](https://discord.gg/xw56YcDFyg). Found a bug? Press **Report a problem** in the bot and post the
 zip it puts on your Desktop in the Discord or in an [issue](https://github.com/geenusername/IdleMafiaBot/issues). The
 zip shows your Roblox name.
+
+Like the bot? Give it a star at the top of this page: it helps other players find it.
