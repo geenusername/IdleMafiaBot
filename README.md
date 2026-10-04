@@ -11,8 +11,9 @@ operations, daily rewards, the shop, crates, your crew, the safehouse and your f
 <p><img src="screenshots/crew.png" width="49%" alt="The Crew page"> <img src="screenshots/money.png" width="49%" alt="The Money page"></p>
 
 It only reads the screen and moves the mouse, like someone at your PC, and only while you leave the PC alone. It never
-changes Roblox, never goes online, never asks for your password and never presses anything that costs Robux (the full
-list of buttons it never presses is on its Settings page).
+changes Roblox, never asks for your password and never presses anything that costs Robux (the full list of buttons it
+never presses is on its Settings page). It only goes online for your own Discord link (if you give it one) and when you
+press **Check for updates** (this GitHub page, nothing else).
 
 ## Download
 
@@ -27,7 +28,9 @@ works.
 
 ## Updates
 
-Close the bot and replace `IdleMafiaBot.exe` with the one from the new zip. Your settings stay.
+Press **Check for updates** on the bot's Settings page: it downloads the new version from this page, checks it and
+restarts. Your settings stay. Coming from 1.6.1 or older? Close the bot and replace `IdleMafiaBot.exe` with the one from
+the new zip, once.
 
 ## Help
 
