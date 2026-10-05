@@ -12,8 +12,8 @@ operations, daily rewards, the shop, crates, your crew, the safehouse and your f
 
 It only reads the screen and moves the mouse, like someone at your PC, and only while you leave the PC alone. It never
 changes Roblox, never asks for your password and never presses anything that costs Robux (the full list of buttons it
-never presses is on its Settings page). It only goes online for your own Discord link (if you give it one) and when you
-press **Check for updates** (this GitHub page, nothing else).
+never presses is on its Settings page). It only goes online for the Discord links you give it (your own channel's, and
+the stats link from `/link` in our Discord) and when you press **Check for updates** (this GitHub page, nothing else).
 
 ## Download
 
