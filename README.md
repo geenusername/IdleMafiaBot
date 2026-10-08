@@ -40,3 +40,10 @@ zip it puts on your Desktop in the Discord or in an [issue](https://github.com/g
 zip shows your Roblox name.
 
 Like the bot? Give it a star at the top of this page: it helps other players find it.
+
+## Copyright
+
+© 2026 geenusername. All rights reserved. The bot is free to use, and you're welcome to share it by linking to this
+page, but you may not re-upload it, change it, sell it or pass it off as your own. Copies found anywhere else get taken
+down. The only real downloads are this page's [Releases](https://github.com/geenusername/IdleMafiaBot/releases/latest)
+and the links in our [Discord](https://discord.gg/xw56YcDFyg).
