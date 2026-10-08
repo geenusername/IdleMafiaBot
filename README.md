@@ -4,11 +4,12 @@
 [![Discord](https://img.shields.io/badge/Discord-support-5865F2?logo=discord&logoColor=white)](https://discord.gg/xw56YcDFyg)
 
 Plays the Roblox game **Idle Mafia Game** for you while you're away: jobs, properties, heists, bosses, the bank,
-operations, daily rewards, the shop, crates, your crew, the safehouse and your family. Every part has its own switch.
+operations, daily rewards, the shop, crates, your crew, the safehouse, your family and your Black Market listings. Every
+part has its own switch.
 
 ![The bot's Home page](screenshots/home.png)
 
-<p><img src="screenshots/crew.png" width="49%" alt="The Crew page"> <img src="screenshots/money.png" width="49%" alt="The Money page"></p>
+<p><img src="screenshots/crew.png" width="49%" alt="The Crew page"> <img src="screenshots/money.png" width="49%" alt="The Cash page"></p>
 
 It only reads the screen and moves the mouse, like someone at your PC, and only while you leave the PC alone. It never
 changes Roblox, never asks for your password and never presses anything that costs Robux (the full list of buttons it
