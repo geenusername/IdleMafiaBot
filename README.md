@@ -40,9 +40,14 @@ zip shows your Roblox name.
 
 Like the bot? Give it a star at the top of this page: it helps other players find it.
 
+## Source code
+
+The bot's code is in the [source](source) folder, so anyone can check what it does: it's a macro that reads the screen
+and clicks, no injection. To play, download the bot from Releases above, not the green **Code** button.
+
 ## Copyright
 
 © 2026 geenusername. All rights reserved. The bot is free to use, and you're welcome to share it by linking to this
-page, but you may not re-upload it, change it, sell it or pass it off as your own. Copies found anywhere else get taken
-down. The only real downloads are this page's [Releases](https://github.com/geenusername/IdleMafiaBot/releases/latest)
+page, but you may not re-upload it, change it, sell it or pass it off as your own. You may read the code and build it
+for yourself, but not share or sell it. Copies found anywhere else get taken down. The only real downloads are this page's [Releases](https://github.com/geenusername/IdleMafiaBot/releases/latest)
 and the links in our [Discord](https://discord.gg/xw56YcDFyg).
