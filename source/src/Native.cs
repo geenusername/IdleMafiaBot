@@ -18,6 +18,20 @@ namespace IdleMafiaBot
         [DllImport("shcore.dll")] public static extern int SetProcessDpiAwareness(int value);
         [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
         [DllImport("user32.dll")] public static extern bool IsProcessDPIAware();
+        [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr ctx);
+
+        public static IntPtr RealPixels()
+        {
+            try { return SetThreadDpiAwarenessContext(new IntPtr(-4)); }
+            catch (Exception) { return IntPtr.Zero; }
+        }
+
+        public static void RestorePixels(IntPtr before)
+        {
+            if (before == IntPtr.Zero) return;
+            try { SetThreadDpiAwarenessContext(before); }
+            catch (Exception) { }
+        }
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern uint GetLongPathName(string path, System.Text.StringBuilder longPath, uint size);
         [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
         [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
@@ -451,6 +465,19 @@ namespace IdleMafiaBot
                 Thread.Sleep(i == 0 ? 600 : 30);
             }
             lastBotInput = Native.Now;
+        }
+
+        public string FrontWindow()
+        {
+            IntPtr fg = Native.GetForegroundWindow();
+            if (fg == IntPtr.Zero) return "none";
+            if (Handle != IntPtr.Zero && Native.GetAncestor(fg, 2) == Native.GetAncestor(Handle, 2)) return "Roblox";
+            uint pid;
+            Native.GetWindowThreadProcessId(fg, out pid);
+            string program = "?";
+            try { using (var p = System.Diagnostics.Process.GetProcessById((int)pid)) program = p.ProcessName; }
+            catch (Exception) { }
+            return program;
         }
 
         bool RobloxAt(Native.POINT p)

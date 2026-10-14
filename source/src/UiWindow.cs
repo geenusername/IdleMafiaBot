@@ -90,6 +90,18 @@ namespace IdleMafiaBot
         public bool Hover { get; set; }
     }
 
+    public sealed class BigPayerView
+    {
+        public string Name { get; set; }
+        public string Biggest { get; set; }
+        public string Last { get; set; }
+        public string When { get; set; }
+        public string Record { get; set; }
+        public string RecordTip { get; set; }
+        public Brush RowBg { get; set; }
+        public ICommand Forget { get; set; }
+    }
+
     public sealed class RelayCommand : ICommand
     {
         readonly Action run;
@@ -120,19 +132,8 @@ namespace IdleMafiaBot
         static readonly Crew Henchmen = new Crew("Crew", "#E0709A", "IcoCrew");
         static readonly Crew Don = new Crew("Bot", "#E8E2D0", "IcoFedora");
 
-        static readonly string[] Pages = { "Overview", "Jobs", "Combat", "Crew", "Gear", "Money", "Rewards", "Settings" };
-        static readonly string[] Titles = { "Home", "Energy", "Stamina", "Crew", "Gear", "Cash", "Rewards", "Settings" };
-        static readonly string[] PageSubs =
-        {
-            "What the bot is doing and what it did.",
-            "Jobs and heists.",
-            "Bosses, other players and your family.",
-            "Your henchmen: hires, rerolls and training.",
-            "The shop, the best gear on and crates.",
-            "Properties, the safehouse and the bank.",
-            "Playtime, contracts, operations and events.",
-            "Your PC, staying in the game, Discord and the tools.",
-        };
+        static readonly string[] Pages = { "Overview", "Jobs", "Combat", "Crew", "Family", "Money", "Rewards", "Settings" };
+        static readonly string[] Titles = { "Home", "Energy", "Stamina", "Crew", "Family", "Cash", "Rewards", "Settings" };
         static readonly string[] RarityBrushes = { "RarityCommon", "RarityUncommon", "RarityRare", "RarityEpic", "RarityLegendary", "RarityMythic", "RaritySecret", "RarityForbidden" };
         const string ClosestPerk = "Closest to its next level";
 
@@ -144,6 +145,8 @@ namespace IdleMafiaBot
         readonly ObservableCollection<OpsRow> ops = new ObservableCollection<OpsRow>();
         readonly ObservableCollection<JobRow> jobRows = new ObservableCollection<JobRow>();
         readonly ObservableCollection<PerkView> perkRows = new ObservableCollection<PerkView>();
+        readonly ObservableCollection<BigPayerView> payerRows = new ObservableCollection<BigPayerView>();
+        FightMemory payers;
         readonly ObservableCollection<FoundRow> foundRows = new ObservableCollection<FoundRow>();
         readonly ObservableCollection<ChangeRow> changeRows = new ObservableCollection<ChangeRow>();
         readonly ObservableCollection<ChangeRow> keptRows = new ObservableCollection<ChangeRow>();
@@ -198,6 +201,8 @@ namespace IdleMafiaBot
             El<ItemsControl>("OpsList").ItemsSource = ops;
             El<ItemsControl>("JobList").ItemsSource = jobRows;
             El<ItemsControl>("PerkList").ItemsSource = perkRows;
+            El<ItemsControl>("BigPayerList").ItemsSource = payerRows;
+            UsePayers(bot.Memory);
             El<ItemsControl>("FoundList").ItemsSource = foundRows;
             El<ItemsControl>("ChangeList").ItemsSource = changeRows;
             El<ItemsControl>("KeptList").ItemsSource = keptRows;
@@ -248,7 +253,7 @@ namespace IdleMafiaBot
                 bot.Stop();
                 Save();
 
-                if (wasRunning && closedBy != "you" && !(closedBy ?? "").StartsWith("--exit"))
+                if (ClosedMessage(wasRunning, closedBy))
                     bot.Discord.Problem("closed", "\U0001F6D1 The bot was closed", "By " + (closedBy ?? "another program or Windows") + ".", Discord.ShotOfRoblox, false, 0);
 
                 bot.Discord.Flush((closedBy ?? "").StartsWith("you") ? 800 : 4000);
@@ -281,12 +286,13 @@ namespace IdleMafiaBot
                 });
             });
 
-            if (start && args.Contains("--restarted"))
-                Window.Loaded += (a, b) => { if (!bot.Running) bot.Start(); };
+            bool rerollOnly = args.Contains("--rerollonly");
+            if ((start || rerollOnly) && args.Contains("--restarted"))
+                Window.Loaded += (a, b) => { if (!bot.Running) { if (rerollOnly) bot.StartRerollOnly(); else bot.Start(); } };
             Window.ContentRendered += (a, b) =>
             {
                 shownAt = DateTime.UtcNow;
-                if (scan) bot.RequestScan(); else if (check) bot.RequestCheck(); else if (start && !bot.Running) bot.Start();
+                if (scan) bot.RequestScan(); else if (check) bot.RequestCheck(); else if (rerollOnly && !bot.Running) bot.StartRerollOnly(); else if (start && !bot.Running) bot.Start();
                 ShowState(bot.Running ? (check ? "Checking" : "Starting") : "Stopped");
             };
             if (exit) bot.StateChanged += st => { if (st == "Stopped") Ui(() => { closedBy = "--exit (the run is over)"; Window.Close(); }); };
@@ -300,6 +306,8 @@ namespace IdleMafiaBot
             UpdateTotals();
             UpdateCheckWhen();
             UpdateProblems();
+
+            Window.Activated += (a, b) => UpdateProblems();
             if (demo) Demo();
             else bot.Stats.Begin();
         }
@@ -337,7 +345,138 @@ namespace IdleMafiaBot
                 int page = i;
                 El<RadioButton>("Rail" + Pages[i]).Checked += (a, b) => ShowPage(page);
             }
+            WireLayout();
             ShowPage(0);
+        }
+
+        const double ColsMinWidth = 840, FillMinList = 150;
+        readonly List<Grid> fills = new List<Grid>();
+
+        void WireLayout()
+        {
+            var all = new List<FrameworkElement>();
+            Collect(Window, all);
+            foreach (var e in all)
+            {
+                var fold = e as ToggleButton;
+                if (fold != null && fold.Name.StartsWith("Fold_"))
+                {
+                    var part = El<FrameworkElement>(fold.Name.Substring(5));
+                    RoutedEventHandler show = (a, b) => { part.Visibility = fold.IsChecked == true ? Visibility.Visible : Visibility.Collapsed; FitFillsSoon(); };
+                    fold.Checked += show;
+                    fold.Unchecked += show;
+                    show(null, null);
+                }
+                var grid = e as Grid;
+                if (grid == null) continue;
+                if ("Cols".Equals(grid.Tag))
+                {
+                    var g = grid;
+                    EvenColumns(g);
+                    var right = g.Children.OfType<UIElement>().Where(c => Grid.GetColumn(c) == 2).ToList();
+                    var widths = g.ColumnDefinitions.Select(c => c.Width).ToList();
+                    g.SizeChanged += (a, b) => FitCols(g, right, widths);
+                }
+                if ("Fill".Equals(grid.Tag))
+                {
+                    var g = grid;
+                    fills.Add(g);
+                    g.IsVisibleChanged += (a, b) => FitFillsSoon();
+                    foreach (FrameworkElement c in g.Children) if (Grid.GetRow(c) < g.RowDefinitions.Count - 1) c.SizeChanged += (a, b) => FitFillsSoon();
+                    var page = Page(g);
+                    if (page != null) page.SizeChanged += (a, b) => FitFillsSoon();
+                }
+            }
+        }
+
+        static void EvenColumns(Grid g)
+        {
+            foreach (var stack in g.Children.OfType<StackPanel>().Where(p => p.Orientation == Orientation.Vertical).ToList())
+            {
+                var dock = new DockPanel { LastChildFill = true, Margin = stack.Margin, Visibility = stack.Visibility };
+                Grid.SetColumn(dock, Grid.GetColumn(stack));
+                Grid.SetRow(dock, Grid.GetRow(stack));
+                Grid.SetColumnSpan(dock, Grid.GetColumnSpan(stack));
+                var kids = stack.Children.OfType<UIElement>().ToList();
+                stack.Children.Clear();
+                foreach (var k in kids)
+                {
+                    DockPanel.SetDock(k, Dock.Top);
+                    var fe = k as FrameworkElement;
+                    if (fe != null && k == kids.Last()) fe.VerticalAlignment = VerticalAlignment.Stretch;
+                    dock.Children.Add(k);
+                }
+                int at = g.Children.IndexOf(stack);
+                g.Children.RemoveAt(at);
+                g.Children.Insert(at, dock);
+            }
+        }
+
+        static void Collect(DependencyObject d, List<FrameworkElement> all)
+        {
+            var fe = d as FrameworkElement;
+            if (fe != null) all.Add(fe);
+            foreach (var child in LogicalTreeHelper.GetChildren(d))
+            {
+                var c = child as DependencyObject;
+                if (c != null) Collect(c, all);
+            }
+        }
+
+        static ScrollViewer Page(DependencyObject d)
+        {
+            while (d != null && !(d is ScrollViewer && ((ScrollViewer)d).Name.StartsWith("Page"))) d = LogicalTreeHelper.GetParent(d);
+            return d as ScrollViewer;
+        }
+
+        static bool Shown(FrameworkElement e, ScrollViewer page)
+        {
+            for (DependencyObject d = e; d != null; d = LogicalTreeHelper.GetParent(d))
+            {
+                var u = d as UIElement;
+                if (u != null && u.Visibility != Visibility.Visible) return false;
+                if (d == page) return true;
+            }
+            return false;
+        }
+
+        static void FitCols(Grid g, List<UIElement> right, List<GridLength> widths)
+        {
+            bool one = g.ActualWidth > 0 && g.ActualWidth < ColsMinWidth;
+            for (int i = 0; i < g.ColumnDefinitions.Count; i++)
+            {
+                var w = one && i > 0 ? new GridLength(0) : widths[i];
+                if (g.ColumnDefinitions[i].Width != w) g.ColumnDefinitions[i].Width = w;
+            }
+            foreach (var r in right)
+            {
+                if (Grid.GetColumn(r) != (one ? 0 : 2)) Grid.SetColumn(r, one ? 0 : 2);
+                if (Grid.GetRow(r) != (one ? 1 : 0)) Grid.SetRow(r, one ? 1 : 0);
+            }
+        }
+
+        bool fitting;
+
+        void FitFillsSoon()
+        {
+            if (fitting) return;
+            fitting = true;
+            Window.Dispatcher.BeginInvoke(new Action(() => { fitting = false; FitFills(); }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        void FitFills()
+        {
+            foreach (var g in fills)
+            {
+                var page = Page(g);
+                if (page == null || !Shown(g, page) || page.ViewportHeight <= 0) continue;
+                var content = page.Content as FrameworkElement;
+                double top = g.TranslatePoint(new Point(0, 0), page).Y + page.VerticalOffset;
+                double rows = 0;
+                for (int i = 0; i < g.RowDefinitions.Count - 1; i++) rows += g.RowDefinitions[i].ActualHeight;
+                double h = Math.Max(page.ViewportHeight - top - (content != null ? content.Margin.Bottom : 0), rows + FillMinList);
+                if (double.IsNaN(g.Height) || Math.Abs(g.Height - h) > 0.5) g.Height = h;
+            }
         }
 
         void ShowPage(int page)
@@ -345,9 +484,10 @@ namespace IdleMafiaBot
             for (int i = 0; i < Pages.Length; i++)
                 El<ScrollViewer>("Page" + Pages[i]).Visibility = i == page ? Visibility.Visible : Visibility.Collapsed;
             El<TextBlock>("PageTitle").Text = Titles[page].ToUpperInvariant();
-            El<TextBlock>("PageSub").Text = PageSubs[page];
+            FitFillsSoon();
             if (Pages[page] == "Jobs") RefreshJobs();
             if (Pages[page] == "Settings") UpdateProblems();
+            if (Pages[page] == "Combat") RefreshBigPayers();
         }
 
         void WireSettings()
@@ -394,16 +534,90 @@ namespace IdleMafiaBot
             if (!whaleValues.Contains(s.WhaleCash)) { whaleValues.Add(s.WhaleCash); whaleValues.Sort(); }
             Combo("cmb_WhaleCash", whaleValues.Select(WhaleName).ToList(), whaleValues.IndexOf(s.WhaleCash), i => s.WhaleCash = whaleValues[i]);
 
-            int heist = Array.FindIndex(Game.HeistNames, n => n == s.StartHeist);
-            Combo("cmb_StartHeist", Game.HeistNames.Select((n, i) => n + " (level " + Game.HeistLevels[i] + ")").ToList(), heist < 0 ? 3 : heist, i => s.StartHeist = Game.HeistNames[i]);
+            payerValues = Settings.WhaleAmounts.ToList();
+            if (!payerValues.Contains(s.BigPayerCash)) { payerValues.Add(s.BigPayerCash); payerValues.Sort(); }
+            Combo("cmb_BigPayerCash", payerValues.Select(PayerName).ToList(), payerValues.IndexOf(s.BigPayerCash), i => s.BigPayerCash = payerValues[i]);
 
+            rollValues = Settings.AutoRollLimits.ToList();
+            if (!rollValues.Contains(s.AutoRollLimit)) { rollValues.Add(s.AutoRollLimit); rollValues.Sort(); }
+            Combo("cmb_AutoRollLimit", rollValues.Select(RollLimitName).ToList(), rollValues.IndexOf(s.AutoRollLimit), i => s.AutoRollLimit = rollValues[i]);
+
+            Combo("cmb_StartHeist", new[] { "Off" }.Concat(Game.HeistNames).ToList(), HeistChoice(),
+                  i => { s.StartHeists = i > 0; if (i > 0) s.StartHeist = Game.HeistNames[i - 1]; });
+
+            El<HeaderedContentControl>("MarketCard").Visibility = Settings.MarketRelistShown ? Visibility.Visible : Visibility.Collapsed;
+
+            var whens = new[] { "Problems", "Rarity", "Property", "Summary", "Level", "Boss" }.Select(n => El<CheckBox>("sw_Discord" + n)).ToList();
+            Action count = () => El<TextBlock>("DiscordWhenCount").Text = whens.Count(c => c.IsChecked == true) + " of " + whens.Count + " on";
+            foreach (var c in whens) { c.Checked += (a, b) => count(); c.Unchecked += (a, b) => count(); }
+            count();
             UpdateDerived();
         }
 
         List<int> goalValues;
         List<long> whaleValues;
+        List<long> payerValues;
+        List<long> rollValues;
+
+        static string RollLimitName(long v) { return "Stop a slot at " + SafehouseInfo.Money(v) + " spent"; }
 
         static string WhaleName(long v) { return "A win of " + SafehouseInfo.Money(v) + " or more"; }
+
+        static string PayerName(long v) { return "Paid " + SafehouseInfo.Money(v) + " or more in a win"; }
+
+        void UsePayers(FightMemory m)
+        {
+            if (payers == m) return;
+            if (payers != null) payers.Changed -= PayersChanged;
+            payers = m;
+            if (payers != null) payers.Changed += PayersChanged;
+            RefreshBigPayers();
+        }
+
+        void PayersChanged() { Ui(RefreshBigPayers); }
+
+        void RefreshBigPayers()
+        {
+            if (payers == null) return;
+            var now = DateTime.UtcNow;
+            var list = payers.BigPayers(s.BigPayerCash, now);
+            payerRows.Clear();
+            bool odd = false;
+            foreach (var p in list)
+            {
+                string name = p.Name;
+                payerRows.Add(new BigPayerView
+                {
+                    Name = name, Biggest = Money(p.Biggest), Last = p.Last >= 0 ? Money(p.Last) : "-", When = Ago(p.LastBig, now),
+                    Record = p.Won + "W " + p.Lost + "L",
+                    RecordTip = p.Fights + (p.Fights == 1 ? " fight" : " fights") + " in the last 3 days (the last 10 are kept): " + p.Won + " won, " + p.Lost + " lost",
+                    RowBg = odd ? Res("Panel2") : Brushes.Transparent,
+                    Forget = new RelayCommand(() => ForgetPayer(name)),
+                });
+                odd = !odd;
+            }
+            bool none = payerRows.Count == 0;
+            El<TextBlock>("BigPayersEmpty").Visibility = none ? Visibility.Visible : Visibility.Collapsed;
+            El<Grid>("BigPayersHead").Visibility = none ? Visibility.Collapsed : Visibility.Visible;
+            int n = payers.Count;
+            El<TextBlock>("BigPayersRead").Text = n == 0 ? "" : n + (n == 1 ? " player" : " players") + " remembered";
+        }
+
+        void ForgetPayer(string name)
+        {
+            if (payers == null || !payers.Forget(name)) { RefreshBigPayers(); return; }
+            if (payers == bot.Memory) bot.Log("Fights: forgot " + name + " (Big payers list)");
+
+        }
+
+        internal static string Ago(DateTime utc, DateTime nowUtc)
+        {
+            var d = nowUtc - utc;
+            if (d.TotalMinutes < 1) return "just now";
+            if (d.TotalMinutes < 60) return (int)d.TotalMinutes + " min ago";
+            if (d.TotalHours < 24) return (int)d.TotalHours + " h ago";
+            return utc.ToLocalTime().ToString("dd-MM HH:mm", CultureInfo.InvariantCulture);
+        }
 
         void SyncRoll()
         {
@@ -494,6 +708,7 @@ namespace IdleMafiaBot
             ShowFamily(null);
             SyncRoll();
             ShowCrewOdds();
+            SyncRollMode();
 
             var names = new[] { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Forbidden" };
             var off = names.Where((n, i) => !s.ShopWants(i)).ToList();
@@ -503,7 +718,16 @@ namespace IdleMafiaBot
 
             foreach (var n in names) El<CheckBox>("sw_Shop" + n).IsEnabled = s.ShopBuy;
             El<ComboBox>("cmb_WhaleCash").IsEnabled = s.WhaleHunt;
-            El<ComboBox>("cmb_StartHeist").IsEnabled = s.StartHeists;
+
+            El<CheckBox>("sw_CrewAutoRoll").IsEnabled = s.CrewReroll;
+            El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+
+            var hits = El<ContentControl>("num_WhaleHits");
+            hits.IsEnabled = s.WhaleHunt;
+            hits.Opacity = s.WhaleHunt ? 1 : 0.45;
+            int whaleHits = s.WhaleHitsNow;
+            El<TextBlock>("WhaleHint").Text = whaleHits == 1 ? "One hit only: nobody is hit again after a big win." : "Hits a player again after a big win, up to " + whaleHits + " times.";
+            RefreshBigPayers();
             foreach (var r in new[] { Rarity.Mythic, Rarity.Secret, Rarity.Forbidden })
                 El<CheckBox>("sw_ShopBank" + r).IsEnabled = s.ShopBuy && s.ShopWithdraw && s.ShopWants((int)r);
             if (crewSeen != null) ShowCrew(crewSeen);
@@ -519,15 +743,56 @@ namespace IdleMafiaBot
             for (int r = 7; r >= 0; r--)
                 if (CrewInfo.Odds[roll, r] > 0) odds.Children.Add(RarityChip(r, Game.RarityTitle(r) + " " + CrewInfo.Odds[roll, r].ToString("0.##", ic) + "%"));
             int best = Game.BestRoll(s.CrewRollType);
-            double hires = CrewInfo.HiresFor(s.CrewRollType, best), price = new[] { 10e3, 10e6, 10e9 }[roll];
-            string many = hires < 0 ? "" : hires < 1.5 ? "1 hire" : (hires < 10 ? hires.ToString("0.#", ic) : Math.Round(hires).ToString("N0", ic)) + " hires";
-            El<TextBlock>("CrewRollHint").Text = "Rerolls go on until everyone is " + Game.RarityTitle(best) + ", the best " + s.CrewRollType + " hires can roll"
-                + (hires < 0 ? "." : ": about " + many + " (" + Money(Math.Max(1, Math.Round(hires)) * price) + ") for each one.")
-                + (best < 7 ? " Only Elite hires can roll Forbidden." : "");
 
-            string then = s.CrewRerollStats > 0 ? ", then until each has " + Settings.StatsGoalText(s.CrewRerollStats) + " of their own" : "";
-            El<TextBlock>("RerollOnlyHint").Text = "With the cash on hand, until everyone is " + Game.RarityTitle(best)
-                + ", the best " + s.CrewRollType + " hires can roll" + then + ". Does nothing else, then stops.";
+            El<TextBlock>("CrewRollHint").Text = "Until everyone is " + Game.RarityTitle(best) + ", the best " + s.CrewRollType + " hires can reach."
+                + (best < 7 ? " Only Elite can reach Forbidden." : "");
+        }
+
+        bool syncingRoll;
+
+        void WireRollMode()
+        {
+            foreach (var mode in new[] { "Off", "On", "First", "Only" })
+            {
+                string m = mode;
+                El<RadioButton>("RollMode_" + m).Checked += (a, b) => RollModePicked(m);
+            }
+        }
+
+        void RollModePicked(string m)
+        {
+            if (syncingRoll) return;
+            if (m == "Only")
+            {
+                if (Covered) { SyncRollMode(); return; }
+                bot.StartRerollOnly();
+                ShowState("Working: only rerolling the crew");
+                return;
+            }
+            if (bot.RerollOnly) { bot.StopRerollOnly(); ShowState("Stopping"); }
+            s.CrewReroll = m != "Off";
+            s.RerollsFirst = m == "First";
+            Save();
+            UpdateDerived();
+        }
+
+        string RollMode() { return bot.RerollOnly ? "Only" : !s.CrewReroll ? "Off" : s.RerollsFirst ? "First" : "On"; }
+
+        void SyncRollMode()
+        {
+            string m = RollMode();
+            var rb = El<RadioButton>("RollMode_" + m);
+            if (rb.IsChecked != true)
+            {
+                syncingRoll = true;
+                try { rb.IsChecked = true; } finally { syncingRoll = false; }
+            }
+            string then = s.CrewRerollStats > 0 ? ", then their own attack and defense" : "";
+            El<TextBlock>("RollModeHint").Text =
+                  m == "Off" ? "No rerolls."
+                : m == "On" ? "In between the other tasks."
+                : m == "First" ? "Before the other tasks. Full bars, the bank and the shop still get their turn. Back to On once the crew is done."
+                : "Nothing else: rerolls with the cash on hand until the crew is done" + then + ", then the bot stops.";
         }
 
         CrewInfo crewSeen;
@@ -561,8 +826,9 @@ namespace IdleMafiaBot
                     bar.Children.Add(block);
                     chips.Children.Add(RarityChip(r, n + " " + Game.RarityTitle(r)));
                 }
-            string status = ci == null ? "Not read yet. The bot looks at your crew every 30 minutes while it runs." : ci.Status;
-            if (ci != null && status.Length == 0) status = s.CrewReroll ? "Nothing to do right now." : "Rerolls are off. Switch them on below to reroll the worst henchman.";
+
+            string status = ci == null ? "Not read yet. The bot looks at your crew every 30 minutes while it runs, every 6 hours with all its switches off." : ci.Status;
+            if (ci != null && status.Length == 0) status = s.CrewReroll ? "Nothing to do right now." : "Rerolls are off. Pick On below to reroll the worst henchman.";
             if (ci != null && s.CrewReroll && ci.Worst.Length > 0 && !status.StartsWith("Rerolling")) status += " The worst now: " + ci.Worst + ".";
             El<TextBlock>("CrewStatus").Text = status;
             UpdateTotals();
@@ -586,7 +852,7 @@ namespace IdleMafiaBot
                 string t = box.Password.Trim(), saved = (s.DiscordLink ?? "").Trim();
                 El<TextBlock>("DiscordLinkHint").Visibility = box.Password.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (t.Length == 0) DiscordSays("Off. Nothing is sent without a link.", null);
-                else if (t == (s.StatsLink ?? "").Trim()) DiscordSays("That's your stats link (Stats in our Discord, below). Paste a webhook link of your own channel here.", "Red");
+                else if (t == (s.StatsLink ?? "").Trim()) DiscordSays(Discord.StatsLinkHere, "Red");
                 else if (Discord.IsLink(t))
                 {
                     string trouble = t == saved ? bot.Discord.Trouble : null;
@@ -635,9 +901,15 @@ namespace IdleMafiaBot
         {
             var box = El<PasswordBox>("StatsLinkBox");
             box.Password = s.StatsLink ?? "";
+            var hint = El<TextBlock>("StatsHint");
+            string plain = hint.Text;
             Action show = () =>
             {
                 string t = box.Password.Trim(), saved = (s.StatsLink ?? "").Trim();
+
+                hint.Text = t == saved && bot.Stats.Family
+                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start, big wins and Mythic or better shop items, each with a picture of just that window."
+                    : plain;
                 El<TextBlock>("StatsLinkHint").Visibility = box.Password.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (t.Length == 0) StatsSays("Off. Nothing is sent without a link.", null);
                 else if (t == (s.DiscordLink ?? "").Trim()) StatsSays("That's the link of your own Discord messages (above). Type /link in our Discord and paste the link it gives you here.", "Red");
@@ -685,20 +957,14 @@ namespace IdleMafiaBot
         void WireButtons()
         {
             El<Button>("BtnStart").Click += (a, b) => Toggle();
+            WireRollMode();
 
-            var only = El<CheckBox>("RerollOnlySwitch");
-            only.Checked += (a, b) =>
+            El<Button>("BtnNeverList").Click += (a, b) =>
             {
-                if (syncingOnly) return;
-                if (Covered) { SetOnlySwitch(false); return; }
-                bot.StartRerollOnly();
-                ShowState("Working: only rerolling the crew");
-            };
-            only.Unchecked += (a, b) =>
-            {
-                if (syncingOnly || !bot.RerollOnly) return;
-                bot.StopRerollOnly();
-                ShowState("Stopping");
+                var list = El<StackPanel>("NeverList");
+                bool show = list.Visibility != Visibility.Visible;
+                list.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                El<TextBlock>("NeverListText").Text = show ? "Hide the list" : "Show the full list";
             };
             El<Button>("BtnLog").Click += (a, b) => Open(System.IO.Path.Combine(dir, "IdleMafiaBot.log"));
             El<Button>("BtnProblems").Click += (a, b) =>
@@ -744,21 +1010,17 @@ namespace IdleMafiaBot
             try { System.Diagnostics.Process.Start(path); } catch (Exception) { }
         }
 
-        bool syncingOnly;
-
-        void SetOnlySwitch(bool on)
-        {
-            var sw = El<CheckBox>("RerollOnlySwitch");
-            if (sw.IsChecked == on) return;
-            syncingOnly = true;
-            try { sw.IsChecked = on; } finally { syncingOnly = false; }
-        }
-
         void Toggle()
         {
             if (!bot.Running && Covered) return;
             if (bot.Running) { bot.Stop(); ShowState("Stopping"); }
             else { bot.Start(); ShowState("Starting"); }
+        }
+
+        internal static bool ClosedMessage(bool wasRunning, string closedBy)
+        {
+            string by = closedBy ?? "";
+            return wasRunning && !by.StartsWith("you") && !by.StartsWith("--exit");
         }
 
         string closedBy;
@@ -770,7 +1032,8 @@ namespace IdleMafiaBot
         {
             if (Closing || args.Any(a => a == "--once" || a == "--scan" || a == "--check" || a == "--exit" || a == "--demo")) return false;
             if (shownAt == DateTime.MaxValue || DateTime.UtcNow - shownAt < TimeSpan.FromMinutes(2)) return false;
-            bot.Log("The window stopped drawing (a problem in Windows' graphics) - starting the bot again" + (bot.Running ? ", it plays on" : ""));
+            bot.Log("The window stopped drawing (a problem in Windows' graphics) - starting the bot again"
+                    + (!bot.Running || bot.CheckOrScan ? "" : bot.RerollOnly ? ", it goes on only rerolling" : ", it plays on"));
             bot.LogDetails(e.ToString());
             return StartAgain("it plays on behind a window that doesn't draw");
         }
@@ -779,14 +1042,15 @@ namespace IdleMafiaBot
 
         bool StartAgain(string otherwise)
         {
-            bool playing = bot.Running;
+
+            bool playing = bot.Running && !bot.CheckOrScan, onlyReroll = playing && bot.RerollOnly;
             Closing = true;
             bot.Stop();
             for (var until = DateTime.UtcNow.AddSeconds(15); bot.Running && DateTime.UtcNow < until; ) System.Threading.Thread.Sleep(100);
             Save();
             bot.Discord.Flush(2000);
-            var again = args.Where(a => a != "--start" && a != "--restarted").ToList();
-            if (playing) again.Add("--start");
+            var again = args.Where(a => a != "--start" && a != "--rerollonly" && a != "--restarted").ToList();
+            if (playing) again.Add(onlyReroll ? "--rerollonly" : "--start");
             again.Add("--restarted");
             try
             {
@@ -798,7 +1062,8 @@ namespace IdleMafiaBot
                 startError = x.Message;
                 bot.Log("Couldn't start the bot again (" + x.Message + ") - " + otherwise);
                 Closing = false;
-                if (playing) bot.Start();
+                if (onlyReroll) bot.StartRerollOnly();
+                else if (playing) bot.Start();
                 return false;
             }
 
@@ -904,8 +1169,7 @@ namespace IdleMafiaBot
             El<Ellipse>("RunLamp").Fill = running ? Res("Green") : Res("Text3");
             El<Ellipse>("RunGlow").Fill = running ? Res("Green") : Res("Text3");
 
-            if (!running && st == "Stopped") SetOnlySwitch(false);
-            else if (running && bot.RerollOnly) SetOnlySwitch(true);
+            SyncRollMode();
             string shortText = !running ? (st == "Scanning" || st == "Checking" ? st : "Stopped")
                              : bot.RerollOnly && !lower.Contains("using the mouse") ? "Rerolling"
                              : lower.StartsWith("working") ? "Working"
@@ -973,13 +1237,7 @@ namespace IdleMafiaBot
             El<ColumnDefinition>(name + "B").Width = new GridLength(1 - fraction, GridUnitType.Star);
         }
 
-        static string Money(double v)
-        {
-            if (v >= 1e12) return "$" + (v / 1e12).ToString("0.##", CultureInfo.InvariantCulture) + "T";
-            if (v >= 1e9) return "$" + (v / 1e9).ToString("0.##", CultureInfo.InvariantCulture) + "B";
-            if (v >= 1e6) return "$" + (v / 1e6).ToString("0.##", CultureInfo.InvariantCulture) + "M";
-            return "$" + v.ToString("N0", CultureInfo.InvariantCulture);
-        }
+        static string Money(double v) { return SafehouseInfo.Money(v); }
 
         void ShowInfo(string key, string value)
         {
@@ -1016,15 +1274,21 @@ namespace IdleMafiaBot
 
         const int FavorsPerDay = 30;
 
+        int favorsTop = -1;
+        string favorsFor;
+
         void ShowFavors(int n)
         {
-            n = Math.Min(n, FavorsPerDay);
-            int max = FavorsPerDay;
-            El<TextBlock>("FavorsText").Text = n >= 0 ? n + " / " + max : "-";
+            string who = s.Account ?? "";
+            if (who != favorsFor) { favorsFor = who; favorsTop = -1; }
+            favorsTop = Math.Max(favorsTop, n);
+
+            bool more = favorsTop > FavorsPerDay;
+            El<TextBlock>("FavorsText").Text = n < 0 ? "-" : more ? n + " left" : n + " / " + FavorsPerDay;
             var pips = El<WrapPanel>("FavorPips");
             pips.Children.Clear();
-            if (n < 0) return;
-            for (int i = 0; i < max; i++)
+            if (n < 0 || more) return;
+            for (int i = 0; i < FavorsPerDay; i++)
                 pips.Children.Add(new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 0, 4, 4), Background = i < n ? Res("Xp") : Res("Raised2") });
         }
 
@@ -1391,6 +1655,25 @@ namespace IdleMafiaBot
             crew.ByRarity[6] = 2; crew.ByRarity[5] = 5; crew.ByRarity[4] = 14; crew.ByRarity[3] = 1; crew.ByRarity[2] = 1;
             ShowCrew(crew);
             DemoFamily();
+            DemoPayers();
+        }
+
+        void DemoPayers()
+        {
+            var m = new FightMemory(null);
+            var now = DateTime.UtcNow;
+
+            foreach (var f in new[]
+            {
+                Tuple.Create("VelvetKnuckles", 1900, true, 4.2e9), Tuple.Create("VelvetKnuckles", 400, true, 8.6e9), Tuple.Create("VelvetKnuckles", 130, true, 2.9e9),
+                Tuple.Create("DockRat_77", 2500, false, -1.0), Tuple.Create("DockRat_77", 300, true, 3.1e9),
+                Tuple.Create("SilentMarco", 700, true, 1.45e9), Tuple.Create("SilentMarco", 95, true, 960e6),
+                Tuple.Create("NeonCasino", 3000, true, 640e6), Tuple.Create("NeonCasino", 1300, true, 715e6), Tuple.Create("NeonCasino", 1250, false, -1.0),
+                Tuple.Create("LuckyPaulie", 42, true, 312e6),
+                Tuple.Create("TinCanTony", 3600, true, 180e6), Tuple.Create("TinCanTony", 3500, true, 205e6),
+                Tuple.Create("QuietHarbor", 600, true, 12e6),
+            }) m.Add(f.Item1, f.Item3, f.Item4, now.AddMinutes(-f.Item2));
+            UsePayers(m);
         }
 
         void DemoFamily()
@@ -1503,7 +1786,7 @@ namespace IdleMafiaBot
         {
             var p = System.IO.Path.Combine(dir, "problems", "active");
             int n = System.IO.Directory.Exists(p) ? System.IO.Directory.GetFiles(p, "*.png").Length : 0;
-            El<TextBlock>("ProblemsText").Text = n > 0 ? "Problems folder (" + n + ")" : "Problems folder";
+            El<TextBlock>("ProblemsText").Text = n > 0 ? "Problems (" + n + ")" : "Problems";
             El<RadioButton>("RailSettings").Uid = n > 0 ? n.ToString() : "";
         }
 
@@ -1630,6 +1913,26 @@ namespace IdleMafiaBot
                 }
                 El<ComboBox>("cmb_WhaleCash").SelectedIndex = whaleValues.IndexOf(s.WhaleCash);
             }
+            if (payerValues != null)
+            {
+                if (!payerValues.Contains(s.BigPayerCash))
+                {
+                    payerValues.Add(s.BigPayerCash);
+                    payerValues.Sort();
+                    El<ComboBox>("cmb_BigPayerCash").Items.Insert(payerValues.IndexOf(s.BigPayerCash), PayerName(s.BigPayerCash));
+                }
+                El<ComboBox>("cmb_BigPayerCash").SelectedIndex = payerValues.IndexOf(s.BigPayerCash);
+            }
+            if (rollValues != null)
+            {
+                if (!rollValues.Contains(s.AutoRollLimit))
+                {
+                    rollValues.Add(s.AutoRollLimit);
+                    rollValues.Sort();
+                    El<ComboBox>("cmb_AutoRollLimit").Items.Insert(rollValues.IndexOf(s.AutoRollLimit), RollLimitName(s.AutoRollLimit));
+                }
+                El<ComboBox>("cmb_AutoRollLimit").SelectedIndex = rollValues.IndexOf(s.AutoRollLimit);
+            }
             if (goalValues != null)
             {
                 s.CrewRerollStats = s.CrewRerollStats > 0 ? Settings.Perfect : 0;
@@ -1645,7 +1948,16 @@ namespace IdleMafiaBot
                 int perk = s.StaminaPerk.Trim().Length == 0 ? 0 : perkChoices.FindIndex(n => n != ClosestPerk && Game.SamePerk(n, s.StaminaPerk));
                 El<ComboBox>("cmb_StaminaPerk").SelectedIndex = Math.Max(0, perk);
             }
+
+            El<ComboBox>("cmb_StartHeist").SelectedIndex = HeistChoice();
             UpdateDerived();
+        }
+
+        int HeistChoice()
+        {
+            if (!s.StartHeists) return 0;
+            int heist = Array.FindIndex(Game.HeistNames, n => n == s.StartHeist);
+            return 1 + (heist < 0 ? 3 : heist);
         }
 
         void UpdateCheckWhen()
@@ -1654,7 +1966,8 @@ namespace IdleMafiaBot
                 ? "Reads your game for about a minute and suggests settings. Nothing changes until you say so."
                 : string.Format(CultureInfo.InvariantCulture, "Last check {0:dd-MM} at {0:HH:mm}{1}. Check again every few levels.",
                     profile.Checked, profile.Level > 0 ? ", at level " + profile.Level : "");
-            El<Button>("BtnReview").IsEnabled = profile != null;
+
+            El<Button>("BtnReview").Visibility = profile != null ? Visibility.Visible : Visibility.Collapsed;
         }
 
         void UpdateCheckCard()

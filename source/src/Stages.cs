@@ -24,6 +24,9 @@ namespace IdleMafiaBot
         public OcrLine StagesTab;
         public OcrLine DefenseLine;
         public OcrLine Next;
+        public OcrLine Ready;
+        public int ReadyStage = -1;
+        public int ListFirst = -1, ListLast = -1;
         public System.Drawing.Point ListAt;
         public string Said = "";
         public override string ToString() { return "stage " + Stage + (Boss.Length > 0 ? ", " + Boss : "") + (HealthMax > 0 ? " (" + Health + " / " + HealthMax + ")" : ""); }
@@ -85,7 +88,8 @@ namespace IdleMafiaBot
             int n;
             if (title != null && int.TryParse(Parse.Digits(StageTitleRx.Match(title.Text).Groups[1].Value), out n)) st.Stage = n;
             st.StagesTab = topRow.Where(l => Parse.Key(l.Text) == "STAGES").OrderBy(l => l.Box.Y).FirstOrDefault();
-            if (st.Stage < 0 && !list) return null;
+
+            if (st.Stage < 0 && !list) return st.StagesTab != null ? st : null;
             st.Attack = main.FirstOrDefault(l => StageAttackRx.IsMatch(l.Text));
             st.Cooldown = main.Any(l => Parse.Has(l.Text, "COOLDOWN"));
             st.Cleared = lines.Any(l => Parse.Has(l.Text, "ALREADY CLEARED"));
@@ -107,7 +111,8 @@ namespace IdleMafiaBot
                 int dh = Math.Max(8, d.Box.Height);
 
                 var name = main.Where(l => l.Box.Bottom <= d.Box.Y && d.Box.Y - l.Box.Bottom < 14 * dh && Math.Abs(l.CenterX - d.CenterX) < 14 * dh
-                                           && Regex.Matches(l.Text, "[a-z]").Count >= 3)
+                                           && Regex.Matches(l.Text, "[a-z]").Count >= 3
+                                           && BossNameLike(l.Text))
                                .OrderByDescending(l => l.Box.Bottom).FirstOrDefault();
                 if (name != null) st.Boss = name.Text.Trim();
 
@@ -123,13 +128,35 @@ namespace IdleMafiaBot
             st.Next = lines.FirstOrDefault(l => l.CenterX >= split && Parse.Key(l.Text) == "NEXT");
             var head = lines.FirstOrDefault(l => l.CenterX >= split && StageHighestRx.IsMatch(l.Text));
             if (head != null) st.ListAt = new System.Drawing.Point(head.CenterX + head.Box.Width / 4, area.Top + (int)(area.Height * 0.62));
+
+            var rows = lines.Where(l => l.CenterX >= split && StageTitleRx.IsMatch(l.Text) && (head == null || l.Box.Y > head.Box.Bottom)).ToList();
+            var nums = rows.Select(l => { int k; return int.TryParse(Parse.Digits(StageTitleRx.Match(l.Text).Groups[1].Value), out k) ? k : -1; }).Where(k => k > 0).ToList();
+            if (nums.Count > 0) { st.ListFirst = nums.Min(); st.ListLast = nums.Max(); }
+            st.Ready = lines.Where(l => l.CenterX >= split && Parse.Key(l.Text) == "READY" && (head == null || l.Box.Y > head.Box.Bottom + 2))
+                            .OrderBy(l => l.Box.Y).FirstOrDefault();
+            if (st.Ready != null)
+            {
+
+                var r = st.Ready;
+                var row = rows.Where(l => l.CenterX < r.Box.X && l.Box.Y <= r.CenterY && r.CenterY - l.CenterY < 4 * Math.Max(8, r.Box.Height))
+                              .OrderByDescending(l => l.Box.Y).FirstOrDefault();
+                if (row != null && int.TryParse(Parse.Digits(StageTitleRx.Match(row.Text).Groups[1].Value), out n)) st.ReadyStage = n;
+            }
             st.Said = string.Join(" | ", main.Where(l => l.CenterY > area.Top + area.Height / 10).Select(l => l.Text.Trim()));
             return st;
+        }
+
+        internal static bool BossNameLike(string text)
+        {
+            text = text ?? "";
+            return !Regex.IsMatch(text, @"\bLEVEL\b", RegexOptions.IgnoreCase) && Regex.Matches(text, "[A-Z]").Count <= Regex.Matches(text, "[a-z]").Count;
         }
 
         public void StageAttack(BossStage st) { if (st != null && st.Attack != null && StageAttackRx.IsMatch(st.Attack.Text)) Press(st.Attack, 300); }
 
         public void StageNext(BossStage st) { if (st != null && st.Next != null && Parse.Key(st.Next.Text) == "NEXT") Press(st.Next, 1200); }
+
+        public void StageReady(BossStage st) { if (st != null && st.Ready != null && Parse.Key(st.Ready.Text) == "READY") Press(st.Ready, 1200); }
 
         public void StagesListScroll(BossStage st, int notches) { if (st != null && !st.ListAt.IsEmpty) Scroll(st.ListAt.X, st.ListAt.Y, notches); }
 

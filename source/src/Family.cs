@@ -438,17 +438,21 @@ namespace IdleMafiaBot
             return null;
         }
 
-        public TakedownState WaitTakedownResult(int before, Action<string> seen)
+        public TakedownState WaitTakedownResult(int before, Action<string> seen) { string toast; return WaitTakedownResult(before, seen, out toast); }
+
+        public TakedownState WaitTakedownResult(int before, Action<string> seen, out string toast)
         {
             TakedownState last;
             bool closed = false;
             int start = Environment.TickCount;
+            toast = null;
             while (true)
             {
                 using (var f = Capture())
                 {
                     CheckForPurchasePrompt(Ocr.Read(f, PopupArea(f), PopupScale(f), Prep.None));
                     last = ReadTakedown(f);
+                    if (toast == null) { string t = ToastIn(f); if (!string.IsNullOrWhiteSpace(t)) toast = t.Trim(); }
                 }
                 if (last.Page && last.Free >= 0 && last.Free < before) return last;
                 int waited = Environment.TickCount - start;

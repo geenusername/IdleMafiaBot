@@ -16,7 +16,7 @@ namespace IdleMafiaBot
     static class Program
     {
 
-        public const string Version = "1.7.8";
+        public const string Version = "1.7.9";
 
         [STAThread]
         static void Main(string[] args)
@@ -56,6 +56,8 @@ namespace IdleMafiaBot
                     if (bot != null) { bot.Log("Problem in the window: " + e.Exception.Message); bot.LogDetails(e.Exception.ToString()); bot.NoteMemory(e.Exception); }
 
                     if (ui != null && ui.Closing) return;
+
+                    if (CompositionTrouble(e.Exception)) return;
                     MessageBox.Show(DrawingFailed(e.Exception) ? DrawingText : e.Exception.Message, "Idle Mafia Bot");
                 };
                 try
@@ -75,9 +77,14 @@ namespace IdleMafiaBot
                 catch (Exception e)
                 {
 
-                    if (DrawingFailed(e) && ui != null && ui.Closing)
+                    if (ui != null && ui.Closing)
                     {
-                        if (bot != null) { bot.Log("The window's drawing had failed (a problem in Windows' graphics) - closed anyway, nothing lost"); bot.LogDetails(e.ToString()); }
+                        if (bot != null)
+                        {
+                            bot.Log(DrawingFailed(e) ? "The window's drawing had failed (a problem in Windows' graphics) - closed anyway, nothing lost"
+                                                     : "A problem as the window closed (" + e.Message + ") - nothing lost");
+                            bot.LogDetails(e.ToString());
+                        }
                         return;
                     }
                     if (DrawingFailed(e) && ui != null && ui.RestartAfterDrawingFailed(e)) return;
@@ -97,6 +104,13 @@ namespace IdleMafiaBot
 
         internal const string DrawingText = "The bot's window stopped drawing (a problem in Windows' graphics, for example after sleep or a driver update). "
                                           + "The bot keeps playing. Close it and start it again to see the window.";
+
+        internal static bool CompositionTrouble(Exception e)
+        {
+            for (; e != null; e = e.InnerException)
+                if ((e.HResult & unchecked((int)0xFFFFF000)) == unchecked((int)0x80263000) || (e.Message ?? "").IndexOf("desktop composition", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
 
         static string SetDpiAware()
         {

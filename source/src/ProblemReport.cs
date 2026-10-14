@@ -76,6 +76,7 @@ namespace IdleMafiaBot
             if (Directory.Exists(Path.Combine(problems, "fixed"))) leftOut.Add("problems/fixed (pictures of things already fixed)");
 
             var files = new List<string>();
+            var older = new List<string>();
             if (Directory.Exists(active))
                 files.AddRange(Directory.GetFiles(active, "*", SearchOption.AllDirectories).OrderByDescending(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase));
 
@@ -85,22 +86,31 @@ namespace IdleMafiaBot
                 var since = DateTime.Now.AddDays(-1);
                 var recent = all.Where(f => File.GetLastWriteTime(f) >= since).OrderByDescending(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase).ToList();
                 files.AddRange(recent);
-                if (all.Length > recent.Count) leftOut.Add("problems/reported older than a day (pictures sent in an earlier report)");
+                older = all.Except(recent).OrderByDescending(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase).ToList();
+                if (older.Count > 0) leftOut.Add("problems/reported older than a day (pictures sent in an earlier report; of the last week the newest of each kind not seen since went in again, room allowing)");
             }
-            if (files.Count == 0) return;
+            if (files.Count == 0 && older.Count == 0) return;
+
+            var firsts = files.GroupBy(Kind, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+            var kinds = new HashSet<string>(files.Select(Kind), StringComparer.OrdinalIgnoreCase);
+            var week = DateTime.Now.AddDays(-7);
+            var again = new HashSet<string>(older.Where(f => File.GetLastWriteTime(f) >= week && !kinds.Contains(Kind(f)))
+                                                 .GroupBy(Kind, StringComparer.OrdinalIgnoreCase).Select(g => g.First()));
+            var order = firsts.Concat(again).Concat(files.Except(firsts)).ToList();
             long used = 0;
             var over = new List<string>();
-            foreach (var file in files)
+            foreach (var file in order)
             {
+                bool sent = again.Contains(file);
 
                 string name = NoUser("problems/" + file.Substring(problems.Length + 1).Replace('\\', '/'), true);
                 if (!file.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) { AddFile(z, file, name, skipped); continue; }
-                if (used >= PictureBudget) { over.Add(name); continue; }
+                if (used >= PictureBudget) { if (!sent) over.Add(name); continue; }
                 byte[] jpg;
                 try { jpg = Discord.JpgOf(file); }
                 catch (Exception ex) { skipped.Add(name + ": " + ex.Message.Replace(file, Path.GetFileName(file))); continue; }
                 if (jpg == null) continue;
-                if (used > 0 && used + jpg.Length > PictureBudget) { over.Add(name); used = PictureBudget; continue; }
+                if (used > 0 && used + jpg.Length > PictureBudget) { if (!sent) { over.Add(name); used = PictureBudget; } continue; }
                 used += jpg.Length;
                 var e = z.CreateEntry(Path.ChangeExtension(name, ".jpg"), CompressionLevel.NoCompression);
                 Stamp(e, file);
@@ -112,6 +122,11 @@ namespace IdleMafiaBot
                 foreach (var n in over.Take(100)) leftOut.Add("  " + n);
                 if (over.Count > 100) leftOut.Add("  and " + (over.Count - 100) + " more");
             }
+        }
+
+        static string Kind(string file)
+        {
+            return Regex.Replace(Regex.Replace(Path.GetFileNameWithoutExtension(file), @"^\d{8}-\d{6}-", ""), @"-\d+$", "");
         }
 
         static void AddText(ZipArchive z, string file, string name, long tail, List<string> skipped, List<string> leftOut)

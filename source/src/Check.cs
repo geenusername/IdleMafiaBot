@@ -16,7 +16,8 @@ namespace IdleMafiaBot
         static bool IsMenuEntry(string text)
         {
             var one = new List<OcrLine> { new OcrLine { Text = text ?? "" } };
-            return View.TabLabels.Values.Any(l => View.Label(one, l) != null);
+
+            return View.TabLabels.Values.Any(l => View.Label(one, l) != null) || Parse.Key(text ?? "") == "EVENTS";
         }
 
         static bool IsSubTab(string text)
@@ -163,55 +164,36 @@ namespace IdleMafiaBot
             return string.Join(",", lines.Select(l => l.Text + "@" + l.Box.Y));
         }
 
-        public sealed class BossLook { public int Total, Open, Ready, Unsure, Lowest = -1, Next = -1; }
+        public sealed class StageLook { public int Stage = -1, Highest = -1, NeedLevel = -1, ResetSeconds = -1; public bool Ready, Cleared; }
 
-        public BossLook ReadBossList(int level)
+        public StageLook ReadStageLook(int level)
         {
-            BossesTop();
-            var seen = new List<BossCard>();
-            string last = null;
-            for (int page = 0; page < 14; page++)
+            for (int look = 0; look < 3; look++)
             {
-                string sig;
-                using (var f = Capture()) sig = BossPage(f, seen);
-                if (sig == last) break;
-                last = sig;
-                BossesDown();
+                if (look > 0) Wait(400);
+                StageLook r;
+                using (var f = Capture()) r = StageLookIn(f, level);
+                if (r != null) return r;
             }
-            BossesTop();
-            return SumBosses(seen, level);
+            return null;
         }
 
-        public string BossPage(Frame f, List<BossCard> seen)
+        internal StageLook StageLookIn(Frame f, int level)
         {
-            var cards = ReadBosses(f);
-            foreach (var c in cards) if (!seen.Any(o => SameCard(o, c))) seen.Add(c);
-            return string.Join(",", cards.Select(c => c.Name + c.Level));
-        }
-
-        public static BossLook SumBosses(List<BossCard> seen, int level)
-        {
-            var r = new BossLook { Total = seen.Count };
-            var levels = seen.Where(c => c.Level > 0).Select(c => c.Level).ToList();
-            if (level > 0 && levels.Any(l => l > level)) r.Next = levels.Where(l => l > level).Min();
-            foreach (var c in seen)
+            var area = PageArea(f);
+            var lines = Ocr.Read(f, area, PageScale(f), Prep.None);
+            var st = ReadBossStage(lines, area);
+            if (st == null || (st.Stage < 0 && st.Highest < 0)) return null;
+            var r = new StageLook { Stage = st.Stage, Highest = st.Highest, NeedLevel = st.NeedLevel, ResetSeconds = st.ResetSeconds, Ready = st.Attack != null, Cleared = st.Cleared || st.DefeatedToday };
+            int split = area.Left + (int)(area.Width * 0.70);
+            bool fromList = r.NeedLevel < 0;
+            foreach (var l in lines.Where(l => fromList && l.CenterX >= split))
             {
-                string k = Parse.Key(c.ButtonText);
-                bool locked = c.Level > 0 && level > 0 && c.Level > level || Regex.IsMatch(k, "^IEVEI[0-9OIS]");
-                if (locked) continue;
-                if (c.Level <= 0) r.Unsure++;
-                r.Open++;
-                if (k.Contains("FIGHT") || k.Contains("ATTACK")) r.Ready++;
+                var m = StageLevelRx.Match(l.Text);
+                int n;
+                if (m.Success && int.TryParse(Parse.Digits(m.Groups[1].Value), out n) && n > level && (r.NeedLevel < 0 || n < r.NeedLevel)) r.NeedLevel = n;
             }
-            if (levels.Count > 0 && r.Unsure == 0) r.Lowest = levels.Min();
             return r;
-        }
-
-        static bool SameCard(BossCard a, BossCard b)
-        {
-            string ka = Parse.Key(a.Name), kb = Parse.Key(b.Name);
-            if (ka.Length >= 3 && kb.Length >= 3) return View.Distance(ka, kb) <= Math.Max(1, Math.Min(ka.Length, kb.Length) / 5);
-            return a.Level > 0 && a.Level == b.Level && Math.Abs(a.ButtonX - b.ButtonX) <= 40;
         }
 
         public bool OffersOfflineOps(Frame f)

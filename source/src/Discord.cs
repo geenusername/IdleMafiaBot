@@ -142,10 +142,13 @@ namespace IdleMafiaBot
             Post(Ping.Problem, title, text, shot, color);
         }
 
+        public const string StatsLinkHere = "That's your stats link (Stats in our Discord, below). Paste a webhook link of your own channel here.";
+
         public void Test(string link, Func<byte[]> shot, Action<string> done)
         {
             link = (link ?? "").Trim();
             if (!IsLink(link)) { done(link.Length == 0 ? "Paste your webhook link first." : "That isn't a Discord webhook link. It starts with https://discord.com/api/webhooks/"); return; }
+            if (link == (s.StatsLink ?? "").Trim()) { done(StatsLinkHere); return; }
             var t = new Thread(() =>
             {
                 var m = new Msg
@@ -417,9 +420,14 @@ namespace IdleMafiaBot
 
         public static byte[] ShotOfRoblox()
         {
-            var w = new RobloxWindow();
-            if (!w.Find() || w.Minimized) return null;
-            using (var f = w.Capture()) return Jpg(f.Bitmap);
+            var before = Native.RealPixels();
+            try
+            {
+                var w = new RobloxWindow();
+                if (!w.Find() || w.Minimized) return null;
+                using (var f = w.Capture()) return Jpg(f.Bitmap);
+            }
+            finally { Native.RestorePixels(before); }
         }
     }
 }

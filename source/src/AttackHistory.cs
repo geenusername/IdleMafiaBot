@@ -16,10 +16,11 @@ namespace IdleMafiaBot
             public bool Won, Lost;
             public int WaitSeconds = -1;
             public OcrLine Again;
+            public bool Limit;
             public int Top, Bottom;
             public override string ToString()
             {
-                return Name + (Won ? " won" : Lost ? " lost" : " ?") + (WaitSeconds >= 0 ? " wait " + WaitSeconds + "s" : "") + (Again != null ? " AGAIN" : "");
+                return Name + (Won ? " won" : Lost ? " lost" : " ?") + (WaitSeconds >= 0 ? " wait " + WaitSeconds + "s" : "") + (Again != null ? " AGAIN" : "") + (Limit ? " LIMIT" : "");
             }
         }
 
@@ -59,6 +60,7 @@ namespace IdleMafiaBot
                     int s;
                     if (w.Success && int.TryParse(Parse.Digits(w.Groups[1].Value), out s)) e.WaitSeconds = s;
                     if (k == "ATTACKAGAIN") e.Again = l;
+                    if (DailyLimit(l.Text)) e.Limit = true;
                 }
                 entries.Add(e);
             }

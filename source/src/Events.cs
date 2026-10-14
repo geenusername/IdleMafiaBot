@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace IdleMafiaBot
 {
 
-    enum GameEvent { Cash, EnergyRegen, StaminaRegen, HealthRegen, OpsSpeed, BossDamage, Mastery, CrateLuck, RecruitLuck, ShopSale, Other }
+    enum GameEvent { Cash, EnergyRegen, StaminaRegen, HealthRegen, OpsSpeed, BossDamage, TakedownDamage, Mastery, CrateLuck, RecruitLuck, ShopSale, Other }
 
     sealed partial class Game
     {
@@ -167,8 +167,9 @@ namespace IdleMafiaBot
             string k = Parse.Key(text);
             if (k.Contains("RECRUIT") || k.Contains("RARERHENCHMEN")) return GameEvent.RecruitLuck;
             if (k.Contains("CRATE") && (k.Contains("IUCK") || k.Contains("RARER"))) return GameEvent.CrateLuck;
+
+            if (k.Contains("TAKEDOWN") && k.Contains("DAMAGE")) return GameEvent.TakedownDamage;
             if (k.Contains("BOSS") && k.Contains("DAMAGE")) return GameEvent.BossDamage;
-            if (k.Contains("TAKEDOWN") && k.Contains("DAMAGE")) return GameEvent.BossDamage;
             if (k.Contains("OPERATION") && (k.Contains("SPEED") || k.Contains("FAST") || k.Contains("TIMER"))) return GameEvent.OpsSpeed;
             if (k.Contains("MASTERY")) return GameEvent.Mastery;
             if (k.Contains("SHOP") && (k.Contains("SAIE") || k.Contains("OFF"))) return GameEvent.ShopSale;
@@ -194,6 +195,16 @@ namespace IdleMafiaBot
                     {
                         var again = ReadTooltip(f, b);
                         if (again != null && (e == null || again.Kind != GameEvent.Other || again.SecondsLeft >= 0)) e = again;
+                    }
+                }
+
+                if (e != null && e.Kind == GameEvent.Other)
+                {
+                    Wait(1000);
+                    using (var f = Capture())
+                    {
+                        var again = ReadTooltip(f, b);
+                        if (again != null && again.Kind != GameEvent.Other) e = again;
                     }
                 }
                 if (e != null) events.Add(e);
@@ -291,7 +302,7 @@ namespace IdleMafiaBot
 
         public bool OpenBriefcases()
         {
-            bool rolled = false;
+            bool rolled = false, unfolded = false;
             for (int attempt = 0; attempt < 4; attempt++)
             {
                 OcrLine entry;
@@ -302,6 +313,17 @@ namespace IdleMafiaBot
                     if (v.Problem != null) { bool cleared = ClearPopupIfAny(f); ForgetView(); if (!cleared) Wait(1000); continue; }
                     if (ReadBriefcases(f).Page) return true;
                     entry = BriefcasesEntry(f, v);
+
+                    if (entry == null && !unfolded && !v.ReadMenu(f)) { ForgetView(); Wait(1000); continue; }
+                }
+
+                if (entry == null && !unfolded && v.EventsBar != null && !v.EventsOpen)
+                {
+                    unfolded = true;
+                    Press(v.EventsBar.Text, v.EventsBar.CenterX, v.EventsBar.CenterY, 900);
+                    ForgetView();
+                    attempt--;
+                    continue;
                 }
                 if (entry == null)
                 {
@@ -321,6 +343,20 @@ namespace IdleMafiaBot
                 ForgetView();
             }
             return false;
+        }
+
+        public bool FoldEvents()
+        {
+            View v;
+            using (var f = Capture())
+            {
+                v = ViewOf(f);
+                if (v.Problem != null || !v.ReadMenu(f)) { ForgetView(); return false; }
+            }
+            if (v.EventsBar == null || !v.EventsOpen) return false;
+            Press(v.EventsBar.Text, v.EventsBar.CenterX, v.EventsBar.CenterY, 700);
+            ForgetView();
+            return true;
         }
 
         public string PickBriefcase(BriefcasePage page, out BriefcasePage after)
@@ -353,7 +389,5 @@ namespace IdleMafiaBot
             return (after.Paid != null && after.Paid != before.Paid) || after.Cases.Count < before.Cases.Count
                    || (after.Free >= 0 && before.Free >= 0 && after.Free < before.Free) || (after.Left >= 0 && before.Left >= 0 && after.Left < before.Left);
         }
-
-        public static int FreeFromButton(BriefcasePage page) { return page == null || !page.Page ? -1 : page.ButtonFree; }
     }
 }

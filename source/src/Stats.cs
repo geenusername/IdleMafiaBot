@@ -24,6 +24,8 @@ namespace IdleMafiaBot
 
         public static readonly string[] RarityKeys = { "common", "uncommon", "rare", "epic", "legendary", "mythic", "secret", "forbidden" };
 
+        static readonly HashSet<string> FamilyServers = new HashSet<string> { "1543575606053183538", "1559739278387454057" };
+
         readonly Bot bot;
         readonly Settings s;
         readonly Action<string> log;
@@ -37,6 +39,20 @@ namespace IdleMafiaBot
         readonly List<double> cashReads = new List<double>(), bankReads = new List<double>();
         SafehouseInfo safehouse;
         CrewInfo crew;
+
+        HeistOffer heist;
+        DateTime heistAt;
+
+        string familyLink;
+        bool? family;
+        DateTime familyAt = DateTime.MinValue;
+        double bountyMin = DefaultBounty;
+        const double DefaultBounty = 1e9;
+        static readonly TimeSpan FamilyAgain = TimeSpan.FromMinutes(30);
+
+        sealed class Post { public string Json; public byte[] Jpg; }
+        readonly List<Post> posts = new List<Post>();
+        readonly Dictionary<string, DateTime> shopSent = new Dictionary<string, DateTime>();
 
         string sentState, sentCore;
         DateTime sentAt = DateTime.MinValue, nextTry = DateTime.MinValue;
@@ -62,9 +78,21 @@ namespace IdleMafiaBot
             bot.CrewRead += c => { lock (gate) crew = c; };
             bot.SafehouseRead += i => { lock (gate) safehouse = i; };
 
+            bot.HeistStarted += h =>
+            {
+                lock (gate) { heist = h; heistAt = DateTime.UtcNow; }
+                if (family == true) { forced = true; wake.Set(); }
+            };
+            bot.WantShots = () => Family;
+            bot.WantFamilyNews = () => Family;
+            bot.TerritoryAttack += (city, no, name, lost, by) => NoteTerritory(city, no, name, lost, by);
+            bot.FamilyDistricts += held => NoteDistricts(held);
+            bot.FightWon += w => { try { NoteWin(w); } finally { if (w.Shot != null) w.Shot.Dispose(); } };
+            bot.ShopSeen += (item, stock) => { try { NoteShop(item, stock); } finally { if (item.Shot != null) { item.Shot.Dispose(); item.Shot = null; } } };
+
             bot.AccountChanged += a =>
             {
-                lock (gate) { level = Math.Max(0, s.LastLevel); levelRead = -1; cashReads.Clear(); bankReads.Clear(); safehouse = null; crew = null; }
+                lock (gate) { level = Math.Max(0, s.LastLevel); levelRead = -1; cashReads.Clear(); bankReads.Clear(); safehouse = null; crew = null; heist = null; }
                 accountChanged = true;
                 sentState = null;
                 wake.Set();
@@ -76,6 +104,128 @@ namespace IdleMafiaBot
         string Link { get { return (s.StatsLink ?? "").Trim(); } }
 
         public bool On { get { string l = Link; return IsLink(l) && l != deadLink; } }
+
+        public bool Family { get { return On && family == true && familyLink == Link; } }
+
+        static string Iso(DateTime utc) { return utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture); }
+
+        string PostHead(string kind)
+        {
+            string fp = Fingerprint(s.Account);
+            return "{\n  \"imb\": 1,\n  \"event\": " + Q(kind) + ",\n  \"app\": " + Q(Program.Version) + (fp != null ? ",\n  \"account\": " + Q(fp) + ",\n  \"name\": " + Q(s.Account.Trim()) : "")
+                   + ",\n  \"at\": " + Q(Iso(DateTime.UtcNow));
+        }
+
+        void Queue(string json, System.Drawing.Bitmap shot)
+        {
+            byte[] jpg = null;
+            try { if (shot != null) jpg = Discord.Jpg(shot); } catch (Exception) { }
+            lock (gate)
+            {
+                if (posts.Count >= 6) posts.RemoveAt(0);
+                posts.Add(new Post { Json = json, Jpg = jpg });
+            }
+            wake.Set();
+        }
+
+        internal void NoteWin(Bot.FightWin w)
+        {
+            if (!Family || w == null || w.Took < bountyMin || string.IsNullOrEmpty(w.Name)) return;
+            Queue(PostHead("bounty") + ",\n  \"target\": " + Q(w.Name.Trim()) + (w.Level > 0 ? ",\n  \"level\": " + N(w.Level) : "") + ",\n  \"took\": " + N(w.Took) + "\n}", w.Shot);
+        }
+
+        internal void NoteShop(Game.ShopItem item, int stockSeconds)
+        {
+            if (!Family || item == null || item.Rarity < 5 || item.Price < 0 || string.IsNullOrEmpty(item.Name)) return;
+            string key = Parse.Key(item.Name) + "|" + N(item.Price) + (item.Gold ? "g" : "");
+            var now = DateTime.UtcNow;
+            lock (gate)
+            {
+                DateTime until;
+                if (shopSent.TryGetValue(key, out until) && now < until) return;
+                foreach (var old in shopSent.Where(kv => kv.Value <= now).Select(kv => kv.Key).ToList()) shopSent.Remove(old);
+                shopSent[key] = now.AddSeconds(stockSeconds > 0 ? stockSeconds + 30 : 600);
+            }
+            string rarity = item.Rarity < Game.Rarities.Length ? Game.Rarities[item.Rarity].ToLowerInvariant() : "mythic";
+            Queue(PostHead("shop") + ",\n  \"item\": " + Q(item.Name.Trim()) + ",\n  \"rarity\": " + Q(rarity) + ",\n  \"price\": " + N(item.Price)
+                  + ",\n  \"gold\": " + (item.Gold ? "true" : "false") + (stockSeconds > 0 ? ",\n  \"stock\": " + N(stockSeconds) : "") + "\n}", item.Shot);
+        }
+
+        readonly Dictionary<string, DateTime> territorySent = new Dictionary<string, DateTime>();
+
+        internal void NoteTerritory(string city, int number, string name, bool lost, string by)
+        {
+            if (!Family || string.IsNullOrEmpty(name)) return;
+            string key = name + (lost ? "|lost" : "");
+            var now = DateTime.UtcNow;
+            lock (gate)
+            {
+                DateTime until;
+                if (territorySent.TryGetValue(key, out until) && now < until) return;
+                territorySent[key] = now.AddMinutes(3);
+            }
+            Queue(PostHead("territory") + ",\n  \"city\": " + Q(city) + ",\n  \"number\": " + N(number) + ",\n  \"district\": " + Q(name)
+                  + ",\n  \"lost\": " + (lost ? "true" : "false") + (string.IsNullOrEmpty(by) ? "" : ",\n  \"by\": " + Q(by)) + "\n}", null);
+        }
+
+        internal void NoteDistricts(List<Tuple<string, int, string>> held)
+        {
+            if (!Family || held == null) return;
+            var parts = held.Take(60).Select(t => "{ " + Q("city") + ": " + Q(t.Item1) + ", " + Q("number") + ": " + N(t.Item2) + ", " + Q("district") + ": " + Q(t.Item3) + " }");
+            Queue(PostHead("districts") + ",\n  \"held\": [" + string.Join(", ", parts) + "]\n}", null);
+        }
+
+        void SendPost(int timeoutMs)
+        {
+            Post p;
+            lock (gate) p = posts.Count > 0 ? posts[0] : null;
+            if (p == null) return;
+            string link = Link, answer, after;
+            string payload = "{\"username\":\"Idle Mafia Bot\",\"allowed_mentions\":{\"parse\":[]},\"content\":" + Q("```json\n" + p.Json + "\n```")
+                             + (p.Jpg != null ? ",\"attachments\":[{\"id\":0,\"filename\":\"shot.jpg\"}]" : "") + "}";
+            int code = CallFile(Base(link), payload, p.Jpg, timeoutMs, out answer, out after);
+            if (code == 429 || code < 0 || code >= 500) { nextPost = DateTime.UtcNow.AddSeconds(code == 429 ? 10 : 60); return; }
+            lock (gate) posts.Remove(p);
+            if (code != 200 && code != 204) log("Stats in our Discord: a post to the family's server didn't go (" + Why(code, answer, link) + ")");
+        }
+
+        DateTime nextPost = DateTime.MinValue;
+
+        static int CallFile(string url, string payload, byte[] jpg, int timeoutMs, out string answer, out string retryAfter)
+        {
+            answer = ""; retryAfter = null;
+            try
+            {
+                ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072;
+                string boundary = "----IdleMafiaBot" + DateTime.UtcNow.Ticks.ToString("x", CultureInfo.InvariantCulture);
+                var body = new MemoryStream();
+                Action<string> write = t => { var b = Encoding.UTF8.GetBytes(t); body.Write(b, 0, b.Length); };
+                write("--" + boundary + "\r\nContent-Disposition: form-data; name=\"payload_json\"\r\nContent-Type: application/json\r\n\r\n" + payload + "\r\n");
+                if (jpg != null)
+                {
+                    write("--" + boundary + "\r\nContent-Disposition: form-data; name=\"files[0]\"; filename=\"shot.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n");
+                    body.Write(jpg, 0, jpg.Length);
+                    write("\r\n");
+                }
+                write("--" + boundary + "--\r\n");
+                var req = (HttpWebRequest)WebRequest.Create(url);
+                req.Method = "POST";
+                req.ContentType = "multipart/form-data; boundary=" + boundary;
+                req.UserAgent = "IdleMafiaBot/" + Program.Version;
+                req.Timeout = timeoutMs;
+                req.ReadWriteTimeout = timeoutMs;
+                req.ContentLength = body.Length;
+                using (var rs = req.GetRequestStream()) body.WriteTo(rs);
+                using (var resp = (HttpWebResponse)req.GetResponse()) { answer = ReadAll(resp); return (int)resp.StatusCode; }
+            }
+            catch (WebException e)
+            {
+                var r = e.Response as HttpWebResponse;
+                if (r == null) { answer = e.Message; return -1; }
+                using (r) { answer = ReadAll(r); retryAfter = r.Headers["Retry-After"]; return (int)r.StatusCode; }
+            }
+            catch (Exception e) { answer = e.Message; return -1; }
+        }
 
         public string Trouble { get { string t = trouble; return t != null && troubleLink == Link ? t : null; } }
 
@@ -173,8 +323,13 @@ namespace IdleMafiaBot
             add("app", Q(Program.Version));
             if (acct != null) add("account", Q(acct));
             add("state", Q(state));
+            bool fam = acct != null && family == true && familyLink == Link;
+            if (fam) add("name", Q(s.Account.Trim()));
             lock (gate)
             {
+                if (fam && heist != null)
+                    add("heist", "{ " + Q("at") + ": " + Q(heistAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)) + ", " + Q("name") + ": " + Q(heist.Name)
+                        + (heist.Minutes > 0 ? ", " + Q("minutes") + ": " + N(heist.Minutes) : "") + (heist.Helps > 0 ? ", " + Q("helps") + ": " + N(heist.Helps) : "") + " }");
                 if (level > 0) add("level", N(level));
                 double cash = Middle(cashReads), bank = Middle(bankReads);
                 if (cash >= 0) add("cash", N(cash));
@@ -269,6 +424,12 @@ namespace IdleMafiaBot
             if (!On) return;
             if (accountChanged) { accountChanged = false; Retire(); }
             var now = DateTime.UtcNow;
+            if (Family && now >= nextPost)
+            {
+                bool waiting;
+                lock (gate) waiting = posts.Count > 0;
+                if (waiting) SendPost(Timeout);
+            }
             bool force = forced;
             if (!force && now < nextTry) return;
             string state = StateNow();
@@ -284,6 +445,8 @@ namespace IdleMafiaBot
         {
             string link = Link;
             if (!IsLink(link) || link == deadLink) return;
+            if (familyLink != link) { familyLink = link; family = null; bountyMin = DefaultBounty; lock (gate) posts.Clear(); }
+            if ((family == null || (family == true && DateTime.UtcNow - familyAt >= FamilyAgain)) && timeoutMs > ClosingTimeout) AskFamily(link, timeoutMs);
             string account = s.Account, fp = Fingerprint(account), wid = WebhookOf(link), mid = MessageOf(link);
             string json = Json(state, true, fp), core = Json(state, false, fp);
             string body = Payload(json), answer = "", after = null;
@@ -337,6 +500,24 @@ namespace IdleMafiaBot
                 failing = true;
             }
             SetTrouble(link, why, false);
+        }
+
+        void AskFamily(string link, int timeoutMs)
+        {
+            string answer, after;
+            bool? before = family;
+            int code = Call("GET", Base(link), null, timeoutMs, out answer, out after);
+            if (code == 200)
+            {
+                family = FamilyServers.Contains(TopLevel(answer, "guild_id") ?? "");
+                familyAt = DateTime.UtcNow;
+                var m = Regex.Match(TopLevel(answer, "name") ?? "", @"^family-\d+-(\d{1,20})$");
+                double v;
+                bountyMin = m.Success && double.TryParse(m.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out v) ? v : DefaultBounty;
+            }
+            else if (code == 401 || code == 404) family = false;
+            if (family == true && before != true) log("Stats in our Discord: a family server's link - the game's name, your heists, big wins and good shop items go there too");
+            if (family != before) { var h = Changed; if (h != null) h(); }
         }
 
         void SetTrouble(string link, string why, bool sent)

@@ -44,6 +44,8 @@ namespace IdleMafiaBot
         public int Bosses = -1, BossesOpen = -1, BossesReady = -1, BossLowest = -1, BossNext = -1;
         public int BossesUnsure = -1;
 
+        public int BossStage = -1, BossHighest = -1, BossNeedLevel = -1, BossReady = -1;
+
         public int Favors = -1, FamilyHeists = -1;
 
         public string Notes = "";
@@ -161,7 +163,7 @@ namespace IdleMafiaBot
             { "Bank", "Bank my cash" }, { "Operations", "Run operations" },
             { "Playtime", "Claim playtime rewards" }, { "Contracts", "Claim contract tasks" }, { "Crates", "Open crates" }, { "EquipBest", "Equip the best gear" },
             { "FamilyWatch", "Watch my family" }, { "Takedown", "Use free Takedown attacks" }, { "GiveStamina", "Give stamina to a perk" },
-            { "StaminaPerk", "Perk that gets it" }, { "PointsStat", "Skill points on" },
+            { "StaminaPerk", "Give it to" }, { "PointsStat", "Spend them on" },
         };
 
         public static string FocusHint(Focus f)
@@ -182,9 +184,6 @@ namespace IdleMafiaBot
             return catalog.Where(j => j.TierLevel <= p.Level && j.Cost > 0 && j.Xp > 0 && j.Cost <= maxE)
                           .OrderByDescending(j => j.XpPerEnergy).ThenByDescending(j => j.Xp).FirstOrDefault();
         }
-
-        static readonly string[] HeistNames = { "Grand Vault", "Museum After Dark", "Armored Truck Ambush", "Corner Store Smash" };
-        static readonly int[] HeistXp = { 140, 60, 25, 12 };
 
         public static List<Proposal> Propose(Profile p, Focus focus, Settings current, List<JobInfo> catalog)
         {
@@ -211,25 +210,20 @@ namespace IdleMafiaBot
             else
                 add("JobMode", JobMode.BestXp, "Early levels go fastest with the best job" + bestText + ". Mastery pays off from level 30.");
 
-            string heists = "30 favors a day, 5 energy a help.";
+            int helpEnergy = Math.Max(6, p.EnergyMax > 0 ? (int)Math.Ceiling(p.EnergyMax / 20.0) : 6);
+            string heists = "A help takes a favor and 6 or more energy.";
             if (best != null)
-            {
-                double perHelp = best.XpPerEnergy * 5;
-                var paying = Enumerable.Range(0, 4).Where(i => HeistXp[i] > perHelp).Select(i => HeistNames[i] + " (" + HeistXp[i] + ")").ToList();
-                string them = paying.Count == 4 ? "every heist" : paying.Count == 0 ? "no heist" : paying.Count == 1 ? "only " + paying[0]
-                            : "only " + string.Join(", ", paying.Take(paying.Count - 1)) + " and " + paying.Last();
-                heists += string.Format(IC, " Those 5 energy give about {0:N0} XP in your best job, so it helps {1}", perHelp, them)
+                heists += string.Format(IC, " It helps when a help gives more than about {0:N0} XP, what its {1} energy give in your best job", best.XpPerEnergy * helpEnergy, helpEnergy)
                         + (inFamily ? ", and every heist of " + family + " first." : ".");
-            }
             else if (inFamily) heists += " Heists of " + family + " go first.";
             add("Heists", true, p.Lacks(Tab.Heists) ? notYet(Tab.Heists, "the bot starts helping") : heists);
 
             add("Fights", true, p.Lacks(Tab.Fight) ? notYet(Tab.Fight, "the bot attacks real players with the stamina bosses don't use")
                               : "Bosses go first while they're up. While they're away, fights use stamina that would otherwise go to waste. They attack real players, and a loss costs health.");
+
             add("Bosses", true, p.Lacks(Tab.Bosses) ? notYet(Tab.Bosses, "the bot fights them")
-                              : p.BossesOpen > 0 && p.BossesUnsure <= 0 ? string.Format("{0} {1} at or below your level. The highest first, about 900 XP per stamina.", p.BossesOpen, p.BossesOpen == 1 ? "boss is" : "bosses are")
-                              : p.BossesOpen == 0 && p.BossLowest > 0 ? "No boss is at your level yet (the first is level " + p.BossLowest + "). The bot fights them once you get there."
-                              : "Every boss at or below your level, the highest first. The most XP per stamina.");
+                              : p.BossHighest > 0 ? "You've reached stage " + p.BossHighest + ". The bot climbs on as far as your level lets it, and beats the stages again every day for XP and Boss Tokens."
+                              : "The bot climbs the boss stages one at a time, and beats them again every day for XP and Boss Tokens.");
 
             int half = p.StaminaMax > 0 ? p.StaminaMax / 2 : -1;
             if (half >= 0 && current.FightStaminaReserve > half && !(inFamily && focus == Focus.Family))
@@ -379,26 +373,16 @@ namespace IdleMafiaBot
             }
 
             if (p.Lacks(Tab.Bosses)) row("Bosses", "Not open yet.");
-            else if (p.Bosses >= 0 && p.BossesUnsure > 0)
-
-                row("Bosses", "About " + p.Bosses + " in the list. " + (SmallWindow(p.Window) ? "This window is too small to read every boss's level."
-                              : p.BossesUnsure + (p.BossesUnsure == 1 ? " boss's level" : " bosses' levels") + " didn't read this time.")
-                              + (p.BossesReady > 0 ? " " + p.BossesReady + " ready now." : "") + (p.BossNext > 0 ? " The next one opens at level " + p.BossNext + "." : ""));
-            else if (p.Bosses >= 0)
-                row("Bosses", p.BossesOpen + " of about " + p.Bosses + " at or below your level" + (p.BossesReady > 0 ? ", " + p.BossesReady + " ready now" : "") + "."
-                              + (p.BossNext > 0 ? " The next one opens at level " + p.BossNext + "." : ""));
+            else if (p.BossHighest >= 0 || p.BossStage > 0)
+                row("Bosses", (p.BossHighest >= 0 ? "Highest stage " + p.BossHighest : "Stage " + p.BossStage + " in sight")
+                              + (p.BossStage > 0 && p.BossReady == 1 ? ", stage " + p.BossStage + " ready now" : p.BossStage > 0 && p.BossReady == 0 ? ", stage " + p.BossStage + " beaten today" : "")
+                              + "." + (p.BossNeedLevel > 0 ? " The next stage opens at level " + p.BossNeedLevel + "." : "") + " Beaten stages come back every day at 00:00 UTC.");
 
             if (p.Lacks(Tab.Heists)) row("Heists", "Not open yet.");
             else if (p.Favors >= 0) row("Heists", p.Favors + " favors left today" + (p.FamilyHeists > 0 ? ", " + p.FamilyHeists + " of your family's heists up" : "") + ".");
 
             if (p.Notes.Length > 0) row("Not read", p.Notes + ".");
             return rows;
-        }
-
-        static bool SmallWindow(string size)
-        {
-            var m = Regex.Match(size ?? "", @"^(\d+)x(\d+)$");
-            return !m.Success || int.Parse(m.Groups[1].Value) < 1100 || int.Parse(m.Groups[2].Value) < 700;
         }
 
         public static string RecheckHint(Profile p, int level, int putOffAt)
@@ -409,7 +393,7 @@ namespace IdleMafiaBot
             string what = null;
             for (int i = 0; i < GameData.CityLevels.Length; i++)
                 if (GameData.CityLevels[i] > from && GameData.CityLevels[i] <= level) what = Title(GameData.Cities[i]) + " has opened";
-            if (what == null && p.BossNext > from && p.BossNext <= level) what = "a new boss has opened (level " + p.BossNext + ")";
+            if (what == null && p.BossNeedLevel > from && p.BossNeedLevel <= level) what = "a new boss stage has opened (level " + p.BossNeedLevel + ")";
             if (what == null && p.MenuWhole == 1 && p.TabList.Count < View.TabLabels.Count && p.Level + 5 > from && level >= p.Level + 5)
                 what = "parts of the game that weren't open at level " + p.Level + " may be now";
             if (what == null && p.Level + 25 > from && level >= p.Level + 25) what = "you've gone up " + (level - p.Level) + " levels";

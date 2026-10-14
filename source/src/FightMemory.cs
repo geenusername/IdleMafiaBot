@@ -16,12 +16,16 @@ namespace IdleMafiaBot
         readonly Dictionary<string, string> names = new Dictionary<string, string>();
         readonly string file;
 
+        readonly object gate = new object();
+
+        public event Action Changed;
+
         public static readonly TimeSpan Keep = TimeSpan.FromDays(3), LeftAlone = TimeSpan.FromDays(2), BigWinFor = TimeSpan.FromDays(1);
         const int PerPlayer = 10;
 
-        public FightMemory(string file) { this.file = file; Load(); }
+        public FightMemory(string file) { this.file = file; if (file != null) Load(); }
 
-        public int Count { get { return fights.Count; } }
+        public int Count { get { lock (gate) return fights.Count; } }
 
         static string Key(string name) { return Parse.Key(name); }
 
@@ -29,12 +33,60 @@ namespace IdleMafiaBot
         {
             string k = Key(name);
             if (k.Length < 3) return;
-            List<Fight> list;
-            if (!fights.TryGetValue(k, out list)) fights[k] = list = new List<Fight>();
-            names[k] = name.Trim();
-            list.Add(new Fight { At = at, Won = won, Took = won ? took : -1 });
-            if (list.Count > PerPlayer) list.RemoveRange(0, list.Count - PerPlayer);
-            Save();
+            lock (gate)
+            {
+                List<Fight> list;
+                if (!fights.TryGetValue(k, out list)) fights[k] = list = new List<Fight>();
+                names[k] = name.Trim();
+                list.Add(new Fight { At = at, Won = won, Took = won ? took : -1 });
+                if (list.Count > PerPlayer) list.RemoveRange(0, list.Count - PerPlayer);
+                Save();
+            }
+            var c = Changed;
+            if (c != null) c();
+        }
+
+        public sealed class Payer
+        {
+            public string Name = "";
+            public double Biggest = -1, Last = -1;
+            public DateTime LastBig;
+            public int Fights, Won, Lost;
+        }
+
+        public List<Payer> BigPayers(double atLeast, DateTime now, int most = 30)
+        {
+            var all = new List<Payer>();
+            lock (gate)
+                foreach (var kv in fights)
+                {
+                    var list = kv.Value.Where(f => now - f.At < Keep).ToList();
+                    var wins = list.Where(f => f.Won && f.Took >= 0).ToList();
+                    if (wins.Count == 0) continue;
+                    double big = wins.Max(f => f.Took);
+                    if (big < atLeast) continue;
+                    all.Add(new Payer
+                    {
+                        Name = names[kv.Key], Biggest = big, Last = wins[wins.Count - 1].Took,
+                        LastBig = wins.Where(f => f.Took >= atLeast).Max(f => f.At),
+                        Fights = list.Count, Won = list.Count(f => f.Won), Lost = list.Count(f => !f.Won),
+                    });
+                }
+            return all.OrderByDescending(p => p.Biggest).ThenByDescending(p => p.LastBig).Take(most).ToList();
+        }
+
+        public bool Forget(string name)
+        {
+            string k = Key(name);
+            lock (gate)
+            {
+                if (!fights.Remove(k)) return false;
+                names.Remove(k);
+                Save();
+            }
+            var c = Changed;
+            if (c != null) c();
+            return true;
         }
 
         List<Fight> For(string name)
@@ -51,13 +103,21 @@ namespace IdleMafiaBot
 
         public double BigWin(string name, DateTime now)
         {
-            var list = For(name);
-            if (list == null) return -1;
-            var wins = list.Where(f => f.Won && f.Took >= 0 && now - f.At < BigWinFor).ToList();
-            return wins.Count == 0 ? -1 : wins.Max(f => f.Took);
+            lock (gate)
+            {
+                var list = For(name);
+                if (list == null) return -1;
+                var wins = list.Where(f => f.Won && f.Took >= 0 && now - f.At < BigWinFor).ToList();
+                return wins.Count == 0 ? -1 : wins.Max(f => f.Took);
+            }
         }
 
         public DateTime LeftAloneUntil(string name, DateTime now)
+        {
+            lock (gate) return LeftAloneUntilHere(name, now);
+        }
+
+        DateTime LeftAloneUntilHere(string name, DateTime now)
         {
             var list = For(name);
             if (list == null || list.Count < 2) return DateTime.MinValue;
@@ -70,10 +130,13 @@ namespace IdleMafiaBot
 
         public string Record(string name)
         {
-            var list = For(name);
-            if (list == null) return "";
-            int w = list.Count(f => f.Won), l = list.Count - w;
-            return w + " won, " + l + " lost";
+            lock (gate)
+            {
+                var list = For(name);
+                if (list == null) return "";
+                int w = list.Count(f => f.Won), l = list.Count - w;
+                return w + " won, " + l + " lost";
+            }
         }
 
         void Load()
@@ -105,6 +168,7 @@ namespace IdleMafiaBot
 
         void Save()
         {
+            if (file == null) return;
             try
             {
                 var cutoff = DateTime.UtcNow - Keep;

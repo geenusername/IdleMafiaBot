@@ -116,8 +116,12 @@ namespace IdleMafiaBot
             {
 
                 int x0 = f.Width / 4;
-                var mid = Ocr.Read(f, new Rectangle(x0, 0, Math.Max(40, any.Box.X - x0), topH), scale + 1, Prep.None);
-                v.Cash = Label(mid, "CASH ON HAND");
+                foreach (int s in new[] { scale + 1, scale - 1, scale + 2 }.Where(s => s >= 1))
+                {
+                    var mid = Ocr.Read(f, new Rectangle(x0, 0, Math.Max(40, any.Box.X - x0), topH), s, Prep.None);
+                    v.Cash = Label(mid, "CASH ON HAND");
+                    if (v.Cash != null) break;
+                }
             }
 
             if (v.Energy != null && v.Health != null) v.HeaderScale = (v.Health.CenterY - v.Energy.CenterY) / 69.0;
@@ -185,9 +189,30 @@ namespace IdleMafiaBot
             v.Page = new Rectangle(pageLeft, headerBottom, f.Width - pageLeft, f.Height - headerBottom);
             v.menuStep = 50 * v.MenuScale;
             v.menuX = v.Tabs.Values.Select(l => l.Box.X).OrderBy(x => x).ElementAt(v.Tabs.Count / 2);
+            ReadEventsBar(f, v, left, scale);
 
             v.Problem = null;
             return true;
+        }
+
+        static void ReadEventsBar(Frame f, View v, List<OcrLine> left, int scale)
+        {
+            int lowerHalf = v.Header.Bottom + (f.Height - v.Header.Bottom) / 2;
+            Func<OcrLine, bool> title = l => Parse.Key(l.Text).StartsWith("EVENT") && Parse.Key(l.Text).Length <= 7 && l.Box.X < v.stripW / 3 && l.CenterY > lowerHalf;
+            v.EventsBar = left.Where(title).OrderBy(l => l.CenterY).FirstOrDefault();
+            var below = v.others.Where(y => y > lowerHalf).ToList();
+            if (v.EventsBar == null && below.Count > 0)
+            {
+                int top = below.Min(), step = Math.Max(10, (int)v.menuStep);
+                var band = Rectangle.Intersect(new Rectangle(0, top - step, v.stripW / 2, step * 3 / 4), new Rectangle(0, 0, f.Width, f.Height));
+                if (band.Width > 10 && band.Height > 5)
+                    foreach (var t in new[] { Tuple.Create(Math.Min(6, scale + 1), Prep.None), Tuple.Create(Math.Min(6, scale + 1), Prep.WhiteText), Tuple.Create(Math.Min(6, scale + 2), Prep.Contrast) })
+                    {
+                        v.EventsBar = Ocr.Read(f, band, t.Item1, t.Item2).Where(title).FirstOrDefault();
+                        if (v.EventsBar != null) break;
+                    }
+            }
+            v.EventsOpen = v.EventsBar != null && v.others.Any(y => y > v.EventsBar.CenterY);
         }
 
         static void KeepInOrder(Dictionary<Tab, OcrLine> tabs)
@@ -214,11 +239,16 @@ namespace IdleMafiaBot
         double menuStep;
         int menuX, stripW, menuZoom;
         readonly List<int> others = new List<int>();
+        public OcrLine EventsBar;
+        public bool EventsOpen;
 
         void NoteOthers(List<OcrLine> lines)
         {
             foreach (var l in lines)
-                if (l.Box.X < stripW * 2 / 3 && Parse.Key(l.Text).Contains("BRIEFCASE") && !others.Contains(l.CenterY)) others.Add(l.CenterY);
+            {
+                string k = Parse.Key(l.Text);
+                if (l.Box.X < stripW * 2 / 3 && (k.Contains("BRIEFCASE") || k.Contains("GIOBAIBOSS")) && !others.Contains(l.CenterY)) others.Add(l.CenterY);
+            }
         }
 
         public Point? TabPoint(Frame f, Tab t)
@@ -290,8 +320,9 @@ namespace IdleMafiaBot
 
         public Place Find(Frame f, Tab t)
         {
+
             var p = Where(f, t);
-            if (p.Spot == Spot.Hidden && ReadAgain(f, p.Area)) p = Where(f, t);
+            for (int i = 0; i < 3 && p.Spot == Spot.Hidden && ReadAgain(f, p.Area); i++) p = Where(f, t);
             return p;
         }
 
@@ -333,7 +364,8 @@ namespace IdleMafiaBot
 
             var r = Rectangle.FromLTRB(0, Math.Max(Menu.Top, area.Top - 3), stripW, Math.Min(Height, area.Bottom + 3));
             bool found = false;
-            foreach (var t in new[] { Tuple.Create(menuZoom + 1, Prep.None), Tuple.Create(menuZoom + 2, Prep.None), Tuple.Create(menuZoom + 1, Prep.Contrast), Tuple.Create(Math.Max(1, menuZoom - 1), Prep.None) })
+            foreach (var t in new[] { Tuple.Create(menuZoom + 1, Prep.None), Tuple.Create(menuZoom + 2, Prep.None), Tuple.Create(menuZoom + 1, Prep.Contrast), Tuple.Create(Math.Max(1, menuZoom - 1), Prep.None),
+                                      Tuple.Create(menuZoom + 1, Prep.WhiteText), Tuple.Create(menuZoom + 1, Prep.WhiteBright) })
             {
                 var lines = Ocr.Read(f, r, t.Item1, t.Item2);
                 NoteOthers(lines);
@@ -359,11 +391,13 @@ namespace IdleMafiaBot
             if (Tabs.Count == 0) return 0;
             double y = Tabs.Values.Min(l => l.CenterY);
             while (y - menuStep >= Menu.Top + 0.15 * menuStep) y -= menuStep;
+            OcrLine first;
+            double top = Tabs.TryGetValue(Tab.Safehouse, out first) ? first.CenterY - menuStep / 2 : double.MinValue;
             int n = 0;
             for (; y <= Height - 0.15 * menuStep; y += menuStep)
             {
                 double at = y;
-                if (ButtonAt(f, (int)Math.Round(at)) && !Tabs.Values.Any(l => Math.Abs(l.CenterY - at) < menuStep / 2)
+                if (at > top && ButtonAt(f, (int)Math.Round(at)) && !Tabs.Values.Any(l => Math.Abs(l.CenterY - at) < menuStep / 2)
                     && !others.Any(o => Math.Abs(o - at) < menuStep / 2)) n++;
             }
             return n;
@@ -405,7 +439,7 @@ namespace IdleMafiaBot
 
         public Point ParkPoint
         {
-            get { return new Point(Page.Left + (int)(Page.Width * 0.70), Page.Top + (int)(Height * 0.012)); }
+            get { return new Point(Page.Left + (int)(Page.Width * 0.77), Page.Top + (int)(Height * 0.012)); }
         }
 
         public Point PagePoint(double fx, double fy)

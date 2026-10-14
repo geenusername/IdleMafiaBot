@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace IdleMafiaBot
@@ -14,6 +15,9 @@ namespace IdleMafiaBot
         public int MasteryCur = -1, MasteryGoal = -1;
         public int Unseen;
         public double XpPerEnergy { get { return Cost > 0 ? (double)Xp / Cost : 0; } }
+
+        public bool Gone { get { return Unseen >= 2 && MasteryRank <= 0 && MasteryCur <= 0; } }
+
         public override string ToString() { return Name; }
         public JobInfo Copy() { return (JobInfo)MemberwiseClone(); }
 
@@ -125,8 +129,30 @@ namespace IdleMafiaBot
                 list.Add(j);
             }
             if (list.Count == 0) return LoadCatalog(null);
+
+            var copies = Copies(list);
+            list.RemoveAll(copies.Contains);
             Renumber(list);
             return list;
+        }
+
+        public static bool NameNear(string text, JobInfo j)
+        {
+            return View.Distance(Parse.Key(text), Parse.Key(j.Name)) <= Math.Max(2, j.Name.Length / 7);
+        }
+
+        public static List<JobInfo> Copies(List<JobInfo> list)
+        {
+            var city = list.Select(j => CityIndex(j.City)).ToList();
+            var copies = new List<JobInfo>();
+            for (int i = 0; i < list.Count; i++)
+                for (int k = 0; k < list.Count; k++)
+                    if (city[k] >= 0 && city[k] < city[i] && !Game.CostOff(list[i].Cost, list[k].Cost) && NameNear(list[i].Name, list[k]))
+                    {
+                        copies.Add(list[i]);
+                        break;
+                    }
+            return copies;
         }
 
         public static void SaveCatalog(string file, List<JobInfo> list)

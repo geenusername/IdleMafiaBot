@@ -51,7 +51,7 @@ namespace IdleMafiaBot
         static readonly Regex PayRx = new Regex(@"receive\s+([0-9][0-9,]*)\s+Gold\s+Bars?\s+per\s+item\s+sold\W*([0-9][0-9,]*)\s+Gold\s+Bars?\s+for\s+all\s+([0-9][0-9,]*)", RegexOptions.IgnoreCase);
         static readonly Regex SlotsRx = new Regex(@"([0-9]+)\s*of\s*([0-9]+)\s*shop\s*slots", RegexOptions.IgnoreCase);
 
-        internal static Action<string> Trace;
+        internal static Action<string> Trace = null;
 
         static int Num(string s) { int n; return int.TryParse(Parse.Digits((s ?? "").Replace(",", "")), out n) ? n : -1; }
 

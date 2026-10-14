@@ -12,6 +12,8 @@ namespace IdleMafiaBot
 
     enum Focus { Balanced = 0, XP = 1, Money = 2, Family = 3 }
 
+    enum TrainOrder { Best = 0, Evenly = 1 }
+
     sealed class Settings
     {
 
@@ -26,10 +28,12 @@ namespace IdleMafiaBot
         public bool StartHeists = false;
         public string StartHeist = "Grand Vault of Caldera";
 
-        public bool WouldHelp(bool yourFamily, int xpPerHelp, double jobXpFor5)
+        public string HeistsToday = "";
+
+        public bool WouldHelp(bool yourFamily, int xpPerHelp, double jobXpForHelp)
         {
             if (yourFamily) return true;
-            return !HeistsFamilyOnly && xpPerHelp > 0 && xpPerHelp > jobXpFor5;
+            return !HeistsFamilyOnly && xpPerHelp > 0 && xpPerHelp > jobXpForHelp;
         }
 
         public bool Fights = false;
@@ -44,9 +48,18 @@ namespace IdleMafiaBot
 
         public static readonly long[] WhaleAmounts = { 100000, 1000000, 10000000, 100000000, 1000000000, 5000000000, 10000000000, 100000000000 };
 
+        public int WhaleHits = 5;
+        public const int WhaleHitsMax = 20;
+
+        public int WhaleHitsNow { get { return Math.Max(1, Math.Min(WhaleHitsMax, WhaleHits)); } }
+
+        public long BigPayerCash = 100000000;
+
         public int FightStaminaReserve = 15;
 
         public bool Bosses = true;
+
+        public bool BossWeakestFirst = true;
 
         public static readonly string[] Retired = { "BossHitsPerRound", "FightsPerRound", "SpecificJob", "MasteryTarget", "CrewTarget", "CrewKeepGoing",
             "OpenNewCities", "HeistMinXp", "HeistsFamilyFirst", "FightMinHealth", "FightTarget", "BankMinutes", "BankWithFee", "WithdrawForPurchases",
@@ -110,8 +123,20 @@ namespace IdleMafiaBot
 
         public int CrewRerollStats = 0;
 
+        public bool RerollsFirst = false;
+
+        public bool CrewAutoRoll = false;
+        public long AutoRollLimit = 1000000000;
+
+        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000 };
+
         public bool TrainCrew = true;
         public int TrainAtOnce = 1;
+
+        public TrainOrder TrainOrder = TrainOrder.Best;
+
+        public bool DefendTerritory = false;
+        public bool DefendHeal = false;
         public const int MaxTraining = 2;
         public const int Perfect = 45;
         public static readonly int[] StatsGoals = { 0, Perfect };
