@@ -8,7 +8,7 @@ operations, daily rewards, the shop, crates, your crew, the safehouse and your f
 
 ![The bot's Home page](screenshots/home.png)
 
-<p><img src="screenshots/crew.png" width="49%" alt="The Crew page"> <img src="screenshots/money.png" width="49%" alt="The Cash page"></p>
+<p><img src="screenshots/tasks.png" width="49%" alt="The Tasks page"> <img src="screenshots/crew.png" width="49%" alt="A task's options: the crew's rerolls"></p>
 
 It only reads the screen and moves the mouse, like someone at your PC, and only while you leave the PC alone. It never
 changes Roblox, never asks for your password and never presses anything that costs Robux (the full list of buttons it
