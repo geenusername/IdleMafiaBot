@@ -8,9 +8,11 @@ namespace IdleMafiaBot
 
         internal Point TerritoryToastX(Frame f) { string text; return TerritoryToastX(f, out text); }
 
-        internal Point TerritoryToastX(Frame f, out string text)
+        internal Point TerritoryToastX(Frame f, out string text) { Rectangle box; return TerritoryToastX(f, out text, out box); }
+
+        internal Point TerritoryToastX(Frame f, out string text, out Rectangle box)
         {
-            text = null;
+            text = null; box = Rectangle.Empty;
             var v = ViewOf(f);
             if (v.Problem != null) return Point.Empty;
             double row = 34.5 * v.HeaderScale;
@@ -46,7 +48,29 @@ namespace IdleMafiaBot
                 }
             if (x1 < 0 || x1 - x0 > row || y1 - y0 > row) return Point.Empty;
             text = words;
+            box = Rectangle.FromLTRB(left, top, right, bottom);
             return new Point((x0 + x1) / 2, (y0 + y1) / 2);
+        }
+
+        public bool OpenDistrictFromToast(string name)
+        {
+            string text;
+            Rectangle box;
+            using (var f = Capture()) if (TerritoryToastX(f, out text, out box).IsEmpty) return false;
+            Click(box.Left + box.Width / 3, box.Top + box.Height / 2, 900);
+
+            for (int look = 0; look < 8; look++)
+            {
+                using (var f = Capture())
+                {
+                    var w = ReadDistrictWindow(f);
+                    if (w != null && w.Is(name)) return true;
+
+                    if (w != null && look >= 1 && (w.Title.Length > 0 || w.TitleAgain.Length > 0)) { CloseDistrict(w); return false; }
+                }
+                Wait(500);
+            }
+            return false;
         }
 
         public bool CloseTerritoryToast(Frame f)

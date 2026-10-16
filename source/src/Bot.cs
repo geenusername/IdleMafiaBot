@@ -1589,6 +1589,7 @@ namespace IdleMafiaBot
             }
             game.HeistsTop();
             CollectHeistTake();
+            DismissFailedHeist();
             if (S.StartHeists && DateTime.UtcNow >= nextHeistStart) StartHeist();
             if (!helpsDue) { nextHeists = helpsAt; return; }
             bool lookedAgain = false;
@@ -1721,6 +1722,36 @@ namespace IdleMafiaBot
             }
             Log("Heists: collected the take" + (heist.Length > 0 ? " of " + heist : "") + (haul.Length > 0 ? " (" + haul + ")" : ""));
             SnapshotOnce("heist take collected");
+        }
+
+        DateTime nextHeistDismiss = DateTime.MinValue;
+
+        void DismissFailedHeist()
+        {
+            if (DateTime.UtcNow < nextHeistDismiss) return;
+            OcrLine button;
+            string heist, how;
+            using (var f = game.Capture()) button = game.HeistFailedDismiss(f, out heist, out how);
+            if (button == null) return;
+            game.PressHeistDismiss(button);
+            OcrLine still = null;
+            string h2, how2;
+            for (int look = 0; look < 3 && (look == 0 || still != null); look++)
+            {
+                if (look > 0) game.Wait(1000);
+                using (var f = game.Capture()) still = game.HeistFailedDismiss(f, out h2, out how2);
+            }
+            if (still != null)
+            {
+                nextHeistDismiss = DateTime.UtcNow.AddMinutes(30);
+                Log("Heists: DISMISS didn't take" + (heist.Length > 0 ? " on " + heist : "") + " - again in 30 minutes");
+                game.Snapshot("heist dismiss not taken", 60);
+                return;
+            }
+            bool free;
+            using (var f = game.Capture()) free = game.NoActiveHeist(f) != null;
+            Log("Heists: dismissed " + (heist.Length > 0 ? heist : "your heist") + (how.Length > 0 ? " (" + how + ", the stake lost)" : "") + (free ? "" : " - the page doesn't say NO ACTIVE HEIST yet"));
+            SnapshotOnce(free ? "heist failed dismissed" : "heist failed dismissed page unread");
         }
 
         internal static string OwnHeistKind(string words)
@@ -1961,6 +1992,7 @@ namespace IdleMafiaBot
             bool rolledUp = false;
             bool refreshed = false;
             int moved = 0;
+            int calledOff = 0;
 
             for (int i = 0; i < max; i++)
             {
@@ -2107,6 +2139,31 @@ namespace IdleMafiaBot
 
                     if (Game.DailyLimit(why)) { DailyLimit(target); continue; }
 
+                    if (game.FightCalledOff)
+                    {
+                        fightSkip[FightKey(target)] = DateTime.UtcNow.AddMinutes(30);
+                        string said = game.LastFightToast != null ? " (the game said: " + game.LastFightToast + ")" : "";
+                        Log("Fights: the game closed the fight window with " + (target.Name.Length > 0 ? target.Name : "a level " + target.Level + " player")
+                            + " without a fight" + said + " - that player waits 30 minutes");
+                        if (firstSeen.Add("fight called off")) game.Snapshot("fight called off", 0, true, picture: game.FightGone);
+                        if (++calledOff >= 3)
+                        {
+                            Log("Fights: the game called off 3 fights in a row - fights wait 5 minutes");
+                            game.Snapshot("fights called off", 60, failure: false, picture: game.FightGone);
+                            nextFights = DateTime.UtcNow.AddMinutes(5);
+                            return fought;
+                        }
+                        continue;
+                    }
+
+                    if (game.FightWindowStuck)
+                    {
+                        Log("Fights: the fight window stayed open with no result - fights wait 2 minutes");
+                        game.Snapshot("fight window stuck", 60);
+                        nextFights = DateTime.UtcNow.AddMinutes(2);
+                        return fought;
+                    }
+
                     why = why ?? game.LastFightToast;
                     if (!missed)
                     {
@@ -2123,6 +2180,7 @@ namespace IdleMafiaBot
                 }
                 fought++;
                 missed = false;
+                calledOff = 0;
                 refreshed = false;
                 hitOnList.Add(FightKey(target));
                 staminaLeft = h.Stamina - target.StaminaCost;
@@ -2158,16 +2216,21 @@ namespace IdleMafiaBot
                 if (S.Bank && Can(Tab.Bank)) DoBank();
                 if (!game.OpenTab(Tab.Fight)) return more;
                 Game.AttackEntry e = null;
-                int end = Environment.TickCount + 60000;
+
+                game.AttackHistoryToTop();
+                int end = Environment.TickCount + 60000, missing = Environment.TickCount + 10000;
                 while (true)
                 {
                     using (var f = game.Capture()) e = game.ReadAttackHistory(f).FirstOrDefault(x => Game.SamePlayer(x.Name, name));
-                    if (e == null || e.Again != null || e.Limit || end - Environment.TickCount <= 0) break;
+                    if ((e != null && (e.Again != null || e.Limit)) || end - Environment.TickCount <= 0) break;
+                    if (e == null && missing - Environment.TickCount <= 0) break;
+                    if (e == null) game.AttackHistoryToTop();
                     game.Wait(2000);
                 }
 
                 if (e != null && e.Limit && e.Again == null) { DailyLimit(target); break; }
-                if (e == null || e.Again == null) { Log("Fights: no ATTACK AGAIN for " + name + " within a minute - on with the list"); break; }
+                if (e == null) { Log("Fights: " + name + " isn't in the attack history - on with the list"); game.Snapshot("attack history entry not found", 60); break; }
+                if (e.Again == null) { Log("Fights: no ATTACK AGAIN for " + name + " within a minute - on with the list"); break; }
                 var h = ReadBarsSettled(5000);
                 if (h.Stamina < 0 || h.Stamina - reserve < target.StaminaCost) break;
                 game.AttackAgain(e);
@@ -2178,7 +2241,9 @@ namespace IdleMafiaBot
                     using (var f = game.Capture()) inHospital = game.Hospitalized(f);
                     if (inHospital) { Hospital(); break; }
                     if (Game.DailyLimit(game.LastFightRefusal)) { DailyLimit(target); break; }
-                    Log("Fights: hitting " + name + " again didn't start" + (game.LastFightRefusal != null ? " (the game said: " + game.LastFightRefusal + ")" : "") + " - on with the list");
+                    Log("Fights: hitting " + name + " again didn't start" + (game.FightCalledOff ? " (the game closed the fight window without a fight)" : "")
+                        + (game.LastFightRefusal != null ? " (the game said: " + game.LastFightRefusal + ")" : "") + " - on with the list");
+                    if (game.FightWindowStuck) { game.Snapshot("fight window stuck", 60); nextFights = DateTime.UtcNow.AddMinutes(2); }
                     break;
                 }
                 more++;
@@ -2575,12 +2640,13 @@ namespace IdleMafiaBot
                 var now = DateTime.UtcNow;
                 bool known = Directory.Exists(Accounts.Folder(dir, name));
 
-                bool same = accountSeen != null && (known ? Accounts.Same(name, accountSeen) : name == accountSeen);
+                bool strict = !known || Accounts.Same(name, whose);
+                bool same = accountSeen != null && (strict ? name == accountSeen : Accounts.Same(name, accountSeen));
                 if (!same) { accountSeen = name; accountVotes = 1; accountFirstVote = now; return true; }
                 accountVotes++;
-                if (accountVotes < (known ? 3 : 8) || now - accountFirstVote < TimeSpan.FromSeconds(known ? 10 : 60)) return true;
+                if (accountVotes < (strict ? 8 : 3) || now - accountFirstVote < TimeSpan.FromSeconds(strict ? 60 : 10)) return true;
                 accountSeen = null; accountVotes = 0;
-                if (!known)
+                if (strict)
                 {
 
                     string again = (NameAgain ?? ReadNameAgain)();
@@ -2689,7 +2755,7 @@ namespace IdleMafiaBot
             Catalog = GameData.LoadCatalog(jobs);
             CatalogView = Catalog.Select(j => j.Copy()).ToList();
             level = S.LastLevel;
-            ResetAccountState();
+            ResetAccountState(before);
             SaveAccount();
             Log(known ? "Account: " + name + " is playing now. Its own settings and job list are back (" + before + "'s are kept)."
                       : "Account: " + name + " is new here. It gets a new player's settings and the game's job list; " + before + "'s are kept for when it's back.");
@@ -2699,7 +2765,7 @@ namespace IdleMafiaBot
             if (h != null) h(name);
         }
 
-        void ResetAccountState()
+        void ResetAccountState(string before)
         {
             DateTime now = DateTime.UtcNow;
             nextOps = nextBosses = nextPlaytime = nextContracts = nextCrates = nextHeists = nextFights = nextBank = nextPoints = nextJobs = nextLearn = now;
@@ -2728,7 +2794,7 @@ namespace IdleMafiaBot
             saidOnce.Clear();
             levelSaid = levelSeen = levelSaidXp = -1; summaryLevel = -1;
             streaks.Clear(); ShowStuck();
-            if (game != null) game.ResetAccount();
+            if (game != null) game.ResetAccount(before, S.Account);
         }
 
         bool TutorialOn { get { return tutorialHint != null; } }
@@ -2902,6 +2968,19 @@ namespace IdleMafiaBot
             var worstCash = Game.WorstLot(lots);
             var better = worstCash == null ? new List<Game.PropertyCard>() : cash.Where(c => c.Income > worstCash.Income).ToList();
 
+            double rate = lots.Where(l => l.Gold <= 0 && l.Income > 0).Sum(l => l.Income);
+            Func<Game.PropertyCard, double> wait = c => covered(c) ? 0 : spend < 0 || rate <= 0 ? double.MaxValue : (c.Price * 1.01 - spend) / rate;
+            Func<List<Game.PropertyCard>, double, Game.PropertyCard> pickCash = (from, floor) =>
+            {
+                var fair = from.Where(c => !from.Any(d => d.Price <= c.Price && d.Income >= c.Income && (d.Price < c.Price || d.Income > c.Income)))
+                               .OrderBy(c => c.Price).ThenByDescending(c => c.Income).ToList();
+                if (fair.Count == 0) return null;
+                var first = fair[0];
+                if (wait(first) == double.MaxValue) return first;
+                double by = wait(first) + first.Price / Math.Max(1, first.Income - floor);
+                return fair.Where(c => c == first || wait(c) <= by).OrderByDescending(c => c.Income).First();
+            };
+
             bool cashDone = cash.Count == 0 || (worstCash != null && better.Count == 0);
             int owned = int.MinValue;
             Func<int> ownedNow = () => { if (owned == int.MinValue) owned = goldLots > 0 && gold.Count > 0 ? goldOwned() : 0; return owned; };
@@ -2915,9 +2994,9 @@ namespace IdleMafiaBot
                     if (n < goldLots) return new PropertyPlan { Target = pick(gold, c => c.Gold) };
                 }
                 if (cash.Count == 0) return new PropertyPlan { Why = "a lot is free, but no property to build on it read. The bot looks again in 30 minutes (didn't read)." };
-                return new PropertyPlan { Target = pick(cash, c => c.Income) };
+                return new PropertyPlan { Target = pickCash(cash, 0) };
             }
-            if (better.Count > 0) return new PropertyPlan { Target = pick(better, c => c.Income), Replace = worstCash };
+            if (better.Count > 0) return new PropertyPlan { Target = pickCash(better, worstCash.Income), Replace = worstCash };
             if (worstCash == null && !lots.Any(l => l.Gold > 0))
                 return new PropertyPlan { Why = "every lot is built on, and YOUR BLOCK's lots didn't read. The bot looks again in 30 minutes." };
             if (goldLots > 0 && gold.Count > 0)
@@ -3181,7 +3260,8 @@ namespace IdleMafiaBot
                     CrewRoll used;
                     double paid;
 
-                    var got = game.HireInto(empty, S.CrewRollType, true, CashFor(empty.HirePrice[(int)S.CrewRollType] > 0 ? empty.HirePrice[(int)S.CrewRollType] : 0), 0, out used, out paid);
+                    var hire = RollNow();
+                    var got = game.HireInto(empty, hire, true, CashFor(empty.HirePrice[(int)hire] > 0 ? empty.HirePrice[(int)hire] : 0), 0, out used, out paid);
                     if (got == null && game.HiredUnseen != null)
                     {
 
@@ -3194,7 +3274,8 @@ namespace IdleMafiaBot
                     }
                     if (got == null)
                     {
-                        if (paid > 0) { Log("Crew: a " + used + " hire showed no recruit"); game.Snapshot("crew hire no recruit", 60); }
+                        if (game.HireBusy) Log("Crew: " + CrewBusy + " - the empty slot waits for the next look");
+                        else if (paid > 0) { Log("Crew: a " + used + " hire showed no recruit"); game.Snapshot("crew hire no recruit", 60); }
                         else if (crewSaid != "hire") { crewSaid = "hire"; Log("Crew: an empty slot waits - no hire the cash covers yet"); }
                         break;
                     }
@@ -3230,7 +3311,7 @@ namespace IdleMafiaBot
 
             int busy = crew.Count(r => r.Training && r.TrainSecondsLeft > 0);
             int soonest = crew.Where(r => r.Training && r.TrainSecondsLeft > 0).Select(r => r.TrainSecondsLeft).DefaultIfEmpty(-1).Min();
-            int best = Game.BestRoll(S.CrewRollType);
+            int best = Game.BestRoll(RollNow());
             var picks = TrainFirst(crew.Where(r => !(r.Training && r.TrainSecondsLeft > 0) && !r.Stationed && !r.Recovering && r.Rarity >= (int)Rarity.Epic && r.TrainLevel < 10 && (r.Train == null || r.TrainGold) && !RerollWouldReplace(r, best)),
                                    S.TrainOrder, r => { var o = Game.OwnOf(r, ownStats); return o != null ? o.Sum : r.Power; });
             var noTimer = crew.Where(r => r.Training && r.TrainSecondsLeft <= 0).Select(r => r.Name).ToList();
@@ -3439,7 +3520,10 @@ namespace IdleMafiaBot
         bool RerollCashOk(Header h, DateTime now)
         {
             if (!rerollShort) return true;
-            double need = crewHirePrice[(int)S.CrewRollType] + (rerollEmpty ? 0 : PropertyKeep());
+            var roll = RollNow();
+            double need = crewHirePrice[(int)roll] + (rerollEmpty ? 0 : PropertyKeep());
+
+            if (h != null && h.Cash >= 0 && roll != S.CrewRollType) return Spendable(h) >= need;
             return h != null && h.Cash >= 0 ? h.Cash >= need : now >= rerollShortAt.AddMinutes(1);
         }
 
@@ -3557,7 +3641,7 @@ namespace IdleMafiaBot
             rerollShort = false;
 
             rerollCash = -1;
-            var roll = S.CrewRollType;
+            var roll = RollNow();
             int best = Game.BestRoll(roll);
             double keep = only ? 0 : PropertyKeep();
 
@@ -3633,6 +3717,14 @@ namespace IdleMafiaBot
                     }
                     if (rolls >= 500) break;
                     if (fails >= 3) break;
+
+                    if (RollNow() != roll)
+                    {
+                        pausedFor = LuckRollShort() ? "not enough cash for " + LuckRollFor(S.CrewRollType, S.CrewLuckRoll, true) + " hires, " + RollNow() + " hires meanwhile"
+                                  : roll != S.CrewRollType && S.Events && EventOn(GameEvent.RecruitLuck) ? "enough cash again, " + RollNow() + " hires from now"
+                                  : "recruitment luck " + (roll == S.CrewRollType ? "began" : "ended") + ", " + RollNow() + " hires from now";
+                        break;
+                    }
                     if (readAgain)
                     {
 
@@ -3647,6 +3739,14 @@ namespace IdleMafiaBot
                     double cash = CashFor(crewHirePrice[(int)roll] + hold);
 
                     if (cash < 0) { stop = "couldn't read the cash on hand"; fails++; game.Wait(1000); continue; }
+
+                    if (crewHirePrice[(int)roll] > cash - hold && roll != S.CrewRollType
+                        && WithdrawUpTo(crewHirePrice[(int)roll] + hold, true, 2 * crewHirePrice[(int)roll] + hold))
+                    {
+                        if (!game.OpenTab(Tab.Crew)) { stop = "the Crew page didn't open after the bank"; fails = 3; break; }
+                        cash = CashFor(crewHirePrice[(int)roll] + hold);
+                        if (cash < 0) { stop = "couldn't read the cash on hand"; fails++; game.Wait(1000); continue; }
+                    }
                     rerollCash = cash;
                     if (crewHirePrice[(int)roll] > cash - hold)
                     {
@@ -3706,7 +3806,7 @@ namespace IdleMafiaBot
                         }
                         if (got == null)
                         {
-                            stop = paid > 0 ? "a hire showed no recruit" : "the " + roll + " hire isn't gold right now";
+                            stop = game.HireBusy ? CrewBusy : paid > 0 ? "a hire showed no recruit" : "the " + roll + " hire isn't gold right now";
                             if (paid > 0) readAgain = true;
                             fails++;
                             if (!only) break;
@@ -3925,7 +4025,7 @@ namespace IdleMafiaBot
                     if (got == null)
                     {
 
-                        stop = paid > 0 ? "a hire showed no recruit" : "the " + roll + " hire isn't gold right now";
+                        stop = game.HireBusy ? CrewBusy : paid > 0 ? "a hire showed no recruit" : "the " + roll + " hire isn't gold right now";
                         if (paid > 0) { rerollEmpty = false; readAgain = true; emptiedRarity = -1; }
                         fails++;
                         if (!only) break;
@@ -4233,6 +4333,27 @@ namespace IdleMafiaBot
 
         bool RerollsLead() { return S.RerollsFirst || (S.Events && EventOn(GameEvent.RecruitLuck)); }
 
+        CrewRoll RollNow()
+        {
+            var roll = LuckRollFor(S.CrewRollType, S.CrewLuckRoll, S.Events && EventOn(GameEvent.RecruitLuck));
+            return roll == S.CrewRollType || LuckRollPaid(roll) ? roll : S.CrewRollType;
+        }
+
+        bool LuckRollPaid(CrewRoll roll)
+        {
+            double price = crewHirePrice[(int)roll];
+            if (price <= 0 || last == null || last.Cash < 0) return true;
+            return Spendable(last) >= price + (rerollEmpty ? 0 : PropertyKeep());
+        }
+
+        bool LuckRollShort() { return S.Events && EventOn(GameEvent.RecruitLuck) && LuckRollFor(S.CrewRollType, S.CrewLuckRoll, true) != S.CrewRollType && RollNow() == S.CrewRollType; }
+
+        internal static CrewRoll LuckRollFor(CrewRoll usual, LuckRoll luck, bool lucky)
+        {
+            if (!lucky || luck == LuckRoll.Same) return usual;
+            return luck == LuckRoll.Elite ? CrewRoll.Elite : CrewRoll.Professional;
+        }
+
         public const int BreakMinutes = 10;
         DateTime fullBreakAt = DateTime.MinValue;
         bool rerollsYield;
@@ -4299,7 +4420,7 @@ namespace IdleMafiaBot
             {
                 game.Wait(3000);
                 double cash = CashNow();
-                if (cash < 0 || cash >= crewHirePrice[(int)S.CrewRollType] + keep) { nextReroll = now; return; }
+                if (cash < 0 || cash >= crewHirePrice[(int)RollNow()] + keep) { nextReroll = now; return; }
                 EndRerollOnly(why, true);
                 return;
             }
@@ -4309,9 +4430,12 @@ namespace IdleMafiaBot
             Log("Only rerolling: " + (why ?? "nothing rerolled") + " - trying again at " + nextReroll.ToLocalTime().ToString("HH:mm"));
         }
 
+        const string CrewBusy = "the game says the crew is being updated (\"try again shortly\")";
+
         Game.CrewRow HireForReroll(Game.CrewRow empty, CrewRoll roll, double cash, double keep, out CrewRoll used, out double paid)
         {
             var got = game.HireInto(empty, roll, false, cash, keep, out used, out paid);
+            if (game.HireBusy) return null;
             if (got == null && paid <= 0)
             {
 
@@ -4540,7 +4664,8 @@ namespace IdleMafiaBot
         {
             switch (e)
             {
-                case GameEvent.RecruitLuck: return S.CrewReroll ? ": the rerolls go first while it runs" : "";
+                case GameEvent.RecruitLuck: return (S.CrewReroll ? ": the rerolls go first while it runs" : "")
+                                                   + (S.CrewLuckRoll != LuckRoll.Same ? (S.CrewReroll ? ", with " : ": ") + LuckRollFor(S.CrewRollType, S.CrewLuckRoll, S.Events) + " hires" : "");
                 case GameEvent.CrateLuck: return S.Crates ? ": the crates are opened now" : "";
                 case GameEvent.BossDamage: return S.Bosses ? ": stamina goes to the bosses, no gifts while one is up" : "";
                 case GameEvent.OpsSpeed: return S.Operations ? ": operations looked at twice as often" : "";
@@ -5220,6 +5345,8 @@ namespace IdleMafiaBot
                 var ta = TerritoryAttack;
                 if (ta != null && Game.MatchDistrict(read, out tc, out tno, out tn)) try { ta(tc, tno, tn, lost, by); } catch (Exception) { }
                 if (S.DefendTerritory) NoteAttack(read, lost);
+
+                if (S.DefendTerritory && defendName != null && DateTime.UtcNow >= defendNext) Defend(true);
                 using (var f = game.Capture()) game.CloseTerritoryToast(f);
             }
             var now = DateTime.UtcNow;
@@ -5235,8 +5362,11 @@ namespace IdleMafiaBot
             }
             if (!S.DefendTerritory || defendName == null) return;
             if (now - defendHit >= DefendOver) EndDefence("nothing for 30 minutes");
-            else if (now >= defendNext) Defend();
+
+            else if (now >= defendNext && defendByList) Defend();
         }
+
+        bool defendByList;
 
         void NoteAttack(string read, bool lost)
         {
@@ -5254,7 +5384,7 @@ namespace IdleMafiaBot
             else if (lost) defendNext = DateTime.MinValue;
         }
 
-        void Defend()
+        void Defend(bool toast = false)
         {
             defendNext = DateTime.UtcNow + DefendAgain;
             if (S.DefendHeal && defendStationed)
@@ -5267,7 +5397,16 @@ namespace IdleMafiaBot
                     if (spent > 0) Log("Territory: healed the beaten defenders with " + spent + " stamina");
                 }
             }
-            if (!game.OpenDistrict(defendCity, defendNo, defendName))
+            bool viaToast = toast && game.OpenDistrictFromToast(defendName);
+            if (toast)
+            {
+                if (!viaToast) SayOnce("district by list", "Territory: pressing the notification didn't open " + defendName + " - through the Territory page instead");
+                else SnapshotOnce("district opened from the notification");
+                defendByList = !viaToast;
+            }
+
+            if (!viaToast) game.CloseDistrict();
+            if (!viaToast && !game.OpenDistrict(defendCity, defendNo, defendName))
             {
                 if (game.LastDistrictGone) { Log("Territory: " + defendName + " isn't your family's any more - the defence ends"); EndDefence(null); return; }
                 game.Snapshot("territory district not opened", 60);
@@ -5292,7 +5431,7 @@ namespace IdleMafiaBot
         void EndDefence(string why)
         {
             string name = defendName;
-            defendName = null;
+            defendName = null; defendByList = false;
             if (!defendStationed || name == null) { if (why != null && name != null) Log("Territory: the attack on " + name + " is over (" + why + ")"); return; }
             defendStationed = false;
             int n = game.OpenTab(Tab.Crew) ? game.RecallFrom(name) : 0;
@@ -5625,7 +5764,7 @@ namespace IdleMafiaBot
         void PingHenchman(Game.CrewRow got, int replaced, bool perfect, IEnumerable<Game.CrewRow> crew)
         {
             if (got == null || got.Rarity >= Discord.RarityColors.Length) return;
-            if (!HenchmanNews(got, replaced, perfect, S.CrewReroll || RerollOnly, Game.BestRoll(S.CrewRollType), crew)) return;
+            if (!HenchmanNews(got, replaced, perfect, S.CrewReroll || RerollOnly, Game.BestRoll(RollNow()), crew)) return;
             int took = Count.Rerolls - rerollsSaid;
             rerollsSaid = Count.Rerolls;
             Discord.Post(Ping.Rarity, "\U0001F3B2 " + (perfect ? "Perfect " : "") + got.RarityName + " henchman!",
@@ -5903,7 +6042,9 @@ namespace IdleMafiaBot
                 {
 
                     if (bars.Stamina >= 0) takedownWants = Math.Max(1, t.Free);
-                    SayOnce("takedown waits for stamina", "Takedown: " + t.Free + " free attack(s) wait for stamina above the " + Kept(bars.StaminaMax) + " kept for bosses and fights - they go before the stamina gifts");
+
+                    if (bars.Stamina < 0) { Log("Couldn't read stamina - " + t.Free + " free Takedown attack(s) wait"); game.Snapshot("stamina unreadable at the takedown", 60); }
+                    else SayOnce("takedown waits for stamina", "Takedown: " + t.Free + " free attack(s) wait for stamina above the " + Kept(bars.StaminaMax) + " kept for bosses and fights - they go before the stamina gifts");
                     nextTakedown = DateTime.UtcNow.AddMinutes(20);
                     waitShort = true;
                     break;
@@ -5928,6 +6069,17 @@ namespace IdleMafiaBot
                 {
                     Log(string.Format("The Takedown's free attacks didn't go down after ATTACK ({0} before, {1} now){2} - no more attacks this time",
                         free, !after.Page ? "page not read" : after.Free < 0 ? "unreadable" : after.Free.ToString(), said != null ? " - the game said \"" + Cut(said, 160) + "\"" : ""));
+
+                    if (said != null && Parse.Has(said, "ALREADY FOUGHT FOR"))
+                    {
+                        done--; Count.TakedownAttacks--; family.Attacks--;
+                        NoteTakedown(after);
+                        nextTakedown = DateTime.UtcNow.AddSeconds(after.NewSeconds > 0 ? after.NewSeconds + 120 : 6 * 3600);
+                        SayOnce("takedown other family", "Takedown: the game keeps you out until the new Takedown (you fought for your old family this week) - looking again "
+                                + (after.NewSeconds > 0 ? "when it starts (in " + SpanText(after.NewSeconds) + ")" : "in 6 hours"));
+                        waitShort = true;
+                        break;
+                    }
                     game.Snapshot("takedown attack not counted", 60);
 
                     done--; Count.TakedownAttacks--; family.Attacks--;

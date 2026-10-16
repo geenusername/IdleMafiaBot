@@ -77,6 +77,19 @@ namespace IdleMafiaBot
             return n >= 6 && View.Distance(ka, kb) <= (n >= 10 ? 2 : 1);
         }
 
+        public void AttackHistoryToTop()
+        {
+            Point at;
+            using (var f = Capture())
+            {
+                var p = PageArea(f);
+                int left = p.Left + (int)(p.Width * 0.6);
+                at = new Point((left + p.Right) / 2, p.Top + p.Height * 2 / 3);
+            }
+            Scroll(at.X, at.Y, 10);
+            Wait(400);
+        }
+
         public void AttackAgain(AttackEntry e) { Press(e.Again, 400); }
     }
 }

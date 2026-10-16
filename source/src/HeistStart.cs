@@ -80,6 +80,48 @@ namespace IdleMafiaBot
             Click(button.CenterX, button.CenterY, 1500);
         }
 
+        public OcrLine HeistFailedDismiss(Frame f, out string heist, out string how)
+        {
+            heist = how = "";
+            var area = PageArea(f);
+            var lines = Ocr.Read(f, area, PageScale(f), Prep.None);
+            var board = lines.FirstOrDefault(l => Parse.Has(l.Text, "HEIST BOARD"));
+            if (board == null) return null;
+            var panel = lines.Where(l => l.CenterY < board.Box.Y).ToList();
+            var failed = panel.FirstOrDefault(l => Regex.IsMatch(l.Text, @"^\s*FAILED\b", RegexOptions.IgnoreCase));
+            var lost = panel.FirstOrDefault(l => Parse.Has(l.Text, "STAKE IS LOST"));
+            if (failed == null || lost == null) return null;
+            int h = Math.Max(8, failed.Box.Height);
+
+            var button = panel.FirstOrDefault(l => Parse.Key(l.Text) == "DISMISS" && l.Box.X > Math.Max(failed.Box.Right, lost.Box.Right) && Math.Abs(l.CenterY - failed.CenterY) < 6 * h
+                                                   && l.Box.X > area.Left + area.Width / 2 && RedInk(f, l.Box));
+            if (button == null) return null;
+            var name = panel.Where(l => l.Box.Bottom <= failed.Box.Y + h / 3 && failed.Box.Y - l.Box.Bottom < 4 * h && Math.Abs(l.Box.X - failed.Box.X) < 3 * h).OrderByDescending(l => l.Box.Bottom).FirstOrDefault();
+            if (name != null) heist = name.Text.Trim();
+            how = Regex.Replace(failed.Text.Trim(), @"\bI[O0]\b", "10").ToLowerInvariant();
+            return button;
+        }
+
+        static bool RedInk(Frame f, Rectangle box)
+        {
+            int n = 0;
+            for (int y = Math.Max(0, box.Y); y < Math.Min(f.Height, box.Bottom); y += 2)
+                for (int x = Math.Max(0, box.X); x < Math.Min(f.Width, box.Right); x += 2)
+                {
+                    var c = f.Pixel(x, y);
+                    if (c.R >= 150 && c.R - c.G >= 70 && c.R - c.B >= 70 && ++n >= 8) return true;
+                }
+            return false;
+        }
+
+        public void PressHeistDismiss(OcrLine button)
+        {
+            if (button == null || Parse.Key(button.Text) != "DISMISS") throw new NeverPressException(button == null ? "" : button.Text, "not a failed heist's DISMISS");
+            NotDisconnected();
+            if (OnlyNavigate) RefuseInCheck(button.Text);
+            Click(button.CenterX, button.CenterY, 1500);
+        }
+
         public void PressStartAHeist(OcrLine button)
         {
             if (button == null || Parse.Key(button.Text) != "STARTAHEIST") throw new NeverPressException(button == null ? "" : button.Text, "not the Heists page's START A HEIST");

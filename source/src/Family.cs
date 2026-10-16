@@ -14,6 +14,8 @@ namespace IdleMafiaBot
         public int Territories = -1, TerritoriesMax = -1, Gold = -1;
         public long Xp = -1, XpNext = -1;
         public double Vault = -1;
+        public bool Header;
+        public Point WheelAt;
     }
 
     sealed class TakedownState
@@ -263,19 +265,56 @@ namespace IdleMafiaBot
                 }
                 if (o.Xp < 0 && seen.Count > 0) { o.Xp = seen[0].Item1; o.XpNext = seen[0].Item2; }
             }
+            o.Header = o.Name.Length > 0 || o.Founded.Length > 0 || o.Level >= 0 || o.Members >= 0 || xp != null;
+            var at = OverviewWheelSpot(lines, p);
+            if (at != null) o.WheelAt = new Point(at.CenterX, at.CenterY);
             return o;
+        }
+
+        internal static OcrLine OverviewWheelSpot(List<OcrLine> lines, Rectangle page)
+        {
+            foreach (var want in new[] { "FAMILY NOTICES", "FAMILY VAULT", "ACTIVE PERKS", "TERRITORIES", "RESIDENTS" })
+            {
+                string k = Parse.Key(want);
+                var l = lines.Where(x => page.Contains(x.CenterX, x.CenterY) && Parse.Key(x.Text).StartsWith(k) && Parse.Key(x.Text).Length <= k.Length + 8)
+                             .OrderBy(x => x.Box.Y).FirstOrDefault();
+                if (l != null) return l;
+            }
+            return null;
         }
 
         public FamilyOverview ReadFamilyOverviewAll()
         {
             FamilyOverview o;
             using (var f = Capture()) o = ReadFamilyOverview(f);
+
+            for (int i = 0; i < 3 && !o.Header; i++)
+            {
+                RollOverviewUp(o);
+                FamilyOverview top;
+                using (var f = Capture()) top = ReadFamilyOverview(f);
+                Fill(top, o);
+                o = top;
+            }
             if (o.Vault >= 0 && o.Gold >= 0 && o.Territories >= 0) return o;
             ScrollPage(0.3, -ListNotches(4));
             Wait(500);
             FamilyOverview more;
             using (var f = Capture()) more = ReadFamilyOverview(f);
-            ScrollPage(0.3, 10);
+            RollOverviewUp(more);
+            Fill(o, more);
+            return o;
+        }
+
+        void RollOverviewUp(FamilyOverview seen)
+        {
+            if (seen.WheelAt.IsEmpty) ScrollPage(0.3, 10);
+            else Scroll(seen.WheelAt.X, seen.WheelAt.Y, 10);
+            Wait(500);
+        }
+
+        static void Fill(FamilyOverview o, FamilyOverview more)
+        {
             if (o.Name.Length == 0) { o.Name = more.Name; o.Tag = more.Tag; }
             if (o.Founded.Length == 0) o.Founded = more.Founded;
             if (o.Donated.Length == 0) o.Donated = more.Donated;
@@ -287,7 +326,7 @@ namespace IdleMafiaBot
             if (o.Gold < 0) o.Gold = more.Gold;
             if (o.Xp < 0) { o.Xp = more.Xp; o.XpNext = more.XpNext; }
             if (o.Vault < 0) o.Vault = more.Vault;
-            return o;
+            o.Header = o.Header || more.Header;
         }
 
         static bool Pair(string text, string pattern, out int a, out int b)

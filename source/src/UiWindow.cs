@@ -132,8 +132,8 @@ namespace IdleMafiaBot
         static readonly Crew Henchmen = new Crew("Crew", "#E0709A", "IcoCrew");
         static readonly Crew Don = new Crew("Bot", "#E8E2D0", "IcoFedora");
 
-        static readonly string[] Pages = { "Overview", "Jobs", "Combat", "Crew", "Family", "Money", "Rewards", "Settings" };
-        static readonly string[] Titles = { "Home", "Energy", "Stamina", "Crew", "Family", "Cash", "Rewards", "Settings" };
+        static readonly string[] Pages = { "Overview", "Jobs", "Settings" };
+        static readonly string[] Titles = { "Home", "Tasks", "Settings" };
         static readonly string[] RarityBrushes = { "RarityCommon", "RarityUncommon", "RarityRare", "RarityEpic", "RarityLegendary", "RarityMythic", "RaritySecret", "RarityForbidden" };
         const string ClosestPerk = "Closest to its next level";
 
@@ -165,6 +165,7 @@ namespace IdleMafiaBot
             this.bot = bot;
             this.dir = dir;
             this.args = args;
+            UseDecoFont();
             Window = (Window)LoadXaml("MainWindow.xaml");
 
             var work = SystemParameters.WorkArea;
@@ -196,6 +197,7 @@ namespace IdleMafiaBot
             WirePages();
             WireSettings();
             WireButtons();
+            WireTiles();
             El<ItemsControl>("Feed").ItemsSource = feed;
             WireHome();
             El<ItemsControl>("OpsList").ItemsSource = ops;
@@ -226,6 +228,7 @@ namespace IdleMafiaBot
             bot.FamilyRead += fi => Ui(() => ShowFamily(fi));
             bot.CrewRead += ci => Ui(() => ShowCrew(ci));
             bot.SafehouseRead += info => Ui(() => ShowSafehouse(info));
+            bot.Discord.Moment += (k, title, text) => Ui(() => ShowMoment(k, title, text));
             bot.ProfileRead += p => Ui(() => CheckDone(p));
             bot.ProfileChanged += p => Ui(() => { if (profileOf == Profile.Key(p.Name)) { profile = p; UpdateCheckWhen(); if (ReviewShowing) RefreshReview(); } });
 
@@ -483,11 +486,236 @@ namespace IdleMafiaBot
         {
             for (int i = 0; i < Pages.Length; i++)
                 El<ScrollViewer>("Page" + Pages[i]).Visibility = i == page ? Visibility.Visible : Visibility.Collapsed;
+
+            El<ScrollViewer>("Page" + Pages[page]).BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
             El<TextBlock>("PageTitle").Text = Titles[page].ToUpperInvariant();
+
+            shownPage = page;
+            El<Button>("BtnStart").Visibility = page == 0 ? Visibility.Collapsed : Visibility.Visible;
+            El<Border>("StatePill").Visibility = page == 0 ? Visibility.Collapsed : Visibility.Visible;
+            FitStrip();
             FitFillsSoon();
-            if (Pages[page] == "Jobs") RefreshJobs();
             if (Pages[page] == "Settings") UpdateProblems();
-            if (Pages[page] == "Combat") RefreshBigPayers();
+        }
+
+        string optionsOpen;
+        readonly List<CheckBox> tiles = new List<CheckBox>();
+        readonly List<Tuple<HeaderedContentControl, List<CheckBox>>> groups = new List<Tuple<HeaderedContentControl, List<CheckBox>>>();
+        string doingTask;
+
+        void WireTiles()
+        {
+            var all = new List<FrameworkElement>();
+            Collect(Window, all);
+            var tileStyle = Window.FindResource("TaskTile");
+            foreach (var t in all.OfType<CheckBox>().Where(c => c.Style == tileStyle && Page(c) != null && Page(c).Name == "PageJobs")) tiles.Add(t);
+            var groupStyle = Window.FindResource("TaskGroup");
+            foreach (var g in all.OfType<HeaderedContentControl>().Where(c => c.Style == groupStyle))
+            {
+                var inside = new List<FrameworkElement>();
+                Collect(g, inside);
+                if (inside.OfType<CheckBox>().Any()) groups.Add(Tuple.Create(g, inside.OfType<CheckBox>().ToList()));
+            }
+            foreach (var tile in all.OfType<CheckBox>().Where(c => c.Uid == "1"))
+            {
+                var t = tile;
+                string key = TileKey(t);
+                if (Window.FindName("Opt_" + key) == null) continue;
+                t.ApplyTemplate();
+                var more = t.Template == null ? null : t.Template.FindName("MoreBtn", t) as Button;
+                if (more != null) more.Click += (a, b) => { OpenOptions(key, (string)t.Content, t.Tag as Geometry); b.Handled = true; };
+            }
+            var layer = El<Grid>("OptionsLayer");
+            El<Button>("BtnOptionsClose").Click += (a, b) => CloseOptions();
+            layer.MouseLeftButtonDown += (a, b) => { if (b.OriginalSource == layer) CloseOptions(); };
+            Window.PreviewKeyDown += (a, b) => { if (b.Key == Key.Escape && optionsOpen != null) { CloseOptions(); b.Handled = true; } };
+
+            El<Button>("BtnStartBig").Click += (a, b) => Toggle();
+            Pulse("HomeNowGlow");
+
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            timer.Tick += (a, b) => UpdateTileStatus();
+            timer.Start();
+            Window.Loaded += (a, b) => UpdateTileStatus();
+        }
+
+        static void UseDecoFont()
+        {
+            if (Application.Current == null) return;
+            try
+            {
+                string folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "IdleMafiaBot-fonts");
+                string file = System.IO.Path.Combine(folder, "AbrilFatface-Regular.ttf");
+                using (var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("IdleMafiaBot.ui.AbrilFatface-Regular.ttf"))
+                {
+                    if (s == null) return;
+                    if (!System.IO.File.Exists(file) || new System.IO.FileInfo(file).Length != s.Length)
+                    {
+                        System.IO.Directory.CreateDirectory(folder);
+                        using (var f = System.IO.File.Create(file)) s.CopyTo(f);
+                    }
+                }
+                Application.Current.Resources["Deco"] = new FontFamily(new Uri(folder + System.IO.Path.DirectorySeparatorChar), "./#Abril Fatface");
+            }
+            catch (Exception) { }
+        }
+
+        internal void ShowMoment(Ping k, string title, string text)
+        {
+            var box = El<StackPanel>("Toasts");
+            string head = Regex.Replace(title ?? "", @"^[^\p{L}\p{N}]+", "").Trim();
+            string rarity = new[] { "Forbidden", "Secret", "Mythic", "Legendary", "Epic", "Rare" }.FirstOrDefault(r => head.Contains(r));
+            Brush accent = k == Ping.Rarity && rarity != null ? Res("Rarity" + rarity) : k == Ping.Level ? Res("Xp") : Res("Gold");
+            string icon = k == Ping.Boss ? "IcoCrown" : k == Ping.Property ? "IcoHome" : k == Ping.Level ? "IcoStar" : "IcoCrew";
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var badge = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(20), Background = accent, VerticalAlignment = VerticalAlignment.Top };
+            badge.Child = new Path { Data = (Geometry)Window.FindResource(icon), Stroke = Res("OnGold"), StrokeThickness = 2, Width = 20, Height = 20,
+                                     Stretch = Stretch.Uniform, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+            var words = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
+            words.Children.Add(new TextBlock { Text = head, FontFamily = (FontFamily)Window.FindResource("Deco"), FontSize = 19, Foreground = accent, TextTrimming = TextTrimming.CharacterEllipsis });
+            words.Children.Add(new TextBlock { Text = text ?? "", FontSize = 13, Foreground = Res("Text"), TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None, Margin = new Thickness(0, 2, 0, 0), MaxHeight = 54 });
+            Grid.SetColumn(words, 1);
+            grid.Children.Add(badge);
+            grid.Children.Add(words);
+            var bg = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
+            bg.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#33291A"), 0));
+            bg.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#18160F"), 1));
+            var slide = new TranslateTransform(380, 0);
+            var card = new Border { Background = bg, BorderBrush = accent, BorderThickness = new Thickness(1.2), CornerRadius = new CornerRadius(12),
+                                    Padding = new Thickness(14, 12, 16, 12), Margin = new Thickness(0, 0, 0, 10), Child = grid, RenderTransform = slide, Opacity = 0 };
+            box.Children.Insert(0, card);
+            while (box.Children.Count > 3) box.Children.RemoveAt(box.Children.Count - 1);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            slide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(380, 0, TimeSpan.FromMilliseconds(380)) { EasingFunction = ease });
+            card.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
+            var stay = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+            stay.Tick += (a, b) =>
+            {
+                stay.Stop();
+                var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(450));
+                fade.Completed += (c, d) => box.Children.Remove(card);
+                card.BeginAnimation(UIElement.OpacityProperty, fade);
+                slide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(60, TimeSpan.FromMilliseconds(450)));
+            };
+            stay.Start();
+        }
+
+        static string TileKey(FrameworkElement t) { return t.Name.StartsWith("sw_") ? t.Name.Substring(3) : t.Name.StartsWith("tile_") ? t.Name.Substring(5) : t.Name; }
+
+        static T Part<T>(Control c, string name) where T : class
+        {
+            if (c.Template == null) c.ApplyTemplate();
+            return c.Template == null ? null : c.Template.FindName(name, c) as T;
+        }
+
+        string Shown(string name) { var t = Window.FindName(name) as TextBlock; return t == null ? "" : (t.Text ?? "").Trim(); }
+
+        void UpdateTileStatus()
+        {
+            foreach (var t in tiles)
+            {
+                var line = Part<TextBlock>(t, "Status");
+                if (line == null) continue;
+                string text = t.IsChecked == true ? TileLine(TileKey(t)) : "";
+                if (line.Text != text) line.Text = text;
+            }
+            foreach (var g in groups)
+            {
+                var count = Part<TextBlock>(g.Item1, "Count");
+                if (count == null) continue;
+                string text = g.Item2.Count(t => t.IsChecked == true) + " of " + g.Item2.Count + " on";
+                if (count.Text != text) count.Text = text;
+            }
+            GlowTiles();
+        }
+
+        string TileLine(string key)
+        {
+            Func<string, bool> known = v => v.Length > 0 && v != "-" && v != "?";
+            switch (key)
+            {
+                case "Jobs": return known(Shown("JobName")) && !Shown("JobName").EndsWith(" off") ? Shown("JobName") : "";
+                case "Heists": return known(Shown("FavorsText")) ? Shown("FavorsText").Replace(" left", "") + " favors" + (Shown("FavorsText").EndsWith(" left") ? " left" : "") : "";
+                case "Bosses": return known(Shown("BossName")) ? Shown("BossName") + (Shown("BossWhen").Length > 0 ? ", " + Shown("BossWhen") : "") : "";
+                case "Fights": return Shown("TotFights") + " this session";
+                case "WhaleHunt": return "Up to " + s.WhaleHitsNow + " hits";
+                case "CrewFill": return known(Shown("CrewCount")) ? Shown("CrewCount") + " henchmen" : "";
+                case "Reroll": return RollMode();
+                case "TrainCrew": return s.TrainOrder == TrainOrder.Evenly ? "Everyone evenly" : "The best first";
+                case "FamilyWatch": return Shown("FamName") != "Your family" ? Shown("FamName") : "";
+                case "Takedown": return known(Shown("TdFree")) ? Shown("TdFree") + " free attacks" : "";
+                case "GiveStamina": return s.StaminaPerk.Trim().Length == 0 ? "Closest perk" : s.StaminaPerk.Trim();
+                case "DefendTerritory": return known(Shown("FamTerritories")) ? Shown("FamTerritories") + " districts" : "";
+                case "Properties": return known(Shown("SafeIncome")) ? Shown("SafeIncome") + " an hour" : "";
+                case "Bank": return Shown("BankText");
+                case "SafehouseUpgrade": return known(Shown("SafeLevel")) ? "Level " + Shown("SafeLevel") : "";
+                case "SpendPoints": return Shown("PointsText").Length > 0 ? Shown("PointsText") : "On " + Game.StatNames[Math.Max(0, Math.Min(Game.StatNames.Length - 1, s.PointsStat))];
+                case "ShopBuy": { int n = Enumerable.Range(0, 8).Count(i => s.ShopWants(i)); return n + (n == 1 ? " rarity" : " rarities"); }
+                case "Operations": return ops.Count > 0 ? ops[0].Left : "";
+                default: return "";
+            }
+        }
+
+        static readonly Dictionary<string, string[]> TaskTiles = new Dictionary<string, string[]>
+        {
+            { "jobs", new[] { "sw_Jobs" } }, { "learn jobs", new[] { "sw_Jobs" } }, { "heists", new[] { "sw_Heists" } },
+            { "bosses", new[] { "sw_Bosses" } }, { "fights", new[] { "sw_Fights" } },
+            { "crew", new[] { "sw_CrewFill", "tile_Reroll", "sw_TrainCrew" } }, { "rerolls", new[] { "tile_Reroll" } },
+            { "family", new[] { "sw_FamilyWatch" } }, { "takedown", new[] { "sw_Takedown" } }, { "give stamina", new[] { "sw_GiveStamina" } },
+            { "properties", new[] { "sw_Properties" } }, { "bank", new[] { "sw_Bank" } }, { "safehouse upgrade", new[] { "sw_SafehouseUpgrade" } },
+            { "skill points", new[] { "sw_SpendPoints" } }, { "playtime rewards", new[] { "sw_Playtime" } }, { "contracts", new[] { "sw_Contracts" } },
+            { "operations", new[] { "sw_Operations" } }, { "briefcases", new[] { "sw_Briefcases" } }, { "events", new[] { "sw_Events" } },
+            { "gear", new[] { "sw_EquipBest", "sw_Crates", "sw_ShopBuy" } }, { "gear back", new[] { "sw_EquipBest" } },
+        };
+
+        void GlowTiles()
+        {
+            string[] lit;
+            if (doingTask == null || !TaskTiles.TryGetValue(doingTask, out lit)) lit = new string[0];
+            foreach (var t in tiles)
+            {
+                var glow = Part<Border>(t, "Glow");
+                if (glow == null) continue;
+                bool on = lit.Contains(t.Name) && t.IsChecked == true;
+                if (on == (glow.Visibility == Visibility.Visible)) continue;
+                glow.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                glow.BeginAnimation(UIElement.OpacityProperty, on
+                    ? new DoubleAnimation(0.35, 1, TimeSpan.FromSeconds(0.9)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }
+                    : null);
+            }
+        }
+
+        internal void OpenOptions(string key, string title, Geometry icon)
+        {
+            foreach (var p in El<StackPanel>("OptionsBody").Children.OfType<FrameworkElement>())
+                p.Visibility = p.Name == "Opt_" + key ? Visibility.Visible : Visibility.Collapsed;
+            El<TextBlock>("OptionsTitle").Text = title;
+            El<Path>("OptionsIcon").Data = icon;
+            El<ScrollViewer>("OptionsScroll").ScrollToTop();
+            var layer = El<Grid>("OptionsLayer");
+
+            var group = groups.FirstOrDefault(g => g.Item2.Any(t => TileKey(t) == key));
+            if (group != null && group.Item1.Resources.Contains("TileAccent")) layer.Resources["TileAccent"] = group.Item1.Resources["TileAccent"];
+            else layer.Resources.Remove("TileAccent");
+            layer.Visibility = Visibility.Visible;
+            layer.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
+            var slide = new TranslateTransform(0, 18);
+            El<Border>("OptionsPanel").RenderTransform = slide;
+            slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(18, 0, TimeSpan.FromMilliseconds(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            optionsOpen = key;
+            if (key == "Jobs") { jobsDirty = true; RefreshJobs(); }
+            if (key == "Fights") RefreshBigPayers();
+        }
+
+        internal void CloseOptions()
+        {
+            optionsOpen = null;
+            var layer = El<Grid>("OptionsLayer");
+            var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130));
+            fade.Completed += (a, b) => { if (optionsOpen == null) layer.Visibility = Visibility.Collapsed; };
+            layer.BeginAnimation(UIElement.OpacityProperty, fade);
         }
 
         void WireSettings()
@@ -701,7 +929,7 @@ namespace IdleMafiaBot
         {
             RefreshJobCard();
             jobsDirty = true;
-            if (El<ScrollViewer>("PageJobs").Visibility == Visibility.Visible) RefreshJobs();
+            if (optionsOpen == "Jobs") RefreshJobs();
             El<TextBlock>("PerkHint").Text = s.StaminaPerk.Trim().Length == 0
                 ? "The perk closest to its next level gets it."
                 : "Always " + s.StaminaPerk.Trim() + ", until it's maxed.";
@@ -712,7 +940,7 @@ namespace IdleMafiaBot
 
             var names = new[] { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Forbidden" };
             var off = names.Where((n, i) => !s.ShopWants(i)).ToList();
-            El<TextBlock>("ShopRaritiesHint").Text = off.Count == 0 ? "All of them. Switch one off to leave it in the shop, for example to save cash."
+            El<TextBlock>("ShopRaritiesHint").Text = off.Count == 0 ? "All of them. Click one off to leave it in the shop, for example to save cash."
                 : off.Count == names.Length ? "None: the shop buys nothing."
                 : "Leaves " + (off.Count == 1 ? off[0] : string.Join(", ", off.Take(off.Count - 1)) + " and " + off.Last()) + " in the shop.";
 
@@ -721,6 +949,9 @@ namespace IdleMafiaBot
 
             El<CheckBox>("sw_CrewAutoRoll").IsEnabled = s.CrewReroll;
             El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+
+            El<Border>("LuckRollBar").IsEnabled = s.Events;
+            El<Border>("LuckRollBar").Opacity = s.Events ? 1 : 0.45;
 
             var hits = El<ContentControl>("num_WhaleHits");
             hits.IsEnabled = s.WhaleHunt;
@@ -757,6 +988,10 @@ namespace IdleMafiaBot
                 string m = mode;
                 El<RadioButton>("RollMode_" + m).Checked += (a, b) => RollModePicked(m);
             }
+
+            var tile = El<CheckBox>("tile_Reroll");
+            tile.Checked += (a, b) => { if (!syncingRoll && RollMode() == "Off") El<RadioButton>("RollMode_On").IsChecked = true; };
+            tile.Unchecked += (a, b) => { if (!syncingRoll) El<RadioButton>("RollMode_Off").IsChecked = true; };
         }
 
         void RollModePicked(string m)
@@ -782,10 +1017,11 @@ namespace IdleMafiaBot
         {
             string m = RollMode();
             var rb = El<RadioButton>("RollMode_" + m);
-            if (rb.IsChecked != true)
+            var tile = El<CheckBox>("tile_Reroll");
+            if (rb.IsChecked != true || tile.IsChecked != (m != "Off"))
             {
                 syncingRoll = true;
-                try { rb.IsChecked = true; } finally { syncingRoll = false; }
+                try { rb.IsChecked = true; tile.IsChecked = m != "Off"; } finally { syncingRoll = false; }
             }
             string then = s.CrewRerollStats > 0 ? ", then their own attack and defense" : "";
             El<TextBlock>("RollModeHint").Text =
@@ -827,7 +1063,7 @@ namespace IdleMafiaBot
                     chips.Children.Add(RarityChip(r, n + " " + Game.RarityTitle(r)));
                 }
 
-            string status = ci == null ? "Not read yet. The bot looks at your crew every 30 minutes while it runs, every 6 hours with all its switches off." : ci.Status;
+            string status = ci == null ? "Not read yet. The bot looks at your crew every 30 minutes while it runs, every 6 hours with all its tiles off." : ci.Status;
             if (ci != null && status.Length == 0) status = s.CrewReroll ? "Nothing to do right now." : "Rerolls are off. Pick On below to reroll the worst henchman.";
             if (ci != null && s.CrewReroll && ci.Worst.Length > 0 && !status.StartsWith("Rerolling")) status += " The worst now: " + ci.Worst + ".";
             El<TextBlock>("CrewStatus").Text = status;
@@ -1177,15 +1413,42 @@ namespace IdleMafiaBot
                              : lower.Contains("using the mouse") ? "Waiting for you"
                              : lower.Contains("nothing to do") ? "Running" : "Running";
             El<TextBlock>("StateText").Text = shortText;
-            var strip = El<Border>("NowStrip");
-            strip.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+            stripRunning = running;
+            FitStrip();
             El<TextBlock>("NowText").Text = Friendly(st);
 
             var btn = El<Button>("BtnStart");
             btn.Background = running ? Res("Red") : Res("Gold");
             El<Path>("BtnStartIcon").Data = (Geometry)Window.FindResource(running ? "IcoStop" : "IcoPlay");
             El<TextBlock>("BtnStartText").Text = running ? "Stop" : "Start";
+
+            var big = El<Button>("BtnStartBig");
+            big.Background = running ? Res("Red") : Res("Gold");
+            El<Path>("BtnStartBigIcon").Data = (Geometry)Window.FindResource(running ? "IcoStop" : "IcoPlay");
+            El<TextBlock>("BtnStartBigText").Text = running ? "Stop" : "Start";
+            El<TextBlock>("HomeNowTitle").Text = running ? shortText : "Stopped";
+            El<TextBlock>("HomeNow").Text = running ? Friendly(st) : "Press Start and the bot plays for you.";
+            El<Ellipse>("HomeNowDot").Fill = dot;
+            El<Ellipse>("HomeNowGlow").Fill = dot;
+
+            doingTask = null;
+            if (running && st.StartsWith("Working: "))
+            {
+                string w = st.Substring(9);
+                int next = w.IndexOf(". Next", StringComparison.Ordinal);
+                doingTask = (next >= 0 ? w.Substring(0, next) : w.Split(',')[0]).Trim().ToLowerInvariant();
+            }
+            GlowTiles();
             UpdateTotals();
+        }
+
+        int shownPage;
+        bool stripRunning;
+
+        void FitStrip()
+        {
+            bool show = stripRunning && (shownPage != 0 || El<TextBlock>("StuckText").Visibility == Visibility.Visible);
+            El<Border>("NowStrip").Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         }
 
         static string Friendly(string st)
@@ -1264,6 +1527,7 @@ namespace IdleMafiaBot
                 var t = El<TextBlock>("StuckText");
                 t.Text = value ?? "";
                 t.Visibility = string.IsNullOrEmpty(value) ? Visibility.Collapsed : Visibility.Visible;
+                FitStrip();
             }
             else if (key == "roblox")
                 El<TextBlock>("PlayerName").Text = value == "found" ? playerName ?? "Roblox found"
@@ -1370,7 +1634,7 @@ namespace IdleMafiaBot
             var job = bot.PickJob(last, bot.CatalogView);
             bool oneMode = s.JobMode == JobMode.OneJob;
             El<TextBlock>("JobModeText").Text = oneMode ? "one job" : s.JobMode == JobMode.BestXp ? "best XP" : bot.MasteryDone(job) ? "mastery done: best XP" : "mastery";
-            if (!s.Jobs) { El<TextBlock>("JobName").Text = "Jobs are switched off"; El<TextBlock>("JobMeta").Text = ""; Bar("JobMastery", 0); El<TextBlock>("JobMasteryText").Text = ""; return; }
+            if (!s.Jobs) { El<TextBlock>("JobName").Text = "Jobs are off"; El<TextBlock>("JobMeta").Text = ""; Bar("JobMastery", 0); El<TextBlock>("JobMasteryText").Text = ""; return; }
             if (oneMode)
             {
 
@@ -1380,7 +1644,7 @@ namespace IdleMafiaBot
                 {
                     bool none = why == Bot.OneJobNone;
                     El<TextBlock>("JobName").Text = none ? "No job picked" : s.OneJob.Trim();
-                    El<TextBlock>("JobMeta").Text = none ? "Click one on the Energy page." : "No jobs now: " + why + ".";
+                    El<TextBlock>("JobMeta").Text = none ? "Click one in the list below." : "No jobs now: " + why + ".";
                     Bar("JobMastery", picked == null ? 0 : MasteryFill(picked));
                     El<TextBlock>("JobMasteryText").Text = picked == null ? "" : "Mastery " + picked.MasteryLabel;
                     return;
@@ -1506,7 +1770,7 @@ namespace IdleMafiaBot
             var page = El<ScrollViewer>("PageOverview");
             var grid = El<Grid>("HomeGrid");
             page.SizeChanged += (a, b) => FitHome();
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
                 var top = (FrameworkElement)grid.Children[i];
                 top.SizeChanged += (a, b) => FitHome();
@@ -1514,14 +1778,14 @@ namespace IdleMafiaBot
             }
         }
 
-        const double HomeMinColumns = 260;
+        const double HomeMinColumns = 220;
 
         void FitHome()
         {
             var page = El<ScrollViewer>("PageOverview");
             var grid = El<Grid>("HomeGrid");
             double top = 0;
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
                 var e = (FrameworkElement)grid.Children[i];
                 if (e.Visibility == Visibility.Visible) top += e.ActualHeight + e.Margin.Top + e.Margin.Bottom;
@@ -2074,8 +2338,8 @@ namespace IdleMafiaBot
                     bot.Log(string.Format(CultureInfo.InvariantCulture, "Report saved {0}: {1} ({2}). {3}{4}",
                         onDesktop ? "on your Desktop" : "next to the bot", System.IO.Path.GetFileName(zip),
                         size < 1048576 ? Math.Max(1, size / 1024) + " KB" : (size / 1048576.0).ToString("0.0", CultureInfo.InvariantCulture) + " MB",
-                        big ? "That's too big for Discord, so open an issue on the bot's GitHub page (Home, Help and support) and add it there, with a few words about what went wrong."
-                            : "Post it in the Discord (Home, Help and support) with a few words about what went wrong.",
+                        big ? "That's too big for Discord, so open an issue on the bot's GitHub page (Settings, Help) and add it there, with a few words about what went wrong."
+                            : "Post it in the Discord (Settings, Help) with a few words about what went wrong.",
                         moved > 0 ? " Its " + moved + " problem picture" + (moved == 1 ? "" : "s") + " moved to problems\\reported, so the red number starts from 0 again." : ""));
                     try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + zip + "\""); } catch (Exception) { }
                 });

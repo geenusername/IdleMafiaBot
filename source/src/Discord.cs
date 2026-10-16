@@ -104,8 +104,16 @@ namespace IdleMafiaBot
             }
         }
 
+        public event Action<Ping, string, string> Moment;
+
         public void Post(Ping k, string title, string text, Func<byte[]> shot, int color = Gold)
         {
+
+            if (k == Ping.Rarity || k == Ping.Property || k == Ping.Level || k == Ping.Boss)
+            {
+                var m = Moment;
+                if (m != null) try { m(k, title, text); } catch (Exception) { }
+            }
             if (!On(k)) return;
             var now = DateTime.UtcNow;
             lock (gate)

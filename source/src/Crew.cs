@@ -9,6 +9,8 @@ namespace IdleMafiaBot
 
     enum CrewRoll { Street, Professional, Elite }
 
+    enum LuckRoll { Same, Professional, Elite }
+
     enum Rarity { Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret, Forbidden }
 
     sealed class CrewInfo
@@ -76,7 +78,7 @@ namespace IdleMafiaBot
 
         static readonly Regex PowerRx = new Regex(@"(?:\+\s*|•\s*(?=[0-9]))([0-9OoIlS]{1,5})");
 
-        static readonly Regex GluedRx = new Regex(@"^\s*((?:[""“”„″•'’-]\s*)?[A-Z][a-z]{2,}[a-z.'’]*)(?:\s+\S{0,2}\s*\+\s*[0-9OoIlS].*|\s+\S{1,2})?$");
+        static readonly Regex GluedRx = new Regex(@"^\s*((?:[""“”„″•'’-]\s*)?[A-Z][a-z]{2,}[a-z.'’]*[""”]?)(?:\s+\S{0,2}\s*\+\s*[0-9OoIlS].*|\s+\S{1,2})?$");
 
         static readonly Regex TrainedRx = new Regex(@"(?:^|\s)\+\s?([1-9]|10)\s*$");
 
@@ -361,7 +363,7 @@ namespace IdleMafiaBot
                     var old = seen[seen.Count - overlap + i];
                     if (!r.Cut)
                     {
-                        if (Parse.Key(r.Name).Length > Parse.Key(old.Name).Length && ReadCost(old, r) >= 0) old.Name = r.Name;
+                        if (BetterName(old.Name, r.Name) && ReadCost(old, r) >= 0) old.Name = r.Name;
                         if (r.Attack >= 0) old.Attack = r.Attack;
                         if (r.Defense >= 0) old.Defense = r.Defense;
                     }
@@ -369,6 +371,14 @@ namespace IdleMafiaBot
                 }
                 if (!r.Cut) { r.ReadPage = pageNo; all.Add(r); }
             }
+        }
+
+        internal static bool BetterName(string kept, string next)
+        {
+            string a = Parse.Key(kept), b = Parse.Key(next);
+            Func<string, int> quotes = s => Regex.Matches(s ?? "", "[\"“”„″]").Count;
+            if (quotes(next) == 2 && quotes(kept) < 2 && b.Length >= 3) return true;
+            return b.Length > a.Length && (b.StartsWith(a) || WordsAlike(next, kept) || WholeNameSame(kept, next));
         }
 
         public static bool SameForPress(CrewRow a, CrewRow b)
@@ -424,6 +434,18 @@ namespace IdleMafiaBot
                 if (price != null) all.Add(new OcrLine { Text = w.Text.Trim() + " " + price.Text.Trim(), Box = Rectangle.Union(w.Box, price.Box) });
             }
             return all;
+        }
+
+        internal static double EliteB8(string digits, double professional, double street)
+        {
+            digits = (digits ?? "").Trim();
+            if (digits.Length < 2 || digits[digits.Length - 1] != '8') return -1;
+            double v;
+            if (!Parse.Money("$" + digits.Substring(0, digits.Length - 1).TrimEnd() + "B", out v) || v < 1e9) return -1;
+            Func<double, bool> same = want => Math.Abs(v - want) <= want * 0.001;
+            if (professional > 0) return same(professional * 1000) ? v : -1;
+            if (street > 0) return same(street * 1e6) ? v : -1;
+            return -1;
         }
 
         public CrewPage LookAtCrew()
@@ -522,6 +544,7 @@ namespace IdleMafiaBot
                 Func<OcrLine, bool> inBand = l => l.CenterY >= row.Top && l.CenterY < row.Bottom;
                 if (row.Empty)
                 {
+                    var eliteB8 = new List<Tuple<OcrLine, string>>();
                     foreach (var l in HireJoined(lines.Concat(dark).Where(inBand).ToList()))
                     {
                         var m = HireRx.Match(l.Text);
@@ -529,9 +552,19 @@ namespace IdleMafiaBot
                         int t = Array.IndexOf(new[] { "STREET", "PROFESSIONAL", "ELITE" }, m.Groups[1].Value.ToUpperInvariant());
                         double price;
 
-                        if (t < 0 || row.Hire[t] != null || !Parse.Money("$" + m.Groups[2].Value, out price) || price < 1000) continue;
+                        if (t < 0 || row.Hire[t] != null) continue;
+                        if (!Parse.Money("$" + m.Groups[2].Value, out price) || price < 1000) { if (t == 2) eliteB8.Add(Tuple.Create(l, m.Groups[2].Value)); continue; }
                         row.Hire[t] = l; row.HirePrice[t] = price; row.HireGold[t] = GoldFace(f, l.Box);
                     }
+
+                    if (row.Hire[2] == null)
+                        foreach (var e in eliteB8)
+                        {
+                            double mended = EliteB8(e.Item2, row.HirePrice[1] > 0 ? row.HirePrice[1] : -1, row.HirePrice[0] > 0 ? row.HirePrice[0] : -1);
+                            if (mended <= 0) continue;
+                            row.Hire[2] = e.Item1; row.HirePrice[2] = mended; row.HireGold[2] = GoldFace(f, e.Item1.Box);
+                            break;
+                        }
 
                     for (int t = 1; t < 3; t++)
                         if (row.Hire[t] != null && row.Hire[t - 1] != null && row.HirePrice[t] <= row.HirePrice[t - 1]) { row.Hire[t] = null; row.HirePrice[t] = -1; }
@@ -562,11 +595,21 @@ namespace IdleMafiaBot
                     foreach (var nl in nameLines)
                     {
 
-                        int gap = Math.Max(h, nl.Box.Height);
-                        var glued = lines.FirstOrDefault(l => !nameLines.Contains(l) && Math.Abs(l.Box.Y - nl.Box.Y) <= 3
-                                                              && l.Box.X >= nl.Box.Right - 2 && l.Box.X - nl.Box.Right <= gap);
-                        var g = glued != null ? GluedRx.Match(glued.Text) : Match.Empty;
-                        name.Add(nl.Text.Trim() + (g.Success ? " " + g.Groups[1].Value : ""));
+                        int gap = Math.Max(h, nl.Box.Height), slack = Math.Max(3, nl.Box.Height / 5);
+                        string text = nl.Text.Trim();
+                        var last = nl;
+                        for (int piece = 0; piece < 3; piece++)
+                        {
+                            var end = last;
+                            var glued = lines.Where(l => !nameLines.Contains(l) && l != end && Math.Abs(l.Box.Y - nl.Box.Y) <= slack
+                                                         && l.Box.X >= end.Box.Right - 2 && l.Box.X - end.Box.Right <= gap).OrderBy(l => l.Box.X).FirstOrDefault();
+                            var g = glued != null ? GluedRx.Match(glued.Text) : Match.Empty;
+                            if (!g.Success) break;
+                            text += " " + g.Groups[1].Value;
+                            if (g.Groups[1].Index + g.Groups[1].Length < glued.Text.TrimEnd().Length) break;
+                            last = glued;
+                        }
+                        name.Add(text);
                     }
                     row.Name = TidyName(Regex.Replace(string.Join(" ", name), @"\s+", " "));
                     if (nameLines.Count > 0 && CutName(row.Name)) row.Name = NameAgain(f, s, nameLines, a, h, row.Name);
@@ -1130,7 +1173,7 @@ namespace IdleMafiaBot
         public CrewRow HireInto(CrewRow empty, CrewRoll roll, bool cheaperToo, double cash, double keep, out CrewRoll used, out double paid)
         {
             used = roll; paid = -1;
-            HiredUnseen = null;
+            HiredUnseen = null; HireBusy = false;
             int t = (int)roll;
             while (t >= 0 && (empty.Hire[t] == null || !empty.HireGold[t] || empty.HirePrice[t] > cash - Math.Max(0, keep))) t = cheaperToo ? t - 1 : -1;
             if (t < 0) return null;
@@ -1153,6 +1196,7 @@ namespace IdleMafiaBot
                 }
             }
 
+            using (var f = Capture()) if (CrewBusyToast(f)) { HireBusy = true; paid = -1; return null; }
             string named;
             int rarity;
             using (var f = Capture()) if (!HiredNotification(f, out named, out rarity) || before.Any(n => WindowNames(named, n))) return null;
@@ -1170,6 +1214,17 @@ namespace IdleMafiaBot
         }
 
         public CrewRow HiredUnseen;
+
+        public bool HireBusy;
+
+        internal static bool CrewBusyToast(Frame f)
+        {
+            var area = Rectangle.FromLTRB(f.Width * 60 / 100, 0, f.Width - 2, f.Height / 4);
+            int s = View.ScaleFor(f, 14, 14.0 * f.Height / 1009);
+            foreach (var prep in new[] { Prep.None, Prep.WhiteText })
+                if (Ocr.Read(f, area, s, prep).Any(l => Parse.Has(l.Text, "BEING UPDATED") || Parse.Has(l.Text, "TRY AGAIN SHORTLY"))) return true;
+            return false;
+        }
 
         static readonly Regex HiredRx = new Regex(@"^\s*H\s*[iIl1]\s*r\s*e\s*d\s+(.+?)\s*[\(\[{]\s*([A-Za-z ]{3,14}?)\s*[\)\]}]", RegexOptions.IgnoreCase);
 

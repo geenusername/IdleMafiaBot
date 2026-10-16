@@ -80,7 +80,7 @@ namespace IdleMafiaBot
         public override string ToString() { return string.Format("{0},{1} {2}", Box.X, Box.Y, Text); }
     }
 
-    public enum Prep { None, WhiteText, DarkText, WhiteBright, WhiteSoft, GreyText, Contrast }
+    public enum Prep { None, WhiteText, DarkText, WhiteBright, WhiteSoft, GreyText, Contrast, RedText }
 
     public static class Ocr
     {
@@ -274,6 +274,7 @@ namespace IdleMafiaBot
                                         : prep == Prep.WhiteBright ? (min >= 185 && max - min <= 70)
                                         : prep == Prep.WhiteSoft ? (min >= 130 && max - min <= 90)
                                         : prep == Prep.GreyText ? (min >= 70 && max <= 200 && max - min <= 30)
+                                        : prep == Prep.RedText ? (r >= 120 && r - Math.Max(gr, b) >= 45)
                                         : (max <= 95));
                     byte v = ink ? (byte)0 : (byte)255;
                     row[i] = v; row[i + 1] = v; row[i + 2] = v; row[i + 3] = 255;

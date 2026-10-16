@@ -29,6 +29,8 @@
   <FontFamily x:Key="Sans">Segoe UI Variable Text, Segoe UI</FontFamily>
   <FontFamily x:Key="Display">Segoe UI Variable Display, Segoe UI</FontFamily>
 
+  <FontFamily x:Key="Deco">Palatino Linotype, Georgia</FontFamily>
+
   <Style TargetType="TextBlock">
     <Setter Property="FontFamily" Value="{StaticResource Sans}"/>
     <Setter Property="Foreground" Value="{StaticResource Text}"/>
@@ -67,7 +69,7 @@
 
   <Style x:Key="Card" TargetType="Border">
     <Setter Property="Background" Value="{StaticResource Panel}"/>
-    <Setter Property="CornerRadius" Value="16"/>
+    <Setter Property="CornerRadius" Value="10"/>
     <Setter Property="BorderBrush" Value="{StaticResource LineSoft}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Padding" Value="20,18"/>
@@ -179,18 +181,18 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <ContentPresenter VerticalAlignment="Center" Margin="0,0,18,0"/>
 
-            <Border x:Name="Track" Grid.Column="1" Width="44" Height="24" CornerRadius="12" Background="{StaticResource Field}"
-                    BorderBrush="{StaticResource Text3}" BorderThickness="1.5" VerticalAlignment="Center">
-              <Ellipse x:Name="Knob" Width="16" Height="16" Fill="{StaticResource Text2}" HorizontalAlignment="Left" Margin="2.5,0,0,0"/>
+            <Border x:Name="Track" Grid.Column="1" Width="40" Height="22" CornerRadius="11" Background="{StaticResource Raised}"
+                    BorderBrush="{StaticResource Raised2}" BorderThickness="1" VerticalAlignment="Center">
+              <Ellipse x:Name="Knob" Width="14" Height="14" Fill="{StaticResource Text3}" HorizontalAlignment="Left" Margin="3,0,0,0"/>
             </Border>
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Track" Property="Background" Value="{StaticResource Gold}"/>
-              <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource Gold}"/>
-              <Setter TargetName="Knob" Property="Fill" Value="{StaticResource OnGold}"/>
+              <Setter TargetName="Track" Property="Background" Value="#4D4220"/>
+              <Setter TargetName="Track" Property="BorderBrush" Value="#7A6526"/>
+              <Setter TargetName="Knob" Property="Fill" Value="{StaticResource Gold}"/>
               <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
-              <Setter TargetName="Knob" Property="Margin" Value="0,0,2.5,0"/>
+              <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Track" Property="Opacity" Value="0.88"/></Trigger>
           </ControlTemplate.Triggers>
@@ -239,8 +241,8 @@
 
   <Style x:Key="SegmentBar" TargetType="Border">
     <Setter Property="Background" Value="{StaticResource Field}"/>
-    <Setter Property="CornerRadius" Value="11"/>
-    <Setter Property="Padding" Value="3"/>
+    <Setter Property="CornerRadius" Value="9"/>
+    <Setter Property="Padding" Value="2"/>
     <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="HorizontalAlignment" Value="Left"/>
@@ -253,17 +255,17 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
-          <Border x:Name="Bd" CornerRadius="8" Padding="14,7" Background="Transparent">
+          <Border x:Name="Bd" CornerRadius="7" Padding="12,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Raised}"/>
               <Setter Property="Foreground" Value="{StaticResource Text}"/>
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Gold}"/>
-              <Setter Property="Foreground" Value="{StaticResource OnGold}"/>
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Raised2}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="#3A3A3E"/>
+              <Setter Property="Foreground" Value="{StaticResource Gold}"/>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -275,29 +277,23 @@
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Foreground" Value="{StaticResource Text2}"/>
     <Setter Property="GroupName" Value="rail"/>
-    <Setter Property="Margin" Value="0,0,0,8"/>
+    <Setter Property="Margin" Value="0,0,0,2"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
-          <Grid Width="84" Background="Transparent">
-            <Border x:Name="Pill" Width="4" Height="0" CornerRadius="0,4,4,0" Background="{StaticResource Gold}"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,24,0,0">
-              <Border.RenderTransform><TranslateTransform Y="-19"/></Border.RenderTransform>
-            </Border>
-            <StackPanel HorizontalAlignment="Center">
-              <Grid>
-                <Border x:Name="Box" Width="48" Height="48" CornerRadius="24" Background="{StaticResource Panel2}">
-                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                <Border x:Name="Badge" MinWidth="20" Height="20" CornerRadius="10" Background="{StaticResource Red}"
-                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,-8,0" Padding="5,0"
-                        BorderBrush="{StaticResource Rail}" BorderThickness="3">
-                  <TextBlock Text="{TemplateBinding Uid}" FontSize="10.5" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-              </Grid>
-              <TextBlock x:Name="Name" Text="{TemplateBinding Tag}" FontSize="11.5" FontWeight="SemiBold" Margin="0,5,0,0"
-                         Foreground="{StaticResource Text3}" HorizontalAlignment="Center"/>
+          <Grid Width="176" Height="40" Background="Transparent">
+            <Border x:Name="Box" Margin="10,0" CornerRadius="8" Background="Transparent"/>
+            <Border x:Name="Pill" Width="3" Height="18" CornerRadius="0,3,3,0" Background="{StaticResource Gold}"
+                    HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Hidden"/>
+            <StackPanel Orientation="Horizontal" Margin="24,0,0,0" VerticalAlignment="Center">
+              <ContentPresenter VerticalAlignment="Center"/>
+              <TextBlock x:Name="Name" Text="{TemplateBinding Tag}" FontSize="14" Margin="13,0,0,1"
+                         Foreground="{StaticResource Text2}" VerticalAlignment="Center"/>
             </StackPanel>
+            <Border x:Name="Badge" MinWidth="20" Height="18" CornerRadius="9" Background="{StaticResource Red}"
+                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,22,0" Padding="6,0">
+              <TextBlock Text="{TemplateBinding Uid}" FontSize="10.5" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="Uid" Value="">
@@ -305,19 +301,53 @@
             </Trigger>
             <MultiTrigger>
               <MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="IsChecked" Value="False"/></MultiTrigger.Conditions>
-              <Setter TargetName="Box" Property="CornerRadius" Value="16"/>
-              <Setter TargetName="Box" Property="Background" Value="{StaticResource Raised2}"/>
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Panel}"/>
               <Setter Property="Foreground" Value="{StaticResource Text}"/>
               <Setter TargetName="Name" Property="Foreground" Value="{StaticResource Text}"/>
-              <Setter TargetName="Pill" Property="Height" Value="18"/>
-              <Setter TargetName="Pill" Property="Margin" Value="0,34,0,0"/>
             </MultiTrigger>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Box" Property="CornerRadius" Value="16"/>
-              <Setter TargetName="Box" Property="Background" Value="{StaticResource Gold}"/>
-              <Setter Property="Foreground" Value="{StaticResource OnGold}"/>
-              <Setter TargetName="Name" Property="Foreground" Value="{StaticResource Gold}"/>
-              <Setter TargetName="Pill" Property="Height" Value="38"/>
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Panel2}"/>
+              <Setter Property="Foreground" Value="{StaticResource Gold}"/>
+              <Setter TargetName="Name" Property="Foreground" Value="{StaticResource Text}"/>
+              <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
+              <Setter TargetName="Pill" Property="Visibility" Value="Visible"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="TopTab" TargetType="RadioButton">
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="GroupName" Value="rail"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Margin" Value="0,0,26,0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Grid Background="Transparent">
+            <StackPanel Margin="0,6,0,0">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="Name" Text="{TemplateBinding Tag}" FontFamily="{StaticResource Deco}" FontSize="19" Foreground="{StaticResource Text3}"/>
+                <Border x:Name="Badge" MinWidth="18" Height="18" CornerRadius="9" Background="{StaticResource Red}" Margin="7,2,0,0" Padding="5,0" VerticalAlignment="Top">
+                  <TextBlock Text="{TemplateBinding Uid}" FontSize="10.5" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+              </StackPanel>
+              <Border x:Name="Line" Height="2" CornerRadius="1" Margin="0,5,0,0" HorizontalAlignment="Left" Width="0" Background="{StaticResource Gold}"/>
+            </StackPanel>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Uid" Value=""><Setter TargetName="Badge" Property="Visibility" Value="Collapsed"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Text2}"/></Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Name" Property="Foreground" Value="{StaticResource Text}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Line" Storyboard.TargetProperty="Width" To="28" Duration="0:0:0.2"/></Storyboard></BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Line" Storyboard.TargetProperty="Width" To="0" Duration="0:0:0.15"/></Storyboard></BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -504,20 +534,13 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="HeaderedContentControl">
-          <Border Background="{StaticResource Panel}" CornerRadius="16" BorderBrush="{StaticResource LineSoft}" BorderThickness="1" Padding="20,14,20,16">
-            <StackPanel>
-              <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource GoldSoft}" VerticalAlignment="Center">
-                  <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Stroke="{StaticResource Gold}" Width="17" Height="17"
-                        Stretch="Uniform" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                </Border>
-                <TextBlock Grid.Column="1" Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" Style="{StaticResource CardTitle}"
-                           VerticalAlignment="Center" Margin="12,0,0,0"/>
-              </Grid>
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource Display}"
+                       FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource Text2}" Margin="4,0,0,8"/>
+            <Border Background="{StaticResource Panel}" CornerRadius="10" BorderBrush="{StaticResource LineSoft}" BorderThickness="1" Padding="18,14,18,14">
               <ContentPresenter/>
-            </StackPanel>
-          </Border>
+            </Border>
+          </DockPanel>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
@@ -552,6 +575,326 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+
+  <Geometry x:Key="IcoClock">M3.5,12 A8.5,8.5 0 1 1 20.5,12 A8.5,8.5 0 1 1 3.5,12 M12,7 L12,12 L15.5,14</Geometry>
+  <Geometry x:Key="IcoReroll">M19.5,8.5 A8,8 0 0 0 5,7.5 M4.5,3.5 L5,7.5 L9,7 M4.5,15.5 A8,8 0 0 0 19,16.5 M19.5,20.5 L19,16.5 L15,17</Geometry>
+
+  <Geometry x:Key="SkylineFar">M-10,149 h56 v91 h-56 Z M52,130 h32 v110 h-32 Z M89,109 h30 v131 h-30 Z M122,126 h26 v114 h-26 Z M150,82 h58 v158 h-58 Z M210,61 h53 v179 h-53 Z M267,87 h63 v153 h-63 Z M334,61 h69 v179 h-69 Z M409,52 h34 v188 h-34 Z M425,35 h2 v34 h-2 Z M444,62 h64 v178 h-64 Z M512,107 h66 v133 h-66 Z M544,78 h2 v34 h-2 Z M583,116 h50 v124 h-50 Z M595,102 h25 v24 h-25 Z M636,62 h70 v178 h-70 Z M706,103 h34 v137 h-34 Z M745,51 h49 v189 h-49 Z M798,109 h49 v131 h-49 Z M810,88 h24 v24 h-24 Z M852,76 h66 v164 h-66 Z M919,90 h55 v150 h-55 Z M945,73 h2 v34 h-2 Z M980,107 h53 v133 h-53 Z M993,82 h26 v16 h-26 Z M1039,126 h63 v114 h-63 Z M1105,76 h55 v164 h-55 Z M1162,72 h31 v168 h-31 Z M1176,58 h2 v34 h-2 Z M1193,149 h35 v91 h-35 Z M1230,148 h32 v92 h-32 Z M1265,42 h60 v198 h-60 Z M1329,147 h59 v93 h-59 Z M1388,40 h46 v200 h-46 Z M1399,18 h23 v14 h-23 Z M1438,122 h33 v118 h-33 Z M1453,92 h2 v34 h-2 Z M1475,117 h47 v123 h-47 Z M1487,96 h23 v26 h-23 Z M1528,64 h55 v176 h-55 Z M1588,127 h30 v113 h-30 Z</Geometry>
+  <Geometry x:Key="SkylineNear">M-10,158 h54 v82 h-54 Z M58,143 h63 v97 h-63 Z M128,102 h103 v138 h-103 Z M178,80 h2 v34 h-2 Z M232,185 h98 v55 h-98 Z M256,167 h49 v23 h-49 Z M344,187 h64 v53 h-64 Z M375,172 h2 v34 h-2 Z M408,127 h58 v113 h-58 Z M436,104 h2 v34 h-2 Z M472,116 h69 v124 h-69 Z M549,160 h51 v80 h-51 Z M601,148 h102 v92 h-102 Z M706,101 h89 v139 h-89 Z M749,70 h2 v34 h-2 Z M809,94 h89 v146 h-89 Z M901,111 h60 v129 h-60 Z M962,126 h54 v114 h-54 Z M1020,171 h88 v69 h-88 Z M1115,140 h64 v100 h-64 Z M1188,147 h101 v93 h-101 Z M1289,125 h57 v115 h-57 Z M1303,110 h28 v11 h-28 Z M1349,107 h98 v133 h-98 Z M1373,81 h49 v25 h-49 Z M1461,128 h101 v112 h-101 Z M1486,112 h50 v15 h-50 Z M1562,165 h53 v75 h-53 Z M1587,137 h2 v34 h-2 Z</Geometry>
+  <Geometry x:Key="SkylineWindows">M9,168 h5 v7 h-5 Z M65,185 h5 v7 h-5 Z M77,153 h5 v7 h-5 Z M77,201 h5 v7 h-5 Z M147,128 h5 v7 h-5 Z M147,144 h5 v7 h-5 Z M183,208 h5 v7 h-5 Z M207,144 h5 v7 h-5 Z M239,211 h5 v7 h-5 Z M275,211 h5 v7 h-5 Z M287,211 h5 v7 h-5 Z M299,211 h5 v7 h-5 Z M375,213 h5 v7 h-5 Z M439,137 h5 v7 h-5 Z M479,158 h5 v7 h-5 Z M491,174 h5 v7 h-5 Z M556,202 h5 v7 h-5 Z M580,218 h5 v7 h-5 Z M608,174 h5 v7 h-5 Z M608,206 h5 v7 h-5 Z M620,158 h5 v7 h-5 Z M656,158 h5 v7 h-5 Z M656,174 h5 v7 h-5 Z M656,206 h5 v7 h-5 Z M668,190 h5 v7 h-5 Z M668,206 h5 v7 h-5 Z M737,207 h5 v7 h-5 Z M749,191 h5 v7 h-5 Z M761,127 h5 v7 h-5 Z M761,143 h5 v7 h-5 Z M816,216 h5 v7 h-5 Z M852,200 h5 v7 h-5 Z M876,152 h5 v7 h-5 Z M876,184 h5 v7 h-5 Z M932,169 h5 v7 h-5 Z M944,217 h5 v7 h-5 Z M969,200 h5 v7 h-5 Z M981,152 h5 v7 h-5 Z M993,136 h5 v7 h-5 Z M993,200 h5 v7 h-5 Z M1075,213 h5 v7 h-5 Z M1134,182 h5 v7 h-5 Z M1158,166 h5 v7 h-5 Z M1195,157 h5 v7 h-5 Z M1296,135 h5 v7 h-5 Z M1308,151 h5 v7 h-5 Z M1320,167 h5 v7 h-5 Z M1320,199 h5 v7 h-5 Z M1368,133 h5 v7 h-5 Z M1392,197 h5 v7 h-5 Z M1404,133 h5 v7 h-5 Z M1416,165 h5 v7 h-5 Z M1416,181 h5 v7 h-5 Z M1416,197 h5 v7 h-5 Z M1468,186 h5 v7 h-5 Z M1480,138 h5 v7 h-5 Z M1492,218 h5 v7 h-5 Z M1504,170 h5 v7 h-5 Z M1516,170 h5 v7 h-5 Z M1516,202 h5 v7 h-5 Z</Geometry>
+
+  <SolidColorBrush x:Key="TileAccent" Color="#E2BD45"/>
+  <Style x:Key="TaskTile" TargetType="CheckBox">
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Margin" Value="0,0,10,10"/>
+    <Setter Property="Height" Value="100"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform><ScaleTransform x:Name="Scale" ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
+
+            <Border x:Name="Glow" CornerRadius="11.5" Margin="-1.5" Background="#D4AF37" Opacity="0" Visibility="Collapsed">
+              <Border.Effect><DropShadowEffect Color="#E8C04A" BlurRadius="24" ShadowDepth="0" Opacity="1"/></Border.Effect>
+            </Border>
+
+            <Border x:Name="Bd" CornerRadius="10" BorderThickness="1" BorderBrush="#242427">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#1C1C1F" Offset="0"/>
+                  <GradientStop Color="#151517" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+
+            <Grid x:Name="On" Opacity="0" IsHitTestVisible="False">
+              <Border CornerRadius="10" Background="#141416"/>
+              <Border CornerRadius="10" Background="{DynamicResource TileAccent}" Opacity="0.2">
+                <Border.OpacityMask>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#FF000000" Offset="0"/>
+                    <GradientStop Color="#22000000" Offset="1"/>
+                  </LinearGradientBrush>
+                </Border.OpacityMask>
+              </Border>
+              <Border CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource TileAccent}" Opacity="0.55"/>
+              <Border Height="2" VerticalAlignment="Top" Margin="12,0.5,12,0" CornerRadius="1" Background="{DynamicResource TileAccent}">
+                <Border.OpacityMask>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#00000000" Offset="0"/>
+                    <GradientStop Color="#FF000000" Offset="0.3"/>
+                    <GradientStop Color="#00000000" Offset="1"/>
+                  </LinearGradientBrush>
+                </Border.OpacityMask>
+              </Border>
+              <Grid Margin="14,12,9,10">
+                <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Width="20" Height="20" Stroke="{DynamicResource TileAccent}"
+                      Stretch="Uniform" StrokeThickness="1.8" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                      HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Ellipse x:Name="OnDot" Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,4,0" Fill="{DynamicResource TileAccent}">
+                  <Ellipse.Effect><DropShadowEffect Color="White" BlurRadius="8" ShadowDepth="0" Opacity="0.35"/></Ellipse.Effect>
+                </Ellipse>
+              </Grid>
+            </Grid>
+            <Grid Margin="14,12,9,10">
+              <Path x:Name="Ico" Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Width="20" Height="20" Stroke="#6F6B61"
+                    Stretch="Uniform" StrokeThickness="1.8" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"/>
+              <Ellipse x:Name="Dot" Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,4,0" Fill="#2F2F32"/>
+              <StackPanel x:Name="Texts" VerticalAlignment="Bottom" Margin="0,0,4,0">
+                <TextBlock x:Name="Name" Text="{TemplateBinding Content}" FontSize="13" TextWrapping="Wrap" TextTrimming="None" LineHeight="16">
+                  <TextBlock.Foreground><SolidColorBrush x:Name="NameBrush" Color="#A8A292"/></TextBlock.Foreground>
+                </TextBlock>
+
+                <TextBlock x:Name="Status" Text="" FontSize="11.5" Foreground="{StaticResource Text3}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+              <Button x:Name="MoreBtn" Visibility="Collapsed" Focusable="False" Cursor="Hand" ToolTip="Options" Width="28" Height="22"
+                      HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-3,0">
+                <Button.Template>
+                  <ControlTemplate TargetType="Button">
+                    <Border x:Name="B" Background="Transparent" CornerRadius="6">
+                      <TextBlock x:Name="T" Text="&#x2022;&#x2022;&#x2022;" FontSize="10" Foreground="{StaticResource Text3}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="B" Property="Background" Value="{StaticResource Raised2}"/>
+                        <Setter TargetName="T" Property="Foreground" Value="{StaticResource Text}"/>
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Button.Template>
+              </Button>
+            </Grid>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Uid" Value="1">
+              <Setter TargetName="MoreBtn" Property="Visibility" Value="Visible"/>
+              <Setter TargetName="Dot" Property="Opacity" Value="0"/>
+              <Setter TargetName="OnDot" Property="Opacity" Value="0"/>
+            </Trigger>
+
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Status" Property="Foreground" Value="{DynamicResource TileAccent}"/>
+              <Setter TargetName="Ico" Property="Visibility" Value="Hidden"/>
+              <Setter TargetName="Dot" Property="Visibility" Value="Hidden"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"/>
+                    <ColorAnimation Storyboard.TargetName="NameBrush" Storyboard.TargetProperty="Color" To="#F0EAD8" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                    <ColorAnimation Storyboard.TargetName="NameBrush" Storyboard.TargetProperty="Color" To="#A8A292" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+
+            <Trigger Property="IsMouseOver" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1.035" Duration="0:0:0.12"/>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1.035" Duration="0:0:0.12"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.15"/>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.15"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger SourceName="Status" Property="Text" Value=""><Setter TargetName="Status" Property="Visibility" Value="Collapsed"/></Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Root" Property="Margin" Value="0,1,0,-1"/>
+            </Trigger>
+
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.35"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="TaskGroup" TargetType="HeaderedContentControl">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Margin" Value="0,0,12,12"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="HeaderedContentControl">
+          <Border CornerRadius="12" Background="#131315" BorderBrush="#1F1F22" BorderThickness="1" ClipToBounds="True">
+            <Grid>
+              <Border Height="70" VerticalAlignment="Top" Background="{DynamicResource TileAccent}" Opacity="0.08" CornerRadius="12,12,0,0">
+                <Border.OpacityMask>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FF000000" Offset="0"/>
+                    <GradientStop Color="#00000000" Offset="1"/>
+                  </LinearGradientBrush>
+                </Border.OpacityMask>
+              </Border>
+              <DockPanel Margin="14,11,4,4">
+                <Grid DockPanel.Dock="Top" Margin="2,0,12,9">
+                  <StackPanel Orientation="Horizontal">
+                    <Border Width="4" Height="15" CornerRadius="2" Background="{DynamicResource TileAccent}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource Deco}" FontSize="16" Foreground="{StaticResource Text}"
+                               Margin="9,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                  <TextBlock x:Name="Count" Text="" FontSize="12" Foreground="{StaticResource Text3}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <ContentPresenter/>
+              </DockPanel>
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="StatTile" TargetType="ContentControl">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Margin" Value="0,0,10,0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContentControl">
+          <Grid>
+            <Border CornerRadius="10" Background="#17171A" BorderBrush="#242427" BorderThickness="1"/>
+            <Border CornerRadius="10" Background="{DynamicResource TileAccent}" Opacity="0.1">
+              <Border.OpacityMask>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#FF000000" Offset="0"/>
+                  <GradientStop Color="#00000000" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.OpacityMask>
+            </Border>
+            <Border Height="2" VerticalAlignment="Top" Margin="12,0.5,12,0" CornerRadius="1" Background="{DynamicResource TileAccent}">
+              <Border.OpacityMask>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                  <GradientStop Color="#00000000" Offset="0"/>
+                  <GradientStop Color="#FF000000" Offset="0.3"/>
+                  <GradientStop Color="#00000000" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.OpacityMask>
+            </Border>
+            <Grid Margin="15,10,12,10">
+              <ContentPresenter VerticalAlignment="Center"/>
+              <Grid Width="34" Height="34" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Ellipse Fill="{DynamicResource TileAccent}" Opacity="0.15"/>
+                <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Width="16" Height="16" Stroke="{DynamicResource TileAccent}"
+                      Stretch="Uniform" StrokeThickness="1.8" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              </Grid>
+            </Grid>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="ActionTile" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Margin" Value="0,0,10,10"/>
+    <Setter Property="Height" Value="100"/>
+    <Setter Property="Foreground" Value="#E0DACA"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform><ScaleTransform x:Name="Scale" ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
+            <Border CornerRadius="10" BorderThickness="1" BorderBrush="#242427">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#1C1C1F" Offset="0"/>
+                  <GradientStop Color="#151517" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Grid x:Name="Prime" Visibility="Collapsed" IsHitTestVisible="False">
+              <Border CornerRadius="10" Background="{DynamicResource TileAccent}" Opacity="0.2">
+                <Border.OpacityMask>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#FF000000" Offset="0"/>
+                    <GradientStop Color="#22000000" Offset="1"/>
+                  </LinearGradientBrush>
+                </Border.OpacityMask>
+              </Border>
+              <Border CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource TileAccent}" Opacity="0.55"/>
+            </Grid>
+            <Grid x:Name="Hi" Opacity="0" IsHitTestVisible="False">
+              <Border CornerRadius="10" Background="{DynamicResource TileAccent}" Opacity="0.12"/>
+              <Border CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource TileAccent}" Opacity="0.45"/>
+            </Grid>
+            <Grid Margin="14,12,9,10">
+              <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Width="20" Height="20" Stroke="{DynamicResource TileAccent}"
+                    Stretch="Uniform" StrokeThickness="1.8" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"/>
+              <ContentPresenter VerticalAlignment="Bottom" Margin="0,0,4,0"/>
+            </Grid>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Uid" Value="1"><Setter TargetName="Prime" Property="Visibility" Value="Visible"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Hi" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1.035" Duration="0:0:0.12"/>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1.035" Duration="0:0:0.12"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Hi" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.15"/>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.15"/>
+                    <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.15"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Margin" Value="0,1,0,-1"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.45"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="OptTile" TargetType="CheckBox" BasedOn="{StaticResource TaskTile}">
+    <Setter Property="Height" Value="60"/>
+  </Style>
+
+  <Style x:Key="OptHead" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource Display}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="{StaticResource Text2}"/>
+    <Setter Property="Margin" Value="0,18,0,10"/>
+  </Style>
+  <Style x:Key="OptName" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0,0,16,0"/>
+  </Style>
+  <Style x:Key="OptLine" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Panel}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource LineSoft}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="Margin" Value="0,0,0,10"/>
   </Style>
 
   <Style TargetType="ToolTip">

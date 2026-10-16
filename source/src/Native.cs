@@ -413,6 +413,38 @@ namespace IdleMafiaBot
             Park();
         }
 
+        public void SlowClick(int x, int y)
+        {
+            var p = MoveTo(x, y);
+            var from = ToScreen(Math.Min(Width - 1, x + Math.Max(40, Width / 30)), y);
+            CheckSpot(from);
+            Native.POINT at = from;
+            for (int i = 0; i <= 8; i++)
+            {
+                if (i > 0)
+                {
+                    Native.POINT c;
+                    if (!Native.GetCursorPos(out c) || Math.Abs(c.X - at.X) > 3 || Math.Abs(c.Y - at.Y) > 3) throw new UserBusyException();
+                }
+                at = new Native.POINT { X = from.X + (p.X - from.X) * i / 8, Y = p.Y };
+                Native.SetCursorPos(at.X, at.Y);
+                Native.mouse_event(Native.MOUSE_MOVE, 1, 0, 0, UIntPtr.Zero);
+                Thread.Sleep(10);
+                Native.mouse_event(Native.MOUSE_MOVE, -1, 0, 0, UIntPtr.Zero);
+                Thread.Sleep(20);
+            }
+            lastBotInput = Native.Now;
+            Thread.Sleep(150);
+            StillOn(p);
+            Native.mouse_event(Native.MOUSE_LDOWN, 0, 0, 0, UIntPtr.Zero);
+            Thread.Sleep(120);
+            Native.mouse_event(Native.MOUSE_LUP, 0, 0, 0, UIntPtr.Zero);
+            lastBotInput = Native.Now;
+            LastInput = DateTime.UtcNow;
+            Thread.Sleep(60);
+            Park();
+        }
+
         public void TypeKeys(string keys)
         {
             foreach (char ch in keys ?? "")

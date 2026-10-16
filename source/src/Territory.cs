@@ -30,7 +30,7 @@ namespace IdleMafiaBot
     sealed partial class Game
     {
 
-        static readonly Regex ToastWhat = new Regex(@"^(.*?)\s*[—–\-:]*\s*(attacked|garrison\s*[lI1|]ost)", RegexOptions.IgnoreCase);
+        static readonly Regex ToastWhat = new Regex(@"^(.*?)\s*[—–\-:]*\s*(defen[cs]es\s*fa[lI1|]{2}en|attacked|garrison\s*[lI1|]ost)", RegexOptions.IgnoreCase);
         static readonly Regex DistrictRow = new Regex(@"^\s*(\d{3})\s+(.+?)\s*/\s*(.+?)\s*$");
         static readonly Regex GarrisonRx = new Regex(@"GARRISON\s*([0-9OoIl]{1,3})\s*/\s*([0-9OoIl]{1,3})", RegexOptions.IgnoreCase);
         static readonly Regex GarrisonFreeRx = new Regex(@"([0-9]{1,3})\s*available", RegexOptions.IgnoreCase);
@@ -46,7 +46,7 @@ namespace IdleMafiaBot
             if (x.IsEmpty || text == null) return null;
             var m = ToastWhat.Match(text.Trim());
             if (!m.Success) return null;
-            garrisonLost = Parse.Key(m.Groups[2].Value).StartsWith("GARRISON");
+            garrisonLost = Parse.Key(m.Groups[2].Value).StartsWith("GARRISON") || Parse.Key(m.Groups[2].Value).StartsWith("DEFEN");
             var from = Regex.Match(text, @"\bfrom\s+(.+?)\s*$", RegexOptions.IgnoreCase);
 
             if (from.Success) by = Regex.Replace(from.Groups[1].Value.Trim(), @"\s+[xX×]$", "");
@@ -82,11 +82,26 @@ namespace IdleMafiaBot
             var search = lines.FirstOrDefault(l => Parse.Has(l.Text, "Search districts"));
             if (search == null) return false;
             int h = Math.Max(8, search.Box.Height);
-            cityBox = lines.Where(l => Math.Abs(l.CenterY - search.CenterY) < 2 * h && l.Box.Right < search.Box.X && Districts.Cities.Any(c => Parse.Key(l.Text).StartsWith(Parse.Key(c))))
-                           .OrderByDescending(l => l.Box.X).FirstOrDefault();
-            districtBox = lines.Where(l => Math.Abs(l.CenterY - search.CenterY) < 2 * h && l.Box.X > search.Box.Right && l.Box.X - search.Box.Right < 12 * h)
-                               .OrderBy(l => l.Box.X).FirstOrDefault();
+            var row = lines.Where(l => Math.Abs(l.CenterY - search.CenterY) < 2 * h).ToList();
+            cityBox = row.Where(l => l.Box.Right < search.Box.X && Districts.Cities.Any(c => Parse.Key(l.Text).StartsWith(Parse.Key(c))))
+                         .OrderByDescending(l => l.Box.X).FirstOrDefault();
+
+            string[] buttons = { "MYFAMIIY", "AIIBONUSES", "SETTINGS" };
+            districtBox = row.Where(l => l.Box.X > search.Box.Right && l.Box.X - search.Box.Right < Math.Max(12 * h, area.Width / 7) && !buttons.Contains(Parse.Key(l.Text)))
+                             .OrderBy(l => l.Box.X).FirstOrDefault();
+
+            if (districtBox != null) districtBox = Stacked(row, districtBox, h);
+            if (cityBox != null) cityBox = Stacked(row, cityBox, h);
             return cityBox != null && districtBox != null;
+        }
+
+        static OcrLine Stacked(List<OcrLine> row, OcrLine first, int h)
+        {
+            var stack = row.Where(l => Math.Abs(l.Box.X - first.Box.X) < 2 * h && !(l.Box.Right < first.Box.X || l.Box.X > first.Box.Right)).OrderBy(l => l.Box.Y).ToList();
+            if (stack.Count < 2) return first;
+            var box = stack[0].Box;
+            foreach (var l in stack) box = Rectangle.Union(box, l.Box);
+            return new OcrLine { Text = string.Join(" ", stack.Select(l => l.Text.Trim())), Box = box };
         }
 
         bool SelectCity(string city, out OcrLine cityBox, out OcrLine districtBox)
@@ -248,14 +263,19 @@ namespace IdleMafiaBot
             int h = Math.Max(8, (held ?? gar.Item1).Box.Height);
             if (held != null)
             {
-                var title = lines.Where(l => l.Box.Bottom < held.Box.Y && held.Box.Y - l.Box.Bottom < 6 * h && Regex.IsMatch(l.Text, "[A-Za-z]{3}")).OrderByDescending(l => l.Box.Height).FirstOrDefault();
+
+                int reach = Math.Max(6 * h, (int)(60 * Math.Min(f.Height / 1009.0, f.Width / 1790.0)));
+                var title = lines.Where(l => l.Box.Bottom < held.Box.Y && held.Box.Y - l.Box.Bottom < reach && Regex.IsMatch(l.Text, "[A-Za-z]{3}")).OrderByDescending(l => l.Box.Height).FirstOrDefault();
                 if (title != null)
                 {
                     w.Title = title.Text.Trim();
                     w.Close = CloseMark(f, title);
 
-                    var box = Rectangle.Inflate(title.Box, title.Box.Height / 2, title.Box.Height / 4 + 2);
+                    int th = title.Box.Height, more = title.Box.X <= PopupArea(f).X + 2 ? 2 * th : th / 2;
+                    var box = Rectangle.FromLTRB(title.Box.X - more, title.Box.Y - th / 4 - 2, title.Box.Right + th / 2, title.Box.Bottom + th / 4 + 2);
                     w.TitleAgain = Ocr.ReadText(f, Rectangle.Intersect(box, new Rectangle(0, 0, f.Width, f.Height)), PopupScale(f) + 1, Prep.Contrast).Trim();
+
+                    w.TitleAgain = Regex.Replace(w.TitleAgain, @"^\S\s+(?=\S{2})", "");
                 }
                 string after = Regex.Replace(held.Text, @"^.*HELD\s*BY\s*", "", RegexOptions.IgnoreCase).Trim();
                 if (after.Length < 2) after = string.Join(" ", lines.Where(l => Math.Abs(l.CenterY - held.CenterY) < h && l.Box.X > held.Box.Right).OrderBy(l => l.Box.X).Select(l => l.Text.Trim()));
@@ -277,15 +297,21 @@ namespace IdleMafiaBot
         static Point CloseMark(Frame f, OcrLine title)
         {
             int th = Math.Max(8, title.Box.Height), x0 = title.Box.Right + 4 * th, y0 = Math.Max(0, title.Box.Y - th), y1 = Math.Min(f.Height, title.Box.Bottom + th);
-            int minX = int.MaxValue, maxX = -1, minY = int.MaxValue, maxY = -1;
-            for (int y = y0; y < y1; y++)
-                for (int x = Math.Max(x0, f.Width / 2); x < f.Width; x++)
-                {
-                    var c = f.Pixel(x, y);
-                    if (c.R < 150 || c.G < 150 || c.B < 150 || Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) > 25) continue;
-                    minX = Math.Min(minX, x); maxX = Math.Max(maxX, x); minY = Math.Min(minY, y); maxY = Math.Max(maxY, y);
-                }
+            Func<Color, bool> light = c => c.R >= 150 && c.G >= 150 && c.B >= 150 && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) <= 25;
+
+            int minX = -1, maxX = -1;
+            for (int x = Math.Max(x0, f.Width / 2); x < f.Width; x++)
+            {
+                bool any = false;
+                for (int y = y0; y < y1 && !any; y++) any = light(f.Pixel(x, y));
+                if (any) { if (minX < 0) minX = x; maxX = x; }
+                else if (minX >= 0 && x - maxX > th / 2) break;
+            }
             if (maxX < 0 || maxX - minX > 4 * th || maxX - minX < th / 3) return Point.Empty;
+            int minY = int.MaxValue, maxY = -1;
+            for (int y = y0; y < y1; y++)
+                for (int x = minX; x <= maxX; x++)
+                    if (light(f.Pixel(x, y))) { minY = Math.Min(minY, y); maxY = Math.Max(maxY, y); }
             return new Point((minX + maxX) / 2, (minY + maxY) / 2);
         }
 

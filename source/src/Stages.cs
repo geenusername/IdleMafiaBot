@@ -35,6 +35,8 @@ namespace IdleMafiaBot
     sealed partial class Game
     {
         static readonly Regex StageTitleRx = new Regex(@"^\s*STAGE\s*([0-9IlOoS|]{1,3})\s*$", RegexOptions.IgnoreCase);
+
+        static readonly Regex StageTitleLooseRx = new Regex(@"^\s*[S5$][^\s\d]{2,6}\s*([0-9]{1,3})\s*$", RegexOptions.IgnoreCase);
         static readonly Regex StageAttackRx = new Regex(@"^\s*ATTACK\s*\(?\s*[1Il|]\s*STAMINA\s*\)?\s*$", RegexOptions.IgnoreCase);
         static readonly Regex StageHealthRx = new Regex(@"^\s*([0-9Oo][0-9Oo,.]*)\s*[/|Il]?\s*([0-9Oo][0-9Oo,.]*)\s*$");
         static readonly Regex StageDamageRx = new Regex(@"([0-9][0-9,.]*)\s*DAMAGE", RegexOptions.IgnoreCase);
@@ -50,6 +52,32 @@ namespace IdleMafiaBot
             var lines = Ocr.Read(f, area, s, Prep.None);
             CheckForPurchasePrompt(lines);
             var st = ReadBossStage(lines, area);
+
+            if (st == null || st.Stage < 0)
+            {
+                var spot = Rectangle.FromLTRB(area.Left, area.Top + area.Height / 10, area.Left + (int)(area.Width * 0.70), area.Top + area.Height * 35 / 100);
+
+                var loose = new Dictionary<int, OcrLine>();
+                var seen = new List<int>();
+                OcrLine title = null;
+                foreach (int z in new[] { s + 1, Math.Min(4, s + 2), Math.Max(1, s) }.Distinct())
+                {
+                    var red = Ocr.Read(f, spot, z, Prep.RedText);
+                    title = red.Where(l => StageTitleRx.IsMatch(l.Text)).OrderByDescending(l => l.Box.Height).FirstOrDefault();
+                    int n;
+                    if (title != null && int.TryParse(Parse.Digits(StageTitleRx.Match(title.Text).Groups[1].Value), out n)) break;
+                    title = null;
+                    var l2 = red.Where(l => StageTitleLooseRx.IsMatch(l.Text)).OrderByDescending(l => l.Box.Height).FirstOrDefault();
+                    if (l2 == null || !int.TryParse(StageTitleLooseRx.Match(l2.Text).Groups[1].Value, out n) || n <= 0) continue;
+                    if (seen.Contains(n)) { title = new OcrLine { Text = "STAGE " + n, Box = loose[n].Box }; break; }
+                    seen.Add(n); loose[n] = l2;
+                }
+                if (title != null)
+                {
+                    lines.Add(title);
+                    st = ReadBossStage(lines, area);
+                }
+            }
 
             if (st != null && st.HealthMax < 0 && st.DefenseLine != null)
             {

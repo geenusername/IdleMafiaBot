@@ -119,6 +119,8 @@ namespace IdleMafiaBot
         public bool CrewSlots = true;
         public bool CrewFill = true;
         public CrewRoll CrewRollType = CrewRoll.Street;
+
+        public LuckRoll CrewLuckRoll = LuckRoll.Same;
         public bool CrewReroll = false;
 
         public int CrewRerollStats = 0;

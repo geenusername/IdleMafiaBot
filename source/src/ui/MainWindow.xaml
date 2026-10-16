@@ -6,55 +6,14 @@
         FontFamily="{StaticResource Sans}" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
   <Grid x:Name="Root">
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="84"/>
+      <ColumnDefinition Width="0"/>
       <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
 
-    <Border Background="{StaticResource Rail}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Top">
-          <Grid Height="72">
-            <Path Data="{StaticResource IcoFedora}" Fill="{StaticResource Gold}" Width="42" Height="42" Stretch="Uniform"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Grid>
-          <Border Height="2" Width="32" CornerRadius="1" Background="{StaticResource Raised}" Margin="0,0,0,16"/>
-        </StackPanel>
-
-        <Grid DockPanel.Dock="Bottom" Height="60" ToolTip="Green when the bot is running">
-          <Ellipse x:Name="RunGlow" Width="22" Height="22" Fill="{StaticResource Text3}" Opacity="0.18"/>
-          <Ellipse x:Name="RunLamp" Width="10" Height="10" Fill="{StaticResource Text3}"/>
-        </Grid>
-
-        <Viewbox StretchDirection="DownOnly" VerticalAlignment="Top" HorizontalAlignment="Center">
-        <StackPanel>
-          <RadioButton x:Name="RailOverview" Style="{StaticResource RailItem}" Tag="Home" IsChecked="True" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoHome}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailJobs" Style="{StaticResource RailItem}" Tag="Energy">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoBolt}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailCombat" Style="{StaticResource RailItem}" Tag="Stamina">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoSwords}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailCrew" Style="{StaticResource RailItem}" Tag="Crew">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoCrew}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailFamily" Style="{StaticResource RailItem}" Tag="Family">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoFamily}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailMoney" Style="{StaticResource RailItem}" Tag="Cash">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoBank}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailRewards" Style="{StaticResource RailItem}" Tag="Rewards">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoGift}"/>
-          </RadioButton>
-          <RadioButton x:Name="RailSettings" Style="{StaticResource RailItem}" Tag="Settings">
-            <Path Style="{StaticResource Icon}" Data="{StaticResource IcoSliders}"/>
-          </RadioButton>
-        </StackPanel>
-        </Viewbox>
-      </DockPanel>
-    </Border>
+    <Grid Visibility="Collapsed">
+      <Ellipse x:Name="RunGlow" Width="22" Height="22" Fill="{StaticResource Text3}" Opacity="0.18"/>
+      <Ellipse x:Name="RunLamp" Width="10" Height="10" Fill="{StaticResource Text3}"/>
+    </Grid>
 
     <Grid Grid.Column="1">
       <Grid.RowDefinitions>
@@ -63,12 +22,33 @@
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
+      <Viewbox Grid.RowSpan="3" Stretch="UniformToFill" VerticalAlignment="Bottom" Height="210" IsHitTestVisible="False" Opacity="0.6">
+        <Canvas Width="1600" Height="240">
+          <Path Data="{StaticResource SkylineFar}" Fill="#17171B"/>
+          <Path Data="{StaticResource SkylineNear}" Fill="#111113"/>
+          <Path Data="{StaticResource SkylineWindows}" Fill="#D4AF37" Opacity="0.3"/>
+        </Canvas>
+      </Viewbox>
+
+      <Border VerticalAlignment="Bottom" Height="1" Margin="0,0,0,0" IsHitTestVisible="False">
+        <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00D4AF37" Offset="0"/><GradientStop Color="#55D4AF37" Offset="0.2"/><GradientStop Color="#22D4AF37" Offset="0.7"/><GradientStop Color="#00D4AF37" Offset="1"/></LinearGradientBrush></Border.Background>
+      </Border>
+
       <Grid Margin="30,0,10,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <TextBlock x:Name="PageTitle" Style="{StaticResource PageTitle}" Text="HOME" VerticalAlignment="Center" Margin="0,0,0,12"/>
+
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,18,0,0">
+          <Path Data="{StaticResource IcoFedora}" Fill="{StaticResource Gold}" Width="30" Height="30" Stretch="Uniform" VerticalAlignment="Top" Margin="0,11,10,0"/>
+          <TextBlock Text="Idle Mafia" FontFamily="{StaticResource Deco}" FontSize="23" Foreground="{StaticResource Gold}" VerticalAlignment="Top" Margin="0,3,0,0"/>
+          <Border Width="1" Height="24" Background="{StaticResource Line}" Margin="24,8,24,0" VerticalAlignment="Top"/>
+          <RadioButton x:Name="RailOverview" Style="{StaticResource TopTab}" Tag="Home" IsChecked="True" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+          <RadioButton x:Name="RailJobs" Style="{StaticResource TopTab}" Tag="Tasks" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+          <RadioButton x:Name="RailSettings" Style="{StaticResource TopTab}" Tag="Settings" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+        </StackPanel>
+        <TextBlock x:Name="PageTitle" Visibility="Collapsed"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,10,0,0">
 
           <Button x:Name="BtnDiscordTop" Style="{StaticResource PrimaryBtn}" Background="#5865F2" Padding="14,10" Margin="0,4,10,0"
@@ -181,343 +161,594 @@
               </Grid>
             </Border>
 
-            <Border Grid.Row="1" Style="{StaticResource Card}" Padding="20,18">
+            <Border Grid.Row="1" CornerRadius="14" BorderBrush="#3A3119" BorderThickness="1" Margin="0,0,0,14" ClipToBounds="True">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#2A2213" Offset="0"/>
+                  <GradientStop Color="#17161A" Offset="0.5"/>
+                  <GradientStop Color="#0F0F12" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.Background>
               <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Border Width="70" Height="70" CornerRadius="16" Background="{StaticResource Gold}">
-                  <Border Margin="4" CornerRadius="12" BorderBrush="#55141414" BorderThickness="1.5">
-                    <TextBlock x:Name="LevelText" Text="?" FontFamily="{StaticResource Display}" FontWeight="Black" FontSize="29"
-                               Foreground="{StaticResource OnGold}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                  </Border>
+
+                <Ellipse Width="420" Height="420" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-202,152,0" IsHitTestVisible="False">
+                  <Ellipse.Fill>
+                    <RadialGradientBrush>
+                      <GradientStop Color="#33F3DFA2" Offset="0"/>
+                      <GradientStop Color="#10F3DFA2" Offset="0.45"/>
+                      <GradientStop Color="#00F3DFA2" Offset="1"/>
+                    </RadialGradientBrush>
+                  </Ellipse.Fill>
+                </Ellipse>
+                <Ellipse Width="64" Height="64" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-24,330,0" IsHitTestVisible="False" Opacity="0.85">
+                  <Ellipse.Fill>
+                    <RadialGradientBrush GradientOrigin="0.35,0.35">
+                      <GradientStop Color="#F6E9C0" Offset="0"/>
+                      <GradientStop Color="#D9C48A" Offset="0.8"/>
+                      <GradientStop Color="#B9A46C" Offset="1"/>
+                    </RadialGradientBrush>
+                  </Ellipse.Fill>
+                  <Ellipse.Effect><DropShadowEffect Color="#F3DFA2" BlurRadius="40" ShadowDepth="0" Opacity="0.6"/></Ellipse.Effect>
+                </Ellipse>
+
+                <Viewbox Stretch="UniformToFill" VerticalAlignment="Bottom" Height="190" IsHitTestVisible="False">
+                  <Canvas Width="1600" Height="240">
+                    <Path Data="{StaticResource SkylineFar}" Fill="#1E1D23"/>
+                    <Path Data="{StaticResource SkylineNear}" Fill="#141417"/>
+                    <Path Data="{StaticResource SkylineWindows}" Fill="#E8C04A" Opacity="0.75"/>
+                  </Canvas>
+                </Viewbox>
+                <Border VerticalAlignment="Bottom" Height="110" IsHitTestVisible="False">
+                  <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                      <GradientStop Color="#000C0C0E" Offset="0"/>
+                      <GradientStop Color="#D90C0C0E" Offset="0.55"/>
+                      <GradientStop Color="#F00C0C0E" Offset="1"/>
+                    </LinearGradientBrush>
+                  </Border.Background>
                 </Border>
-                <StackPanel Grid.Column="1" Margin="18,0,28,0" VerticalAlignment="Center">
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="PlayerName" Text="Waiting for Roblox" FontFamily="{StaticResource Display}" FontWeight="Bold" FontSize="22"/>
-                    <TextBlock x:Name="PlayerFamily" Text="" FontFamily="{StaticResource Serif}" Foreground="{StaticResource Gold}" FontSize="16"
-                               Margin="12,6,0,0"/>
-                  </StackPanel>
-                  <Grid Margin="0,11,0,0" Height="24">
-                    <Border CornerRadius="7" Background="{StaticResource Track}"/>
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="XpA" Width="0*"/>
-                        <ColumnDefinition x:Name="XpB" Width="1*"/>
-                      </Grid.ColumnDefinitions>
-                      <Border CornerRadius="7" Background="{StaticResource Xp}"/>
-                    </Grid>
-                    <TextBlock x:Name="XpText" Text="" FontWeight="Bold" FontSize="12.5" Margin="11,0" VerticalAlignment="Center"/>
+                <StackPanel Margin="24,20,20,16">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="64" Height="64" CornerRadius="14" BorderBrush="{StaticResource Gold}" BorderThickness="1.5">
+                      <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                          <GradientStop Color="#3A3014" Offset="0"/>
+                          <GradientStop Color="#1C180D" Offset="1"/>
+                        </LinearGradientBrush>
+                      </Border.Background>
+                      <Border.Effect><DropShadowEffect Color="#D4AF37" BlurRadius="18" ShadowDepth="0" Opacity="0.35"/></Border.Effect>
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="LevelText" Text="?" FontFamily="{StaticResource Deco}" FontSize="26"
+                                   Foreground="{StaticResource Gold}" HorizontalAlignment="Center" Margin="0,-2,0,0"/>
+                        <TextBlock Text="LEVEL" FontSize="8.5" FontWeight="Bold" Foreground="#A88B2E" HorizontalAlignment="Center" Margin="0,-3,0,0"/>
+                      </StackPanel>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="18,0,28,0" VerticalAlignment="Center">
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="PlayerName" Text="Waiting for Roblox" FontFamily="{StaticResource Deco}" FontSize="30"/>
+                        <TextBlock x:Name="PlayerFamily" Text="" FontFamily="{StaticResource Serif}" Foreground="{StaticResource Gold}" FontSize="16"
+                                   Margin="14,11,0,0"/>
+                      </StackPanel>
+                      <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid Height="7" VerticalAlignment="Center">
+                          <Border CornerRadius="3.5" Background="#0B0B0C"/>
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition x:Name="XpA" Width="0*"/>
+                              <ColumnDefinition x:Name="XpB" Width="1*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border CornerRadius="3.5" Background="{StaticResource Xp}">
+                              <Border.Effect><DropShadowEffect Color="#A07CE0" BlurRadius="10" ShadowDepth="0" Opacity="0.7"/></Border.Effect>
+                            </Border>
+                          </Grid>
+                        </Grid>
+                        <TextBlock x:Name="XpText" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text3}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                      </Grid>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                      <TextBlock x:Name="CashText" Text="-" FontFamily="{StaticResource Deco}" FontSize="38" Foreground="{StaticResource Green}" HorizontalAlignment="Right">
+                        <TextBlock.Effect><DropShadowEffect Color="#7EBE5A" BlurRadius="16" ShadowDepth="0" Opacity="0.35"/></TextBlock.Effect>
+                      </TextBlock>
+                      <TextBlock x:Name="BankText" Text="" FontSize="12.5" Foreground="{StaticResource Text2}" HorizontalAlignment="Right" Margin="0,-2,0,0"/>
+                    </StackPanel>
                   </Grid>
-                </StackPanel>
-                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                  <TextBlock Text="Cash on hand" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                  <TextBlock x:Name="CashText" Text="-" FontFamily="{StaticResource Serif}" FontSize="32" Foreground="{StaticResource Green}"
-                             HorizontalAlignment="Right" Margin="0,-2,0,0"/>
-                  <TextBlock x:Name="BankText" Text="" FontSize="13" Foreground="{StaticResource Text2}" HorizontalAlignment="Right"/>
+                  <Grid Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="22"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="22"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <Grid>
+                        <TextBlock x:Name="EnergyText" Text="-" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Energy" FontSize="12" Foreground="{StaticResource Energy}" HorizontalAlignment="Right"/>
+                      </Grid>
+                      <Grid Height="8" Margin="0,7,0,0">
+                        <Border CornerRadius="4" Background="#0B0B0C"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition x:Name="EnergyA" Width="0*"/><ColumnDefinition x:Name="EnergyB" Width="1*"/></Grid.ColumnDefinitions>
+                          <Border CornerRadius="4" Background="{StaticResource Energy}">
+                            <Border.Effect><DropShadowEffect Color="#E08C32" BlurRadius="10" ShadowDepth="0" Opacity="0.6"/></Border.Effect>
+                          </Border>
+                        </Grid>
+                      </Grid>
+                      <TextBlock x:Name="EnergyTick" Text="" FontSize="11.5" Foreground="{StaticResource Text3}" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <Grid>
+                        <TextBlock x:Name="StaminaText" Text="-" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Stamina" FontSize="12" Foreground="#6FA6D2" HorizontalAlignment="Right"/>
+                      </Grid>
+                      <Grid Height="8" Margin="0,7,0,0">
+                        <Border CornerRadius="4" Background="#0B0B0C"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition x:Name="StaminaA" Width="0*"/><ColumnDefinition x:Name="StaminaB" Width="1*"/></Grid.ColumnDefinitions>
+                          <Border CornerRadius="4" Background="{StaticResource Stamina}">
+                            <Border.Effect><DropShadowEffect Color="#5B8FB9" BlurRadius="10" ShadowDepth="0" Opacity="0.6"/></Border.Effect>
+                          </Border>
+                        </Grid>
+                      </Grid>
+                      <TextBlock x:Name="StaminaTick" Text="" FontSize="11.5" Foreground="{StaticResource Text3}" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                      <Grid>
+                        <TextBlock x:Name="HealthText" Text="-" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Health" FontSize="12" Foreground="#D2645A" HorizontalAlignment="Right"/>
+                      </Grid>
+                      <Grid Height="8" Margin="0,7,0,0">
+                        <Border CornerRadius="4" Background="#0B0B0C"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition x:Name="HealthA" Width="0*"/><ColumnDefinition x:Name="HealthB" Width="1*"/></Grid.ColumnDefinitions>
+                          <Border CornerRadius="4" Background="{StaticResource Health}">
+                            <Border.Effect><DropShadowEffect Color="#BA4A3E" BlurRadius="10" ShadowDepth="0" Opacity="0.6"/></Border.Effect>
+                          </Border>
+                        </Grid>
+                      </Grid>
+                      <TextBlock x:Name="PointsText" Text="" FontSize="11.5" Foreground="{StaticResource Gold}" Margin="0,5,0,0"/>
+                    </StackPanel>
+                  </Grid>
+
+                  <Grid Margin="0,22,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Grid Width="18" Height="18" VerticalAlignment="Center">
+                      <Ellipse x:Name="HomeNowGlow" Width="18" Height="18" Fill="{StaticResource Text3}" Opacity="0.2"/>
+                      <Ellipse x:Name="HomeNowDot" Width="8" Height="8" Fill="{StaticResource Text3}"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" Margin="14,0,16,0" VerticalAlignment="Center">
+                      <TextBlock x:Name="HomeNowTitle" Text="Stopped" FontFamily="{StaticResource Deco}" FontSize="20"/>
+                      <TextBlock x:Name="HomeNow" Text="Press Start and the bot plays for you." FontSize="13" Foreground="{StaticResource Text2}" TextWrapping="Wrap" TextTrimming="None" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Button x:Name="BtnStartBig" Grid.Column="2" Style="{StaticResource PrimaryBtn}" Padding="28,13" MinWidth="170" VerticalAlignment="Center">
+                      <Button.Effect><DropShadowEffect Color="#D4AF37" BlurRadius="22" ShadowDepth="0" Opacity="0.45"/></Button.Effect>
+                      <StackPanel Orientation="Horizontal">
+                        <Path x:Name="BtnStartBigIcon" Data="{StaticResource IcoPlay}" Fill="{StaticResource OnGold}" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="BtnStartBigText" Text="Start" Margin="10,0,0,0" FontWeight="Bold" FontSize="16" Foreground="{StaticResource OnGold}"/>
+                        <Border CornerRadius="5" Background="#22000000" Padding="5,1" Margin="12,0,0,0" VerticalAlignment="Center">
+                          <TextBlock Text="F6" FontSize="11" FontWeight="Bold" Foreground="{StaticResource OnGold}"/>
+                        </Border>
+                      </StackPanel>
+                    </Button>
+                  </Grid>
                 </StackPanel>
               </Grid>
             </Border>
 
-            <Grid Grid.Row="2" Margin="0,0,0,14">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <Border Style="{StaticResource Card}" Margin="0" Padding="16,14">
-                <StackPanel>
-                  <Grid>
-                    <TextBlock Text="Energy" Style="{StaticResource Label}"/>
-                    <TextBlock x:Name="EnergyTick" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                  </Grid>
-                  <Grid Height="26" Margin="0,8,0,0">
-                    <Border CornerRadius="7" Background="{StaticResource Track}"/>
-                    <Grid>
-                      <Grid.ColumnDefinitions><ColumnDefinition x:Name="EnergyA" Width="0*"/><ColumnDefinition x:Name="EnergyB" Width="1*"/></Grid.ColumnDefinitions>
-                      <Border CornerRadius="7" Background="{StaticResource Energy}"/>
-                    </Grid>
-                    <TextBlock x:Name="EnergyText" Text="-" FontWeight="Bold" FontSize="13.5" Margin="11,0" VerticalAlignment="Center"/>
-                  </Grid>
-                </StackPanel>
-              </Border>
-              <Border Grid.Column="2" Style="{StaticResource Card}" Margin="0" Padding="16,14">
-                <StackPanel>
-                  <Grid>
-                    <TextBlock Text="Stamina" Style="{StaticResource Label}"/>
-                    <TextBlock x:Name="StaminaTick" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                  </Grid>
-                  <Grid Height="26" Margin="0,8,0,0">
-                    <Border CornerRadius="7" Background="{StaticResource Track}"/>
-                    <Grid>
-                      <Grid.ColumnDefinitions><ColumnDefinition x:Name="StaminaA" Width="0*"/><ColumnDefinition x:Name="StaminaB" Width="1*"/></Grid.ColumnDefinitions>
-                      <Border CornerRadius="7" Background="{StaticResource Stamina}"/>
-                    </Grid>
-                    <TextBlock x:Name="StaminaText" Text="-" FontWeight="Bold" FontSize="13.5" Margin="11,0" VerticalAlignment="Center"/>
-                  </Grid>
-                </StackPanel>
-              </Border>
-              <Border Grid.Column="4" Style="{StaticResource Card}" Margin="0" Padding="16,14">
-                <StackPanel>
-                  <Grid>
-                    <TextBlock Text="Health" Style="{StaticResource Label}"/>
-                    <TextBlock x:Name="PointsText" Text="" Style="{StaticResource Label}" Foreground="{StaticResource Gold}" HorizontalAlignment="Right"/>
-                  </Grid>
-                  <Grid Height="26" Margin="0,8,0,0">
-                    <Border CornerRadius="7" Background="{StaticResource Track}"/>
-                    <Grid>
-                      <Grid.ColumnDefinitions><ColumnDefinition x:Name="HealthA" Width="0*"/><ColumnDefinition x:Name="HealthB" Width="1*"/></Grid.ColumnDefinitions>
-                      <Border CornerRadius="7" Background="{StaticResource Health}"/>
-                    </Grid>
-                    <TextBlock x:Name="HealthText" Text="-" FontWeight="Bold" FontSize="13.5" Margin="11,0" VerticalAlignment="Center"/>
-                  </Grid>
-                </StackPanel>
-              </Border>
-            </Grid>
-
             <Grid Grid.Row="3">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*"/>
-                <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="2*" MinWidth="330"/>
-              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 
-              <Border Style="{StaticResource Card}" Padding="20,18,6,6">
+              <UniformGrid Columns="6" Margin="0,0,-10,14">
+                <ContentControl Style="{StaticResource StatTile}" Tag="{StaticResource IcoJobs}">
+                  <ContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#E8953C"/></ContentControl.Resources>
+                  <StackPanel><TextBlock x:Name="TotJobs" Text="0" FontFamily="{StaticResource Deco}" FontSize="24"/>
+                    <TextBlock Text="jobs" FontSize="12" Foreground="{StaticResource Text2}"/></StackPanel>
+                </ContentControl>
+                <ContentControl Style="{StaticResource StatTile}" Tag="{StaticResource IcoHeist}">
+                  <ContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#B08AE6"/></ContentControl.Resources>
+                  <StackPanel><TextBlock x:Name="TotHelps" Text="0" FontFamily="{StaticResource Deco}" FontSize="24"/>
+                    <TextBlock Text="heist helps" FontSize="12" Foreground="{StaticResource Text2}"/></StackPanel>
+                </ContentControl>
+                <ContentControl Style="{StaticResource StatTile}" Tag="{StaticResource IcoCrown}">
+                  <ContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#5FA0D6"/></ContentControl.Resources>
+                  <StackPanel><TextBlock x:Name="TotBoss" Text="0" FontFamily="{StaticResource Deco}" FontSize="24"/>
+                    <TextBlock Text="boss hits" FontSize="12" Foreground="{StaticResource Text2}"/></StackPanel>
+                </ContentControl>
+                <ContentControl Style="{StaticResource StatTile}" Tag="{StaticResource IcoSwords}">
+                  <ContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#E05A4C"/></ContentControl.Resources>
+                  <StackPanel><TextBlock x:Name="TotFights" Text="0" FontFamily="{StaticResource Deco}" FontSize="24"/>
+                    <TextBlock x:Name="TotFightsSub" Text="fights" FontSize="12" Foreground="{StaticResource Text2}"/></StackPanel>
+                </ContentControl>
+                <ContentControl Style="{StaticResource StatTile}" Tag="{StaticResource IcoBank}">
+                  <ContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#86C95F"/></ContentControl.Resources>
+                  <StackPanel><TextBlock x:Name="TotDeposits" Text="0" FontFamily="{StaticResource Deco}" FontSize="24"/>
+                    <TextBlock Text="deposits" FontSize="12" Foreground="{StaticResource Text2}"/></StackPanel>
+                </ContentControl>
+                <ContentControl Style="{StaticResource StatTile}" Tag="{StaticResource IcoGift}">
+                  <ContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#E2BD45"/></ContentControl.Resources>
+                  <StackPanel><TextBlock x:Name="TotRewards" Text="0" FontFamily="{StaticResource Deco}" FontSize="24"/>
+                    <TextBlock Text="rewards" FontSize="12" Foreground="{StaticResource Text2}"/></StackPanel>
+                </ContentControl>
+              </UniformGrid>
+
+              <Border Grid.Row="1" Style="{StaticResource Card}" Padding="0,14,0,6">
                 <DockPanel>
-                  <Grid DockPanel.Dock="Top" Margin="0,0,14,0">
-                    <TextBlock Text="What the bot did" Style="{StaticResource CardTitle}"/>
-                    <TextBlock x:Name="FeedCount" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                  <Grid DockPanel.Dock="Top" Margin="20,0,20,0">
+                    <TextBlock Text="Activity" FontFamily="{StaticResource Deco}" FontSize="17"/>
+                    <TextBlock x:Name="FeedCount" Text="" FontSize="12" Foreground="{StaticResource Text3}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                   </Grid>
-                  <TextBlock x:Name="FeedEmpty" DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,12,14,4"
+                  <TextBlock x:Name="FeedEmpty" DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="20,12,20,4"
                              Text="Nothing yet. Press Start and everything the bot does shows up here."/>
-                  <ScrollViewer x:Name="FeedScroll" VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
-                  <ItemsControl x:Name="Feed" Margin="0,0,14,0">
+                  <ScrollViewer x:Name="FeedScroll" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                  <ItemsControl x:Name="Feed" Margin="0,0,0,0">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Grid Margin="0,0,0,14">
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="46"/>
-                            <ColumnDefinition Width="*"/>
-                          </Grid.ColumnDefinitions>
-                          <Border Width="36" Height="36" CornerRadius="18" Background="{Binding Color}" VerticalAlignment="Top">
-                            <Path Data="{Binding Icon}" Stroke="#161616" StrokeThickness="2" Width="18" Height="18" Stretch="Uniform"
-                                  StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                          </Border>
-                          <StackPanel Grid.Column="1">
-                            <StackPanel Orientation="Horizontal">
-                              <TextBlock Text="{Binding Who}" Foreground="{Binding Color}" FontWeight="Bold" FontSize="14"/>
-                              <TextBlock Text="{Binding Time}" Foreground="#6F6B61" FontSize="12" Margin="9,1,0,0" VerticalAlignment="Center"/>
-                            </StackPanel>
-                            <Border Margin="0,5,0,0" Background="#212123" CornerRadius="4,12,12,12" BorderBrush="{Binding Stripe}"
-                                    BorderThickness="4,0,0,0" Padding="13,9" HorizontalAlignment="Left">
-                              <TextBlock Text="{Binding Text}" TextWrapping="Wrap" TextTrimming="None" FontSize="13.5" Foreground="#D9D3C1"/>
-                            </Border>
-                          </StackPanel>
-                        </Grid>
+                        <Border BorderBrush="#222225" BorderThickness="0,1,0,0" Padding="20,9,20,9">
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="30"/>
+                              <ColumnDefinition Width="72"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Data="{Binding Icon}" Stroke="{Binding Color}" StrokeThickness="1.8" Width="15" Height="15" Stretch="Uniform"
+                                  StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Who}" Foreground="{Binding Color}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Top"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="Wrap" TextTrimming="None" FontSize="13" Foreground="#D9D3C1" Margin="0,0,14,0"/>
+                            <TextBlock Grid.Column="3" Text="{Binding Time}" Foreground="#6F6B61" FontSize="12" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                          </Grid>
+                        </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                   </ScrollViewer>
                 </DockPanel>
               </Border>
-
-              <ScrollViewer x:Name="HomeSide" Grid.Column="2" VerticalScrollBarVisibility="Auto" Margin="0,0,-22,0">
-              <StackPanel Margin="0,0,22,0">
-
-                <Border Style="{StaticResource Card}">
-                  <StackPanel>
-                    <Grid>
-                      <TextBlock Text="Help" Style="{StaticResource CardTitle}"/>
-                      <TextBlock x:Name="SupportVersion" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    </Grid>
-                    <UniformGrid Columns="2" Margin="0,12,0,0">
-                      <Button x:Name="BtnDiscord" Style="{StaticResource Btn}" Margin="0,0,4,8" Padding="10,10" ToolTip="Questions, problems or ideas? Ask in the Discord">
-                        <StackPanel Orientation="Horizontal">
-                          <Path Data="{StaticResource IcoDiscord}" Fill="#8C96F7" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center"/>
-                          <TextBlock Text="Discord" Margin="7,0,0,0" FontWeight="SemiBold" FontSize="13"/>
-                        </StackPanel>
-                      </Button>
-                      <Button x:Name="BtnStar" Style="{StaticResource Btn}" Margin="4,0,0,8" Padding="10,10" ToolTip="It's free. A star on GitHub helps other players find it.">
-                        <StackPanel Orientation="Horizontal">
-                          <Path Data="{StaticResource IcoStar}" Fill="{StaticResource Gold}" Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"/>
-                          <TextBlock Text="Star on GitHub" Margin="7,0,0,0" FontWeight="SemiBold" FontSize="13"/>
-                        </StackPanel>
-                      </Button>
-                      <Button x:Name="BtnDownloads" Style="{StaticResource Btn}" Margin="0,0,4,0" Padding="10,10" ToolTip="New versions come out here">
-                        <StackPanel Orientation="Horizontal">
-                          <Path Style="{StaticResource Icon}" Data="{StaticResource IcoDownload}" Width="15" Height="15"/>
-                          <TextBlock Text="Download page" Margin="7,0,0,0" FontWeight="SemiBold" FontSize="13"/>
-                        </StackPanel>
-                      </Button>
-                      <Button x:Name="BtnReportHome" Style="{StaticResource Btn}" Margin="4,0,0,0" Padding="10,10">
-                        <StackPanel Orientation="Horizontal">
-                          <Path Style="{StaticResource Icon}" Data="{StaticResource IcoFlag}" Width="15" Height="15"/>
-                          <TextBlock x:Name="ReportHomeText" Text="Report a problem" Margin="7,0,0,0" FontWeight="SemiBold" FontSize="13"/>
-                        </StackPanel>
-                      </Button>
-                    </UniformGrid>
-                  </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}">
-                  <StackPanel>
-                    <TextBlock Text="Up next" Style="{StaticResource CardTitle}"/>
-                    <Grid Margin="0,14,0,0">
-                      <TextBlock Text="Job" Style="{StaticResource Label}"/>
-                      <TextBlock x:Name="JobModeText" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    </Grid>
-                    <TextBlock x:Name="JobName" Text="-" FontSize="15" FontWeight="SemiBold" Margin="0,12,0,2" TextWrapping="Wrap" TextTrimming="None"/>
-                    <TextBlock x:Name="JobMeta" Text="" Style="{StaticResource Hint}"/>
-                    <Grid Height="10" Margin="0,12,0,0">
-                      <Border CornerRadius="5" Background="{StaticResource Track}"/>
-                      <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition x:Name="JobMasteryA" Width="0*"/><ColumnDefinition x:Name="JobMasteryB" Width="1*"/></Grid.ColumnDefinitions>
-                        <Border CornerRadius="5" Background="{StaticResource Gold}"/>
-                      </Grid>
-                    </Grid>
-                    <TextBlock x:Name="JobMasteryText" Text="" Style="{StaticResource Label}" Margin="0,7,0,0"/>
-                    <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,16"/>
-                  <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <StackPanel>
-                      <TextBlock Text="Next boss" Style="{StaticResource Label}"/>
-                      <TextBlock x:Name="BossName" Text="-" FontWeight="SemiBold" FontSize="14" Margin="0,6,0,0"/>
-                      <TextBlock x:Name="BossWhen" Text="" Style="{StaticResource Hint}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                      <TextBlock Text="Heist favors" Style="{StaticResource Label}"/>
-                      <TextBlock x:Name="FavorsText" Text="-" Style="{StaticResource Big}" FontSize="22" Margin="0,2,0,0"/>
-                      <WrapPanel x:Name="FavorPips" Margin="0,4,0,0" Width="165" HorizontalAlignment="Left"/>
-                    </StackPanel>
-                  </Grid>
-                    <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,16"/>
-                    <TextBlock Text="Operations" Style="{StaticResource Label}"/>
-                    <TextBlock x:Name="OpsEmpty" Text="Not read yet." Style="{StaticResource Hint}" Margin="0,10,0,0"/>
-                    <ItemsControl x:Name="OpsList" Margin="0,10,0,0">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <StackPanel Margin="0,0,0,10">
-                            <Grid>
-                              <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="SemiBold" Foreground="#E8E2D0"/>
-                              <TextBlock Text="{Binding Left}" FontSize="12.5" Foreground="#A8A292" HorizontalAlignment="Right"/>
-                            </Grid>
-                            <Grid Height="8" Margin="0,6,0,0">
-                              <Border CornerRadius="4" Background="#0D0D0E"/>
-                              <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="{Binding A}"/><ColumnDefinition Width="{Binding B}"/></Grid.ColumnDefinitions>
-                                <Border CornerRadius="4" Background="#5B8FB9"/>
-                              </Grid>
-                            </Grid>
-                          </StackPanel>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}">
-                  <StackPanel>
-                    <TextBlock Text="This session" Style="{StaticResource CardTitle}"/>
-                    <UniformGrid Columns="3" Margin="0,12,0,0">
-                      <StackPanel Margin="0,0,0,12"><TextBlock x:Name="TotJobs" Text="0" Style="{StaticResource Big}"/><TextBlock Text="jobs" Style="{StaticResource Label}"/></StackPanel>
-                      <StackPanel Margin="0,0,0,12"><TextBlock x:Name="TotHelps" Text="0" Style="{StaticResource Big}"/><TextBlock Text="heist helps" Style="{StaticResource Label}"/></StackPanel>
-                      <StackPanel Margin="0,0,0,12"><TextBlock x:Name="TotBoss" Text="0" Style="{StaticResource Big}"/><TextBlock Text="boss hits" Style="{StaticResource Label}"/></StackPanel>
-                      <StackPanel><TextBlock x:Name="TotFights" Text="0" Style="{StaticResource Big}"/><TextBlock x:Name="TotFightsSub" Text="fights" Style="{StaticResource Label}"/></StackPanel>
-                      <StackPanel><TextBlock x:Name="TotDeposits" Text="0" Style="{StaticResource Big}"/><TextBlock Text="deposits" Style="{StaticResource Label}"/></StackPanel>
-                      <StackPanel><TextBlock x:Name="TotRewards" Text="0" Style="{StaticResource Big}"/><TextBlock Text="rewards and crates" Style="{StaticResource Label}"/></StackPanel>
-                    </UniformGrid>
-                  </StackPanel>
-                </Border>
-              </StackPanel>
-              </ScrollViewer>
             </Grid>
+
+            <StackPanel x:Name="HomeHidden" Visibility="Collapsed">
+              <Button x:Name="BtnReportHome"><TextBlock x:Name="ReportHomeText"/></Button>
+            </StackPanel>
           </Grid>
         </ScrollViewer>
 
         <ScrollViewer x:Name="PageJobs" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Fill" x:Name="FillJobs">
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <Grid Tag="Cols" Grid.Row="0">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+          <StackPanel Margin="30,8,18,16">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+              <HeaderedContentControl Style="{StaticResource TaskGroup}" Header="Energy">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#E8953C"/></HeaderedContentControl.Resources>
+                <UniformGrid Columns="2" Rows="1">
+                  <CheckBox x:Name="sw_Jobs" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoJobs}" Uid="1" Content="Do jobs" ToolTip="Each job costs energy and gives cash, XP and mastery."/>
+                  <CheckBox x:Name="sw_Heists" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoHeist}" Uid="1" Content="Help heists" ToolTip="Your family's first, then only the ones worth more XP."/>
+                </UniformGrid>
+              </HeaderedContentControl>
+              <HeaderedContentControl Grid.Column="1" Style="{StaticResource TaskGroup}" Header="Stamina">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#5FA0D6"/></HeaderedContentControl.Resources>
+                <UniformGrid Columns="3" Rows="1">
+                  <CheckBox x:Name="sw_Bosses" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoCrown}" Uid="1" Content="Fight bosses" ToolTip="Climbs the stages, again after the daily reset."/>
+                  <CheckBox x:Name="sw_Fights" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoSwords}" Uid="1" Content="Attack players" ToolTip="Lowest level first, each player once, then a new list."/>
+                  <CheckBox x:Name="sw_WhaleHunt" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoFlag}" Uid="1" Content="Hit big wins again" ToolTip="Banks, then hits a player again after a big win."/>
+                </UniformGrid>
+              </HeaderedContentControl>
+              <HeaderedContentControl Grid.Column="2" Style="{StaticResource TaskGroup}" Header="Crew">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#E8769F"/></HeaderedContentControl.Resources>
+                <UniformGrid Columns="3" Rows="1">
+                  <CheckBox x:Name="sw_CrewFill" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoCrew}" Uid="1" Content="Hire into empty slots" ToolTip="With the hire you pick, or a cheaper one."/>
+                  <CheckBox x:Name="tile_Reroll" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoReroll}" Uid="1" Content="Reroll the worst" ToolTip="Dismisses your worst henchman and hires again, until the crew is the best the hire can reach."/>
+                  <CheckBox x:Name="sw_TrainCrew" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoStar}" Uid="1" Content="Train the crew" ToolTip="Epic and up. Costs cash and time."/>
+                </UniformGrid>
+              </HeaderedContentControl>
+            </Grid>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="4*"/><ColumnDefinition Width="5*"/></Grid.ColumnDefinitions>
+              <HeaderedContentControl Style="{StaticResource TaskGroup}" Header="Family">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#4FC2B1"/></HeaderedContentControl.Resources>
+                <UniformGrid Columns="4" Rows="1">
+                  <CheckBox x:Name="sw_FamilyWatch" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoFamily}" Uid="1" Content="Watch my family" ToolTip="Reads the family pages every 3 hours. It only reads."/>
+                  <CheckBox x:Name="sw_Takedown" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoTarget}" Uid="1" Content="Takedown attacks" ToolTip="The family's weekly boss, free attacks only. It never uses tickets."/>
+                  <CheckBox x:Name="sw_GiveStamina" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoBolt}" Uid="1" Content="Stamina to perks" ToolTip="Spare stamina to your family's stamina perks."/>
+                  <CheckBox x:Name="sw_DefendTerritory" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoShield}" Uid="1" Content="Defend districts" ToolTip="When one is attacked: your whole crew to it, recalled after."/>
+                </UniformGrid>
+              </HeaderedContentControl>
+              <HeaderedContentControl Grid.Column="1" Style="{StaticResource TaskGroup}" Header="Cash">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#86C95F"/></HeaderedContentControl.Resources>
+                <UniformGrid Columns="5" Rows="1">
+                  <CheckBox x:Name="sw_Properties" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoHome}" Uid="1" Content="Buy properties" ToolTip="The best you can afford, swapping out your weakest when a better one is affordable."/>
+                  <CheckBox x:Name="sw_Bank" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoBank}" Content="Bank my cash" ToolTip="After every round, so other players can't take it."/>
+                  <CheckBox x:Name="sw_SafehouseUpgrade" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoLock}" Uid="1" Content="Upgrade safehouse" ToolTip="With the cash left after the next property."/>
+                  <CheckBox x:Name="sw_SpendPoints" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoChart}" Uid="1" Content="Spend skill points" ToolTip="On the stat you pick."/>
+                  <CheckBox x:Name="sw_ShopBuy" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoBag}" Uid="1" Content="Buy from the shop" ToolTip="Everything you can pay for with cash. Never Robux."/>
+                </UniformGrid>
+              </HeaderedContentControl>
+            </Grid>
+            <HeaderedContentControl Style="{StaticResource TaskGroup}" Header="Rewards">
+              <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#B08AE6"/></HeaderedContentControl.Resources>
+              <UniformGrid Columns="7" Rows="1">
+                <CheckBox x:Name="sw_Playtime" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoClock}" Content="Playtime rewards" ToolTip="At 5, 15, 30, 60 and 120 minutes a day."/>
+                <CheckBox x:Name="sw_Contracts" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoLog}" Content="Contract tasks" ToolTip="Daily and weekly."/>
+                <CheckBox x:Name="sw_Operations" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoHourglass}" Uid="1" Content="Operations" ToolTip="The most XP per hour in every free slot."/>
+                <CheckBox x:Name="sw_Briefcases" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoGift}" Content="Lucky Briefcases" ToolTip="Free picks only, never keys."/>
+                <CheckBox x:Name="sw_Events" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoCalendar}" Content="Use events" ToolTip="Plans around the game's events."/>
+                <CheckBox x:Name="sw_EquipBest" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoGear}" Content="Equip the best gear" ToolTip="Then the spare items go into the collection."/>
+                <CheckBox x:Name="sw_Crates" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoDownload}" Content="Open crates" ToolTip="All of the same crate at once, then the best gear on again."/>
+              </UniformGrid>
+            </HeaderedContentControl>
+          </StackPanel>
+        </ScrollViewer>
+
+        <ScrollViewer x:Name="PageSettings" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+          <StackPanel Margin="30,8,18,16">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="4*"/><ColumnDefinition Width="5*"/></Grid.ColumnDefinitions>
+              <HeaderedContentControl Style="{StaticResource TaskGroup}" Header="Your PC">
+                <UniformGrid Columns="4" Rows="1" VerticalAlignment="Top">
+                  <CheckBox x:Name="sw_WaitWhileBusy" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoHourglass}" Content="Wait while I use the PC" ToolTip="It only takes the mouse once you've left the PC alone for 15 seconds."/>
+                  <CheckBox x:Name="sw_GiveFocusBack" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoMonitor}" Content="Give my window back" ToolTip="After each round."/>
+                  <CheckBox x:Name="sw_Rejoin" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoPlug}" Content="Rejoin after a disconnect" ToolTip="Presses Reconnect or starts the game again."/>
+                  <CheckBox x:Name="sw_KeepAlive" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoClock}" Content="Stay in the game" ToolTip="A click after 15 quiet minutes, so Roblox doesn't kick you at 20."/>
+                </UniformGrid>
+              </HeaderedContentControl>
+              <HeaderedContentControl Grid.Column="1" Style="{StaticResource TaskGroup}" Header="Tools">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#D8C79A"/></HeaderedContentControl.Resources>
+                <StackPanel>
+
+                  <UniformGrid Rows="1">
+
+                    <Button x:Name="BtnCheck" Style="{StaticResource ActionTile}" Tag="{StaticResource IcoScan}" Uid="1">
+                      <TextBlock Text="Check my game" TextWrapping="Wrap"/>
+                    </Button>
+                    <Button x:Name="BtnReview" Style="{StaticResource ActionTile}" Tag="{StaticResource IcoChart}">
+                      <TextBlock Text="See the last check" TextWrapping="Wrap"/>
+                    </Button>
+
+                    <Grid>
+                      <Button x:Name="BtnUpdate" Style="{StaticResource ActionTile}" Tag="{StaticResource IcoDownload}">
+                        <TextBlock x:Name="UpdateText" Text="Check for updates" TextWrapping="Wrap"/>
+                      </Button>
+
+                      <Border x:Name="UpdateNew" Visibility="Collapsed" IsHitTestVisible="False" Height="16" CornerRadius="8" Padding="7,0"
+                              Background="{StaticResource Red}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,4,0">
+                        <TextBlock Text="new" FontSize="10" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                      </Border>
+                    </Grid>
+                    <Button x:Name="BtnLog" Style="{StaticResource ActionTile}" Tag="{StaticResource IcoLog}">
+                      <TextBlock Text="Open log" TextWrapping="Wrap"/>
+                    </Button>
+                    <Button x:Name="BtnProblems" Style="{StaticResource ActionTile}" Tag="{StaticResource IcoFolder}">
+                      <TextBlock x:Name="ProblemsText" Text="Problems" TextWrapping="Wrap"/>
+                    </Button>
+                    <Button x:Name="BtnReport" Style="{StaticResource ActionTile}" Tag="{StaticResource IcoFlag}">
+                      <TextBlock x:Name="ReportText" Text="Report a problem" TextWrapping="Wrap"/>
+                    </Button>
+                  </UniformGrid>
+                  <Grid Margin="2,2,12,10">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="Check my game" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Text2}" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="CheckWhen" Grid.Column="1" Text="" FontSize="12.5" Foreground="{StaticResource Text3}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Row="1" Text="Updates" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Text2}" Margin="0,5,12,0"/>
+                    <TextBlock x:Name="UpdateStatus" Grid.Row="1" Grid.Column="1" FontSize="12.5" Foreground="{StaticResource Text3}" TextWrapping="Wrap" Margin="0,5,0,0"
+                               Text="Looks for a new version on the bot's GitHub page, only when you press the button. Your settings stay."/>
+                  </Grid>
+                </StackPanel>
+              </HeaderedContentControl>
+            </Grid>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+              <HeaderedContentControl Style="{StaticResource TaskGroup}" Header="Discord messages">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#8C96F7"/></HeaderedContentControl.Resources>
+                <Border Margin="2,0,10,12">
               <StackPanel>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Jobs" Tag="{StaticResource IcoJobs}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Jobs" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Do jobs" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Each job costs energy and gives cash, XP and mastery." Style="{StaticResource Hint}"/>
+                <TextBlock Style="{StaticResource Hint}" Text="Messages in your own channel. No server? Type /alerts in our Discord."/>
+                <Grid Margin="0,14,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="40">
+                    <Grid>
+                      <PasswordBox x:Name="DiscordLinkBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
+                                   CaretBrush="{StaticResource Gold}" FontSize="14" VerticalContentAlignment="Center" Padding="12,0" PasswordChar="●"/>
+                      <TextBlock x:Name="DiscordLinkHint" Text="Paste your webhook link here" Foreground="{StaticResource Text3}"
+                                 VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                    </Grid>
+                  </Border>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Button x:Name="BtnDiscordTest" Style="{StaticResource Btn}">
+                      <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource Icon}" Data="{StaticResource IcoDiscord}" Width="16" Height="16"/>
+                        <TextBlock Text="Send a test" Margin="8,0,0,0" FontWeight="SemiBold"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnDiscordClear" Style="{StaticResource GhostBtn}" Margin="6,0,0,0">
+                      <TextBlock Text="Remove" FontWeight="SemiBold" Foreground="{StaticResource Text2}"/>
+                    </Button>
                   </StackPanel>
-                </CheckBox>
-                <TextBlock Text="Which job" Style="{StaticResource Label}" Margin="0,22,0,8"/>
-                <Border Style="{StaticResource SegmentBar}">
-                  <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="seg_JobMode_BestXp" GroupName="jobmode" Style="{StaticResource Segment}" Content="Best XP"/>
-                    <RadioButton x:Name="seg_JobMode_Mastery" GroupName="jobmode" Style="{StaticResource Segment}" Content="Finish mastery"/>
-                    <RadioButton x:Name="seg_JobMode_OneJob" GroupName="jobmode" Style="{StaticResource Segment}" Content="One job"/>
+                </Grid>
+                <TextBlock x:Name="DiscordStatus" Style="{StaticResource Hint}" Margin="0,8,0,0" Text=""/>
+
+                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,12"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="When to send a message" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="DiscordWhenCount" Grid.Column="1" Text="" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <ToggleButton x:Name="Fold_DiscordWhen" Grid.Column="2" Style="{StaticResource Fold}" ToolTip="Show or hide when it sends a message"/>
+                </Grid>
+                <Border x:Name="DiscordWhen" Margin="0,14,0,0">
+                  <UniformGrid Columns="3" Margin="0,0,-10,-10">
+                    <CheckBox x:Name="sw_DiscordProblems" Style="{StaticResource OptTile}" Content="Problems" ToolTip="Disconnected, stuck, or the bot stopped by itself."/>
+                    <CheckBox x:Name="sw_DiscordRarity" Style="{StaticResource OptTile}" Content="Mythic or better henchman" ToolTip="A hire or reroll that brings one."/>
+                    <CheckBox x:Name="sw_DiscordProperty" Style="{StaticResource OptTile}" Content="New property" ToolTip="Each property it builds."/>
+                    <CheckBox x:Name="sw_DiscordSummary" Style="{StaticResource OptTile}" Content="Update every 3 hours" ToolTip="Your level, cash and what the bot did."/>
+                    <CheckBox x:Name="sw_DiscordLevel" Style="{StaticResource OptTile}" Content="Level up" ToolTip="Often on a new account: one message per 10 minutes."/>
+                    <CheckBox x:Name="sw_DiscordBoss" Style="{StaticResource OptTile}" Content="Boss beaten" ToolTip="Often: one message per 10 minutes."/>
+                  </UniformGrid>
+                </Border>
+              </StackPanel>
+                </Border>
+              </HeaderedContentControl>
+
+              <HeaderedContentControl Grid.Column="1" Style="{StaticResource TaskGroup}" Header="Stats in our Discord">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#8C96F7"/></HeaderedContentControl.Resources>
+                <Border Margin="2,0,10,12">
+              <StackPanel>
+                <TextBlock x:Name="StatsHint" Style="{StaticResource Hint}" Text="Your level, cash and crew in our Discord. Type /link there and paste its link here. Only game numbers, never your Roblox name or a picture."/>
+                <Grid Margin="0,14,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="40">
+                    <Grid>
+                      <PasswordBox x:Name="StatsLinkBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
+                                   CaretBrush="{StaticResource Gold}" FontSize="14" VerticalContentAlignment="Center" Padding="12,0" PasswordChar="●"/>
+                      <TextBlock x:Name="StatsLinkHint" Text="Paste the link from /link here" Foreground="{StaticResource Text3}"
+                                 VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                    </Grid>
+                  </Border>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Button x:Name="BtnStatsPreview" Style="{StaticResource Btn}">
+                      <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource Icon}" Data="{StaticResource IcoScan}" Width="16" Height="16"/>
+                        <TextBlock x:Name="StatsPreviewLabel" Text="What it sends" Margin="8,0,0,0" FontWeight="SemiBold"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnStatsClear" Style="{StaticResource GhostBtn}" Margin="6,0,0,0">
+                      <TextBlock Text="Remove" FontWeight="SemiBold" Foreground="{StaticResource Text2}"/>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+                <TextBlock x:Name="StatsStatus" Style="{StaticResource Hint}" Margin="0,8,0,0" Text=""/>
+                <Border x:Name="StatsPreviewBox" Visibility="Collapsed" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1.5" CornerRadius="10" Margin="0,12,0,0" Padding="12,10">
+                  <StackPanel>
+                    <TextBlock Style="{StaticResource Hint}" Text="Exactly what goes to the link, as it is now. Numbers the bot hasn't read yet are left out."/>
+                    <TextBox x:Name="StatsPreview" IsReadOnly="True" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
+                             FontFamily="Consolas" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0" MaxHeight="300"
+                             VerticalScrollBarVisibility="Auto"/>
                   </StackPanel>
                 </Border>
-                <TextBlock x:Name="JobModeHint" Style="{StaticResource Hint}" Margin="0,10,0,0"/>
+              </StackPanel>
+                </Border>
+              </HeaderedContentControl>
+            </Grid>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <HeaderedContentControl Style="{StaticResource TaskGroup}" Header="What it never presses">
+                <HeaderedContentControl.Resources><SolidColorBrush x:Key="TileAccent" Color="#E05A4C"/></HeaderedContentControl.Resources>
+                <Border Margin="2,0,10,12">
+              <StackPanel>
 
+                <Button x:Name="BtnNeverList" Style="{StaticResource Btn}" HorizontalAlignment="Left">
+                  <TextBlock x:Name="NeverListText" Text="Show the full list" FontWeight="SemiBold"/>
+                </Button>
+                <StackPanel x:Name="NeverList" Visibility="Collapsed" Margin="0,4,0,0">
+                  <TextBlock Text="Never" FontWeight="SemiBold" FontSize="13.5" Margin="0,12,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• Anything that costs Robux or tickets, and the + refill buttons" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• FINISH NOW, REPLACE, SABOTAGE, DELETE, AUTO ROLL" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• LEAVE FAMILY, MAKE BOSS, DONATE, DECLARE WAR, INVITE, EDIT, SAVE, JOIN" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• A collection card's own DEPOSIT, STOP on a henchman in training, briefcase keys, Bandages and Medkits" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• Trade and the Black Market" Margin="10,4,0,0"/>
+                  <TextBlock Text="Only with its tile on, and only with your cash" FontWeight="SemiBold" FontSize="13.5" Margin="0,12,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• BUILD on Properties, UPGRADE on the Safehouse" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• UNLOCK SLOT and the hires on the Crew, DISMISS on your worst henchman to reroll it, TRAIN" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• WITHDRAW ALL at the bank, for one of those buys, a Mythic or rarer shop item or your own heist's stake" Margin="10,4,0,0"/>
+                  <TextBlock Text="Only in these cases" FontWeight="SemiBold" FontSize="13.5" Margin="0,12,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• DEMOLISH on your weakest property, when a better one is ready to build" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• UNEQUIP ALL to read your crew's own stats for rerolls, then AUTO EQUIP BEST" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• SCOUT on a player's profile before a fight (1 stamina, with Scout players first on)" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• START A HEIST and its START, for a heist of your own (with Start my own heist on)" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• STATION ALL in a district of your family under attack, RECALL after, HEAL on its beaten defenders (with Defend districts on)" Margin="10,4,0,0" TextWrapping="Wrap"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="• CANCEL, to back out of a crew or property window it won't go ahead with" Margin="10,4,0,0"/>
+                  <TextBlock Style="{StaticResource Hint}" Text="In the Shop it only buys items priced in cash. If a Robux purchase window opens, it stops." Margin="0,12,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+              </StackPanel>
+                </Border>
+              </HeaderedContentControl>
+              <HeaderedContentControl Grid.Column="1" Style="{StaticResource TaskGroup}" Header="Help" VerticalAlignment="Top">
+                <Border Margin="2,0,10,12">
+                  <Grid>
+                    <WrapPanel Margin="-8,0,0,0" VerticalAlignment="Center">
+                      <Button x:Name="BtnDiscord" Style="{StaticResource GhostBtn}" Padding="8,6" ToolTip="Questions, problems or ideas? Ask in the Discord">
+                        <StackPanel Orientation="Horizontal">
+                          <Path Data="{StaticResource IcoDiscord}" Fill="#8C96F7" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"/>
+                          <TextBlock Text="Discord" Margin="6,0,0,0" FontSize="13" Foreground="{StaticResource Text2}"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnStar" Style="{StaticResource GhostBtn}" Padding="8,6" ToolTip="It's free. A star on GitHub helps other players find it.">
+                        <StackPanel Orientation="Horizontal">
+                          <Path Data="{StaticResource IcoStar}" Fill="{StaticResource Gold}" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"/>
+                          <TextBlock Text="Star on GitHub" Margin="6,0,0,0" FontSize="13" Foreground="{StaticResource Text2}"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnDownloads" Style="{StaticResource GhostBtn}" Padding="8,6" ToolTip="New versions come out here">
+                        <TextBlock Text="Download page" FontSize="13" Foreground="{StaticResource Text2}"/>
+                      </Button>
+                    </WrapPanel>
+                    <TextBlock x:Name="VersionText" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="SupportVersion" Visibility="Collapsed"/>
+                  </Grid>
+                </Border>
+              </HeaderedContentControl>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+    <Grid x:Name="OptionsLayer" Grid.ColumnSpan="2" Background="#B3000000" Visibility="Collapsed">
+      <Border x:Name="OptionsPanel" Width="680" Margin="0,96,0,32" VerticalAlignment="Center" HorizontalAlignment="Center"
+              CornerRadius="12" BorderBrush="#3A321C" BorderThickness="1">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#221E14" Offset="0"/>
+            <GradientStop Color="#1A1A1C" Offset="0.25"/>
+            <GradientStop Color="#18181A" Offset="1"/>
+          </LinearGradientBrush>
+        </Border.Background>
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" Margin="24,18,12,6">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Path x:Name="OptionsIcon" Stroke="{DynamicResource TileAccent}" Width="20" Height="20" Stretch="Uniform" StrokeThickness="1.8"
+                    StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center"/>
+              <TextBlock x:Name="OptionsTitle" Text="" FontFamily="{StaticResource Deco}" FontSize="21" Margin="12,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button x:Name="BtnOptionsClose" Style="{StaticResource WinBtn}" HorizontalAlignment="Right" ToolTip="Close (Esc)">
+              <Path Data="M0,0 L10,10 M10,0 L0,10" Stroke="{StaticResource Text2}" StrokeThickness="1.4"/>
+            </Button>
+          </Grid>
+          <ScrollViewer x:Name="OptionsScroll" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="OptionsBody" Margin="24,8,24,20">
+              <StackPanel x:Name="Opt_Jobs" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <StackPanel>
+                    <Grid><TextBlock Text="Now" FontSize="12" Foreground="{StaticResource Text3}"/><TextBlock x:Name="JobModeText" Text="" FontSize="12" Foreground="{StaticResource Text3}" HorizontalAlignment="Right"/></Grid>
+                    <TextBlock x:Name="JobName" Text="-" FontSize="14.5" FontWeight="SemiBold" Margin="0,4,0,1" TextWrapping="Wrap" TextTrimming="None"/>
+                    <TextBlock x:Name="JobMeta" Text="" FontSize="12.5" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                    <Border Margin="0,10,0,0"><Grid Height="4"><Border CornerRadius="2" Background="{StaticResource Track}"/><Grid><Grid.ColumnDefinitions><ColumnDefinition x:Name="JobMasteryA" Width="0*"/><ColumnDefinition x:Name="JobMasteryB" Width="1*"/></Grid.ColumnDefinitions><Border CornerRadius="2" Background="{StaticResource Gold}"/></Grid></Grid></Border>
+                    <TextBlock x:Name="JobMasteryText" Text="" FontSize="12" Foreground="{StaticResource Text3}" Margin="0,6,0,0"/>
+                  </StackPanel>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Which job" FontSize="14"/></StackPanel>
+                    <Border Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="seg_JobMode_BestXp" GroupName="jobmode" Style="{StaticResource Segment}" Content="Best XP"/><RadioButton x:Name="seg_JobMode_Mastery" GroupName="jobmode" Style="{StaticResource Segment}" Content="Finish mastery"/><RadioButton x:Name="seg_JobMode_OneJob" GroupName="jobmode" Style="{StaticResource Segment}" Content="One job"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+                <TextBlock x:Name="JobModeHint" Style="{StaticResource Hint}" Margin="2,0,0,0"/>
                 <Border x:Name="OneJobWhyBox" CornerRadius="10" Background="{StaticResource Panel2}" Padding="12,8" Margin="0,12,0,0" HorizontalAlignment="Left" Visibility="Collapsed">
                   <StackPanel Orientation="Horizontal">
                     <Path Style="{StaticResource Icon}" Data="{StaticResource IcoBolt}" Stroke="{StaticResource Energy}" Width="14" Height="14" VerticalAlignment="Center"/>
                     <TextBlock x:Name="OneJobWhy" FontSize="13" Foreground="{StaticResource Text}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                   </StackPanel>
                 </Border>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Heists" Tag="{StaticResource IcoHeist}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Heists" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Help heists" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Your family's first, then only the ones worth more XP." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_HeistsFamilyOnly" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Only my family's heists" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Skips other families' heists." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                    <TextBlock Text="Start my own heist" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="A failed heist loses its stake." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                  <ComboBox x:Name="cmb_StartHeist" Grid.Column="1" Width="230" VerticalAlignment="Center" ToolTip="Which heist the bot starts"/>
-                </Grid>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-            </Grid>
-
-            <Border Grid.Row="1" Style="{StaticResource Card}" VerticalAlignment="Top">
-              <DockPanel>
-                <Grid DockPanel.Dock="Top">
-                  <TextBlock Text="Mastery" Style="{StaticResource CardTitle}"/>
-                  <TextBlock x:Name="MasterySummary" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,6,0,14"
-                           Text="Bronze at 25 jobs, Silver at 50, Gold at 100. Gold gives a skill point."/>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0">
+                <Grid Margin="0,18,0,10"><TextBlock Text="Mastery" Style="{StaticResource OptHead}" Margin="0"/><TextBlock x:Name="MasterySummary" Text="" FontSize="12" Foreground="{StaticResource Text3}" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6" Text="Bronze at 25 jobs, Silver at 50, Gold at 100. Gold gives a skill point. In One job, a click on a job picks it."/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0" MaxHeight="340">
                 <ItemsControl x:Name="JobList" Margin="0,0,16,0">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -603,411 +834,298 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 </ScrollViewer>
-              </DockPanel>
-            </Border>
-            </Grid>
-          </StackPanel></Grid>
-        </ScrollViewer>
-
-        <ScrollViewer x:Name="PageCombat" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Cols">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <StackPanel>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Bosses" Tag="{StaticResource IcoCrown}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Bosses" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Fight bosses" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Climbs the stages, again after the daily reset." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_BossWeakestFirst" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Weakest bosses first" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="After the reset, starts at the lowest ready stage. Off: the highest first." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
               </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Other players" Tag="{StaticResource IcoSwords}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Fights" Style="{StaticResource Switch}">
+              <StackPanel x:Name="Opt_Heists" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
                   <StackPanel>
-                    <TextBlock Text="Attack other players" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Lowest level first, each player once, then a new list." Style="{StaticResource Hint}"/>
+                    <TextBlock Text="Heist favors" FontSize="12" Foreground="{StaticResource Text3}"/>
+                    <TextBlock x:Name="FavorsText" Text="-" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
+                    <WrapPanel x:Name="FavorPips" Margin="0,6,0,0" Width="165" HorizontalAlignment="Left"/>
                   </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_WarTargetsOnly" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Only attack war targets" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="During a war, only the war targets." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_ScoutFights" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Scout players first" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Skips anyone stronger than you (1 stamina)." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
+                </Border>
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_HeistsFamilyOnly" Style="{StaticResource OptTile}" Content="Only my family's heists" ToolTip="Skips other families' heists."/>
+                </UniformGrid>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Start my own heist" FontSize="14"/>
+                      <TextBlock Text="A failed heist loses its stake." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ComboBox x:Name="cmb_StartHeist" Grid.Column="1" Width="230" Height="36" VerticalAlignment="Center" ToolTip="Which heist the bot starts"/>
+                  </Grid>
+                </Border>
               </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Big wins" Tag="{StaticResource IcoBank}">
-              <StackPanel>
-
-                <CheckBox x:Name="sw_WhaleHunt" Style="{StaticResource Switch}">
+              <StackPanel x:Name="Opt_Bosses" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
                   <StackPanel>
-
-                    <TextBlock Text="Bank and hit big wins again" FontWeight="SemiBold" FontSize="15"/>
-
-                    <TextBlock x:Name="WhaleHint" Text="Hits a player again after a big win, up to 5 times." Style="{StaticResource Hint}"/>
+                    <TextBlock Text="Next boss" FontSize="12" Foreground="{StaticResource Text3}"/>
+                    <TextBlock x:Name="BossName" Text="-" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="BossWhen" Text="" FontSize="12.5" Foreground="{StaticResource Text2}"/>
                   </StackPanel>
-                </CheckBox>
-
-                <Grid Margin="0,10,0,0">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="300"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <ComboBox x:Name="cmb_WhaleCash" VerticalAlignment="Center" ToolTip="What a win must take for the bot to hit that player again"/>
-                  <ContentControl x:Name="num_WhaleHits" Grid.Column="1" Tag="1,20,1,hits" VerticalAlignment="Center" ToolTip="Hits on that player in all, the first win counted. The game's daily limit still stops it."/>
-                </Grid>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-
-                <CheckBox x:Name="sw_RememberPlayers" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Remember players" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Big payers first, skips who beat you twice for 2 days." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
+                </Border>
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_BossWeakestFirst" Style="{StaticResource OptTile}" Content="Weakest bosses first" ToolTip="After the reset, starts at the lowest ready stage. Off: the highest first."/>
+                </UniformGrid>
               </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-            </Grid>
-
-            <Border Style="{StaticResource Card}" Padding="20,14">
-              <StackPanel>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Text="Big payers" Style="{StaticResource CardTitle}" VerticalAlignment="Center"/>
-                  <TextBlock x:Name="BigPayersRead" Grid.Column="1" Text="" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                  <ToggleButton x:Name="Fold_BigPayersBody" Grid.Column="2" Style="{StaticResource Fold}" ToolTip="Show or hide the list"/>
-                </Grid>
-                <StackPanel x:Name="BigPayersBody">
-                <Grid Margin="0,12,0,12">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock Text="Players a win took a lot from, the last 3 days. The cross forgets one." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                <ComboBox x:Name="cmb_BigPayerCash" Width="300" Grid.Column="1" VerticalAlignment="Center" ToolTip="Show players whose biggest win took this much or more"/>
-                </Grid>
-                <Grid x:Name="BigPayersHead" Margin="12,0,12,4">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="40"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="PLAYER" Style="{StaticResource Label}"/>
-                  <TextBlock Grid.Column="1" Text="BIGGEST" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                  <TextBlock Grid.Column="2" Text="LAST" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                  <TextBlock Grid.Column="3" Text="LAST BIG ONE" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                  <TextBlock Grid.Column="4" Text="FIGHTS" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                </Grid>
-                <TextBlock x:Name="BigPayersEmpty" Text="No player has paid that much in the last 3 days." Style="{StaticResource Hint}" Margin="12,4,0,0"/>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0" MaxHeight="330">
-                <ItemsControl x:Name="BigPayerList" Margin="0,0,16,0">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border CornerRadius="10" Padding="12,6" Background="{Binding RowBg}" Margin="0,0,0,3">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="100"/>
-                            <ColumnDefinition Width="40"/>
-                          </Grid.ColumnDefinitions>
-                          <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                          <TextBlock Grid.Column="1" Text="{Binding Biggest}" FontSize="13" FontWeight="SemiBold" Foreground="#7EBE5A" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                          <TextBlock Grid.Column="2" Text="{Binding Last}" FontSize="13" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                          <TextBlock Grid.Column="3" Text="{Binding When}" FontSize="13" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                          <TextBlock Grid.Column="4" Text="{Binding Record}" FontSize="12.5" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="{Binding RecordTip}"/>
-                          <Button Grid.Column="5" Content="✕" Command="{Binding Forget}" Style="{StaticResource GhostBtn}" Padding="6,2" FontSize="12"
-                                  HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="Forget this player"/>
-                        </Grid>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                </ScrollViewer>
-                </StackPanel>
-              </StackPanel>
-            </Border>
-          </StackPanel></Grid>
-        </ScrollViewer>
-
-        <ScrollViewer x:Name="PageCrew" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Cols">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <StackPanel>
-
-            <Border Style="{StaticResource Card}" Padding="20,18">
-              <StackPanel>
-                <Grid>
-                  <TextBlock Text="Your crew" Style="{StaticResource CardTitle}"/>
-                  <TextBlock x:Name="CrewWhen" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
-                <UniformGrid Columns="4" Margin="0,14,0,0">
-                  <StackPanel><TextBlock x:Name="CrewCount" Text="-" Style="{StaticResource Big}"/><TextBlock Text="henchmen" Style="{StaticResource Label}"/></StackPanel>
-                  <StackPanel><TextBlock x:Name="CrewAttack" Text="-" Style="{StaticResource Big}"/><TextBlock Text="crew attack" Style="{StaticResource Label}"/></StackPanel>
-                  <StackPanel><TextBlock x:Name="CrewDefense" Text="-" Style="{StaticResource Big}"/><TextBlock Text="crew defense" Style="{StaticResource Label}"/></StackPanel>
-                  <StackPanel><TextBlock x:Name="CrewSlot" Text="-" Style="{StaticResource Big}" Foreground="{StaticResource Green}"/><TextBlock Text="next slot" Style="{StaticResource Label}"/></StackPanel>
+              <StackPanel x:Name="Opt_Fights" Visibility="Collapsed">
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_WarTargetsOnly" Style="{StaticResource OptTile}" Content="Only war targets" ToolTip="During a war, only the war targets."/>
+                  <CheckBox x:Name="sw_ScoutFights" Style="{StaticResource OptTile}" Content="Scout players first" ToolTip="Skips anyone stronger than you (1 stamina)."/>
+                  <CheckBox x:Name="sw_RememberPlayers" Style="{StaticResource OptTile}" Content="Remember players" ToolTip="Big payers first, skips who beat you twice for 2 days."/>
                 </UniformGrid>
 
-                <Grid x:Name="CrewBar" Height="14" Margin="0,18,0,0"/>
-                <WrapPanel x:Name="CrewChips" Margin="0,10,0,0"/>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,12,0,14"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <Path Style="{StaticResource Icon}" Data="{StaticResource IcoCrew}" Stroke="{StaticResource Text3}" Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,10,0"/>
-                  <StackPanel Grid.Column="1">
-                    <TextBlock x:Name="CrewStatus" Style="{StaticResource Hint}" Foreground="{StaticResource Text}" Text="Not read yet. The bot looks at your crew every 30 minutes, every 6 hours with all its switches off."/>
-                    <TextBlock x:Name="CrewSession" Style="{StaticResource Hint}" Margin="0,4,0,0" Text=""/>
-                  </StackPanel>
-                </Grid>
-              </StackPanel>
-            </Border>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Rerolls" Tag="{StaticResource IcoCrew}">
-              <StackPanel>
-
-                <TextBlock Text="Reroll the worst henchman" FontWeight="SemiBold" FontSize="15"/>
-                <TextBlock x:Name="CrewRollHint" Style="{StaticResource Hint}"/>
-                <Border Style="{StaticResource SegmentBar}" HorizontalAlignment="Left" Margin="0,12,0,0">
-                  <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="RollMode_Off" GroupName="rollmode" Style="{StaticResource Segment}" Content="Off"/>
-                    <RadioButton x:Name="RollMode_On" GroupName="rollmode" Style="{StaticResource Segment}" Content="On"/>
-                    <RadioButton x:Name="RollMode_First" GroupName="rollmode" Style="{StaticResource Segment}" Content="First"/>
-                    <RadioButton x:Name="RollMode_Only" GroupName="rollmode" Style="{StaticResource Segment}" Content="Only"/>
-                  </StackPanel>
-                </Border>
-                <TextBlock x:Name="RollModeHint" Style="{StaticResource Hint}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-
-                <CheckBox x:Name="sw_CrewAutoRoll" Style="{StaticResource Switch}">
+                <Border Style="{StaticResource OptLine}" Margin="0,8,0,0">
                   <StackPanel>
-                    <TextBlock Text="Use the game's Auto Roll" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Needs the game's Auto Roll pass. The game rolls, the bot restarts it." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <ComboBox x:Name="cmb_AutoRollLimit" Width="300" HorizontalAlignment="Left" Margin="0,10,0,0" ToolTip="What a slot's rolls may spend before the bot stops it"/>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-
-                <TextBlock Text="After the best rarity" FontWeight="SemiBold" FontSize="15"/>
-                <TextBlock Text="Keep rerolling for each one's own attack and defense." Style="{StaticResource Hint}"/>
-                <ComboBox x:Name="cmb_CrewRerollStats" Width="300" HorizontalAlignment="Left" Margin="0,10,0,0"/>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Hiring" Tag="{StaticResource IcoCrew}">
-              <StackPanel>
-                <CheckBox x:Name="sw_CrewSlots" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Buy new crew slots" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="When you have the cash, after the next property." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_CrewFill" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Hire into empty slots" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="With the hire below, or a cheaper one." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <TextBlock Text="Hire with" Style="{StaticResource Label}" Margin="0,16,0,8"/>
-                <Border Style="{StaticResource SegmentBar}" HorizontalAlignment="Left">
-                  <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="seg_CrewRollType_Street" GroupName="crewroll" Style="{StaticResource Segment}" Content="Street $10K"/>
-                    <RadioButton x:Name="seg_CrewRollType_Professional" GroupName="crewroll" Style="{StaticResource Segment}" Content="Professional $10M"/>
-                    <RadioButton x:Name="seg_CrewRollType_Elite" GroupName="crewroll" Style="{StaticResource Segment}" Content="Elite $10B"/>
-                  </StackPanel>
-                </Border>
-
-                <WrapPanel x:Name="CrewOdds" Margin="0,10,0,0"/>
-              </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Training" Tag="{StaticResource IcoStar}">
-              <StackPanel>
-                <CheckBox x:Name="sw_TrainCrew" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Train the crew" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Epic and up. Costs cash and time." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-
-                <TextBlock Text="Train" Style="{StaticResource Label}" Margin="0,16,0,8"/>
-                <Border Style="{StaticResource SegmentBar}" HorizontalAlignment="Left">
-                  <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="seg_TrainOrder_Best" GroupName="trainorder" Style="{StaticResource Segment}" Content="The best"/>
-                    <RadioButton x:Name="seg_TrainOrder_Evenly" GroupName="trainorder" Style="{StaticResource Segment}" Content="Everyone evenly"/>
-                  </StackPanel>
-                </Border>
-                <TextBlock Text="The best: the strongest go up first. Evenly: the lowest level first, so all go up together." Style="{StaticResource Hint}" Margin="0,10,0,0"/>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Training at the same time" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="2 is faster, but your crew is weaker meanwhile." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                  <ContentControl x:Name="num_TrainAtOnce" Grid.Column="1" Tag="1,2,1," VerticalAlignment="Center"/>
-                </Grid>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-            </Grid>
-          </StackPanel></Grid>
-        </ScrollViewer>
-
-        <ScrollViewer x:Name="PageFamily" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Cols">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <StackPanel>
-
-            <Border Style="{StaticResource Card}" Padding="20,18">
-              <StackPanel>
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <Border Width="70" Height="70" CornerRadius="16" Background="{StaticResource Gold}">
-                    <Border Margin="4" CornerRadius="12" BorderBrush="#55141414" BorderThickness="1.5">
-                      <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="FamLevel" Text="?" FontFamily="{StaticResource Display}" FontWeight="Black" FontSize="27"
-                                   Foreground="{StaticResource OnGold}" HorizontalAlignment="Center" Margin="0,-3,0,0"/>
-                        <TextBlock Text="LEVEL" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource OnGold}" HorizontalAlignment="Center" Margin="0,-4,0,0"/>
-                      </StackPanel>
-                    </Border>
-                  </Border>
-                  <StackPanel Grid.Column="1" Margin="18,0,28,0" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock x:Name="FamName" Text="Your family" FontFamily="{StaticResource Serif}" FontSize="25"/>
-                      <TextBlock x:Name="FamTag" Text="" FontFamily="{StaticResource Serif}" Foreground="{StaticResource Gold}" FontSize="18" Margin="12,7,0,0"/>
-                    </StackPanel>
-                    <Grid Margin="0,10,0,0" Height="24">
-                      <Border CornerRadius="7" Background="{StaticResource Track}"/>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition x:Name="FamXpA" Width="0*"/>
-                          <ColumnDefinition x:Name="FamXpB" Width="1*"/>
-                        </Grid.ColumnDefinitions>
-                        <Border CornerRadius="7" Background="{StaticResource Xp}"/>
-                      </Grid>
-                      <TextBlock x:Name="FamXpText" Text="" FontWeight="Bold" FontSize="12.5" Margin="11,0" VerticalAlignment="Center"/>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <TextBlock Text="Big payers" FontSize="14" VerticalAlignment="Center"/>
+                      <TextBlock x:Name="BigPayersRead" Grid.Column="1" Text="" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                      <ToggleButton x:Name="Fold_BigPayersBody" Grid.Column="2" Style="{StaticResource Fold}" ToolTip="Show or hide the list"/>
                     </Grid>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <TextBlock Text="Family vault" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
-                    <TextBlock x:Name="FamVault" Text="-" FontFamily="{StaticResource Serif}" FontSize="32" Foreground="{StaticResource Green}"
-                               HorizontalAlignment="Right" Margin="0,-2,0,0"/>
-                    <TextBlock x:Name="FamGold" Text="" FontSize="13" Foreground="{StaticResource Gold}" HorizontalAlignment="Right"/>
-                  </StackPanel>
-                </Grid>
-                <UniformGrid Columns="4" Margin="0,18,0,0">
-                  <StackPanel><TextBlock x:Name="FamMembers" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="members" Style="{StaticResource Label}"/></StackPanel>
-                  <StackPanel><TextBlock x:Name="FamRespect" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="family respect" Style="{StaticResource Label}"/></StackPanel>
-                  <StackPanel><TextBlock x:Name="FamPerkLevels" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="perk levels" Style="{StaticResource Label}"/></StackPanel>
-                  <StackPanel><TextBlock x:Name="FamTerritories" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="territories" Style="{StaticResource Label}"/></StackPanel>
-                </UniformGrid>
-                <TextBlock x:Name="FamRead" Style="{StaticResource Hint}" Margin="0,16,0,0" Text=""/>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,18"/>
-                <CheckBox x:Name="sw_FamilyWatch" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Watch my family" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Reads the family pages every 3 hours. It only reads." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,14"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Text="Your family's stamina perks" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
-                  <TextBlock x:Name="PerksRead" Grid.Column="1" Text="" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                  <ToggleButton x:Name="Fold_PerksBody" Grid.Column="2" Style="{StaticResource Fold}" ToolTip="Show or hide the list"/>
-                </Grid>
-                <StackPanel x:Name="PerksBody" Margin="0,12,0,0">
-                <TextBlock x:Name="PerksEmpty" Text="Not read yet." Style="{StaticResource Hint}"/>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0" MaxHeight="330">
-                <ItemsControl x:Name="PerkList" Margin="0,0,16,0">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border CornerRadius="10" Padding="12,8" Background="{Binding RowBg}" Margin="0,0,0,3">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="86"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="86"/>
-                          </Grid.ColumnDefinitions>
-                          <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{Binding NameBrush}" FontWeight="{Binding NameWeight}"/>
-                            <TextBlock Text="{Binding Effect}" FontSize="12" Foreground="#A8A292"/>
-                          </StackPanel>
-                          <TextBlock Grid.Column="1" Text="{Binding Level}" FontSize="13" Foreground="#D4AF37" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                          <Grid Grid.Column="2" Height="8" Margin="18,0,0,0" VerticalAlignment="Center">
-                            <Border CornerRadius="4" Background="#0D0D0E"/>
+                    <StackPanel x:Name="BigPayersBody">
+                    <Grid Margin="0,12,0,12">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Players a win took a lot from, the last 3 days. The cross forgets one." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <ComboBox x:Name="cmb_BigPayerCash" Width="250" Height="36" Grid.Column="1" VerticalAlignment="Center" ToolTip="Show players whose biggest win took this much or more"/>
+                    </Grid>
+                    <Grid x:Name="BigPayersHead" Margin="12,0,12,4">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="40"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="PLAYER" Style="{StaticResource Label}"/>
+                      <TextBlock Grid.Column="1" Text="BIGGEST" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
+                      <TextBlock Grid.Column="2" Text="LAST" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
+                      <TextBlock Grid.Column="3" Text="LAST BIG ONE" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
+                      <TextBlock Grid.Column="4" Text="FIGHTS" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <TextBlock x:Name="BigPayersEmpty" Text="No player has paid that much in the last 3 days." Style="{StaticResource Hint}" Margin="12,4,0,0"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0" MaxHeight="330">
+                    <ItemsControl x:Name="BigPayerList" Margin="0,0,16,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border CornerRadius="10" Padding="12,6" Background="{Binding RowBg}" Margin="0,0,0,3">
                             <Grid>
-                              <Grid.ColumnDefinitions><ColumnDefinition Width="{Binding A}"/><ColumnDefinition Width="{Binding B}"/></Grid.ColumnDefinitions>
-                              <Border CornerRadius="4" Background="#5B8FB9"/>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="40"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                              <TextBlock Grid.Column="1" Text="{Binding Biggest}" FontSize="13" FontWeight="SemiBold" Foreground="#7EBE5A" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                              <TextBlock Grid.Column="2" Text="{Binding Last}" FontSize="13" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                              <TextBlock Grid.Column="3" Text="{Binding When}" FontSize="13" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                              <TextBlock Grid.Column="4" Text="{Binding Record}" FontSize="12.5" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="{Binding RecordTip}"/>
+                              <Button Grid.Column="5" Content="✕" Command="{Binding Forget}" Style="{StaticResource GhostBtn}" Padding="6,2" FontSize="12"
+                                      HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="Forget this player"/>
                             </Grid>
-                          </Grid>
-                          <TextBlock Grid.Column="3" Text="{Binding Progress}" FontSize="12.5" FontWeight="SemiBold" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                        </Grid>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                </ScrollViewer>
-                </StackPanel>
-              </StackPanel>
-            </Border>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Takedown" Tag="{StaticResource IcoTarget}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Takedown" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Use free Takedown attacks" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="The family's weekly boss. It never uses tickets." Style="{StaticResource Hint}"/>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    </ScrollViewer>
+                    </StackPanel>
                   </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,16"/>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_WhaleHunt" Visibility="Collapsed">
+                <TextBlock x:Name="WhaleHint" Text="Hits a player again after a big win, up to 5 times." Style="{StaticResource Hint}" Margin="2,0,0,10"/>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <ComboBox x:Name="cmb_WhaleCash" Height="36" VerticalAlignment="Center" ToolTip="What a win must take for the bot to hit that player again"/>
+                    <ContentControl x:Name="num_WhaleHits" Grid.Column="1" Tag="1,20,1,hits" VerticalAlignment="Center" ToolTip="Hits on that player in all, the first win counted. The game's daily limit still stops it."/>
+                  </Grid>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_CrewFill" Visibility="Collapsed">
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_CrewSlots" Style="{StaticResource OptTile}" Content="Buy new crew slots" ToolTip="When you have the cash, after the next property."/>
+                </UniformGrid>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Hire with" FontSize="14"/></StackPanel>
+                    <Border Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="seg_CrewRollType_Street" GroupName="crewroll" Style="{StaticResource Segment}" Content="Street $10K"/><RadioButton x:Name="seg_CrewRollType_Professional" GroupName="crewroll" Style="{StaticResource Segment}" Content="Pro $10M"/><RadioButton x:Name="seg_CrewRollType_Elite" GroupName="crewroll" Style="{StaticResource Segment}" Content="Elite $10B"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+                <WrapPanel x:Name="CrewOdds" Margin="2,0,0,8"/>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="During Recruitment Luck" FontSize="14"/>
+                      <TextBlock Text="With cash from the bank. Short of cash, it hires as above. Needs Use events." Style="{StaticResource Hint}" FontSize="12.5" TextWrapping="Wrap"/></StackPanel>
+                    <Border x:Name="LuckRollBar" Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="seg_CrewLuckRoll_Same" GroupName="luckroll" Style="{StaticResource Segment}" Content="Same"/><RadioButton x:Name="seg_CrewLuckRoll_Professional" GroupName="luckroll" Style="{StaticResource Segment}" Content="Pro $10M"/><RadioButton x:Name="seg_CrewLuckRoll_Elite" GroupName="luckroll" Style="{StaticResource Segment}" Content="Elite $10B"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_Reroll" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <StackPanel>
+                    <UniformGrid Columns="4">
+                      <StackPanel><TextBlock x:Name="CrewCount" Text="-" FontFamily="{StaticResource Display}" FontWeight="SemiBold" FontSize="20"/><TextBlock Text="henchmen" FontSize="12" Foreground="{StaticResource Text3}"/></StackPanel>
+                      <StackPanel><TextBlock x:Name="CrewAttack" Text="-" FontFamily="{StaticResource Display}" FontWeight="SemiBold" FontSize="20"/><TextBlock Text="crew attack" FontSize="12" Foreground="{StaticResource Text3}"/></StackPanel>
+                      <StackPanel><TextBlock x:Name="CrewDefense" Text="-" FontFamily="{StaticResource Display}" FontWeight="SemiBold" FontSize="20"/><TextBlock Text="crew defense" FontSize="12" Foreground="{StaticResource Text3}"/></StackPanel>
+                      <StackPanel><TextBlock x:Name="CrewSlot" Text="-" FontFamily="{StaticResource Display}" FontWeight="SemiBold" FontSize="20" Foreground="{StaticResource Green}"/><TextBlock Text="next slot" FontSize="12" Foreground="{StaticResource Text3}"/></StackPanel>
+                    </UniformGrid>
+                    <Grid x:Name="CrewBar" Height="8" Margin="0,14,0,0"/>
+                    <WrapPanel x:Name="CrewChips" Margin="0,8,0,0"/>
+                    <TextBlock x:Name="CrewStatus" Style="{StaticResource Hint}" Margin="0,4,0,0" Text="Not read yet. The bot looks at your crew every 30 minutes, every 6 hours with all its tiles off."/>
+                    <TextBlock x:Name="CrewSession" Style="{StaticResource Hint}" Margin="0,2,0,0" Text=""/>
+                    <TextBlock x:Name="CrewWhen" Text="" FontSize="12" Foreground="{StaticResource Text3}" Margin="0,4,0,0"/>
+                  </StackPanel>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Rerolls" FontSize="14"/></StackPanel>
+                    <Border Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="RollMode_Off" GroupName="rollmode" Style="{StaticResource Segment}" Content="Off"/><RadioButton x:Name="RollMode_On" GroupName="rollmode" Style="{StaticResource Segment}" Content="On"/><RadioButton x:Name="RollMode_First" GroupName="rollmode" Style="{StaticResource Segment}" Content="First"/><RadioButton x:Name="RollMode_Only" GroupName="rollmode" Style="{StaticResource Segment}" Content="Only"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+                <TextBlock x:Name="RollModeHint" Style="{StaticResource Hint}" Margin="2,0,0,4"/>
+                <TextBlock x:Name="CrewRollHint" Style="{StaticResource Hint}" Margin="2,0,0,12"/>
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_CrewAutoRoll" Style="{StaticResource OptTile}" Content="Use the game's Auto Roll" ToolTip="Needs the game's Auto Roll pass. The game rolls, the bot restarts it."/>
+                </UniformGrid>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Auto Roll stops a slot at" FontSize="14"/></StackPanel>
+                    <ComboBox x:Name="cmb_AutoRollLimit" Grid.Column="1" Width="240" Height="36" VerticalAlignment="Center" ToolTip="What a slot's rolls may spend before the bot stops it"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="After the best rarity" FontSize="14"/>
+                      <TextBlock Text="Keep rerolling for each one's own attack and defense." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ComboBox x:Name="cmb_CrewRerollStats" Grid.Column="1" Width="240" Height="36" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_TrainCrew" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Who first" FontSize="14"/>
+                      <TextBlock Text="The best: the strongest first. Evenly: the lowest level first." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <Border Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="seg_TrainOrder_Best" GroupName="trainorder" Style="{StaticResource Segment}" Content="The best"/><RadioButton x:Name="seg_TrainOrder_Evenly" GroupName="trainorder" Style="{StaticResource Segment}" Content="Everyone evenly"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Training at the same time" FontSize="14"/>
+                      <TextBlock Text="2 is faster, but your crew is weaker meanwhile." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ContentControl x:Name="num_TrainAtOnce" Grid.Column="1" Tag="1,2,1," VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_FamilyWatch" Visibility="Collapsed">
+
+                <Border Style="{StaticResource OptLine}" Padding="16,14">
+                  <StackPanel>
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <Border Width="70" Height="70" CornerRadius="16" Background="{StaticResource Gold}">
+                        <Border Margin="4" CornerRadius="12" BorderBrush="#55141414" BorderThickness="1.5">
+                          <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="FamLevel" Text="?" FontFamily="{StaticResource Display}" FontWeight="Black" FontSize="27"
+                                       Foreground="{StaticResource OnGold}" HorizontalAlignment="Center" Margin="0,-3,0,0"/>
+                            <TextBlock Text="LEVEL" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource OnGold}" HorizontalAlignment="Center" Margin="0,-4,0,0"/>
+                          </StackPanel>
+                        </Border>
+                      </Border>
+                      <StackPanel Grid.Column="1" Margin="18,0,28,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                          <TextBlock x:Name="FamName" Text="Your family" FontFamily="{StaticResource Serif}" FontSize="25"/>
+                          <TextBlock x:Name="FamTag" Text="" FontFamily="{StaticResource Serif}" Foreground="{StaticResource Gold}" FontSize="18" Margin="12,7,0,0"/>
+                        </StackPanel>
+                        <Grid Margin="0,10,0,0" Height="24">
+                          <Border CornerRadius="7" Background="{StaticResource Track}"/>
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition x:Name="FamXpA" Width="0*"/>
+                              <ColumnDefinition x:Name="FamXpB" Width="1*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border CornerRadius="7" Background="{StaticResource Xp}"/>
+                          </Grid>
+                          <TextBlock x:Name="FamXpText" Text="" FontWeight="Bold" FontSize="12.5" Margin="11,0" VerticalAlignment="Center"/>
+                        </Grid>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="Family vault" Style="{StaticResource Label}" HorizontalAlignment="Right"/>
+                        <TextBlock x:Name="FamVault" Text="-" FontFamily="{StaticResource Serif}" FontSize="32" Foreground="{StaticResource Green}"
+                                   HorizontalAlignment="Right" Margin="0,-2,0,0"/>
+                        <TextBlock x:Name="FamGold" Text="" FontSize="13" Foreground="{StaticResource Gold}" HorizontalAlignment="Right"/>
+                      </StackPanel>
+                    </Grid>
+                    <UniformGrid Columns="4" Margin="0,18,0,0">
+                      <StackPanel><TextBlock x:Name="FamMembers" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="members" Style="{StaticResource Label}"/></StackPanel>
+                      <StackPanel><TextBlock x:Name="FamRespect" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="family respect" Style="{StaticResource Label}"/></StackPanel>
+                      <StackPanel><TextBlock x:Name="FamPerkLevels" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="perk levels" Style="{StaticResource Label}"/></StackPanel>
+                      <StackPanel><TextBlock x:Name="FamTerritories" Text="-" Style="{StaticResource Big}" FontSize="21"/><TextBlock Text="territories" Style="{StaticResource Label}"/></StackPanel>
+                    </UniformGrid>
+                    <TextBlock x:Name="FamRead" Style="{StaticResource Hint}" Margin="0,16,0,0" Text=""/>
+
+                    <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,14"/>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <TextBlock Text="Your family's stamina perks" FontSize="14" VerticalAlignment="Center"/>
+                      <TextBlock x:Name="PerksRead" Grid.Column="1" Text="" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                      <ToggleButton x:Name="Fold_PerksBody" Grid.Column="2" Style="{StaticResource Fold}" ToolTip="Show or hide the list"/>
+                    </Grid>
+                    <StackPanel x:Name="PerksBody" Margin="0,12,0,0">
+                    <TextBlock x:Name="PerksEmpty" Text="Not read yet." Style="{StaticResource Hint}"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0" MaxHeight="300">
+                    <ItemsControl x:Name="PerkList" Margin="0,0,16,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border CornerRadius="10" Padding="12,8" Background="{Binding RowBg}" Margin="0,0,0,3">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="86"/>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="86"/>
+                              </Grid.ColumnDefinitions>
+                              <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{Binding NameBrush}" FontWeight="{Binding NameWeight}"/>
+                                <TextBlock Text="{Binding Effect}" FontSize="12" Foreground="#A8A292"/>
+                              </StackPanel>
+                              <TextBlock Grid.Column="1" Text="{Binding Level}" FontSize="13" Foreground="#D4AF37" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                              <Grid Grid.Column="2" Height="8" Margin="18,0,0,0" VerticalAlignment="Center">
+                                <Border CornerRadius="4" Background="#0D0D0E"/>
+                                <Grid>
+                                  <Grid.ColumnDefinitions><ColumnDefinition Width="{Binding A}"/><ColumnDefinition Width="{Binding B}"/></Grid.ColumnDefinitions>
+                                  <Border CornerRadius="4" Background="#5B8FB9"/>
+                                </Grid>
+                              </Grid>
+                              <TextBlock Grid.Column="3" Text="{Binding Progress}" FontSize="12.5" FontWeight="SemiBold" Foreground="#A8A292" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    </ScrollViewer>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_Takedown" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}" Padding="16,14">
+                <StackPanel>
                 <Grid>
                   <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*"/><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.5*"/></Grid.ColumnDefinitions>
                   <StackPanel>
@@ -1034,36 +1152,26 @@
                   </StackPanel>
                 </Grid>
                 <TextBlock x:Name="TdRead" Style="{StaticResource Hint}" Margin="0,16,0,0" Text=""/>
+                </StackPanel>
+                </Border>
               </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Stamina perks" Tag="{StaticResource IcoFamily}">
-              <StackPanel>
-                <CheckBox x:Name="sw_GiveStamina" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Give stamina to a perk" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="All stamina above the number below." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Keep stamina for bosses" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Gifts, player fights and the Takedown leave this much. Half your bar at most." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                  <ContentControl x:Name="num_FightStaminaReserve" Grid.Column="1" Tag="0,500,1," VerticalAlignment="Center"/>
-                </Grid>
-                <TextBlock Text="Give it to" Style="{StaticResource Label}" Margin="0,16,0,8"/>
-                <ComboBox x:Name="cmb_StaminaPerk" Width="300" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="PerkHint" Style="{StaticResource Hint}" Margin="0,8,0,0"/>
-
+              <StackPanel x:Name="Opt_GiveStamina" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Keep stamina for bosses" FontSize="14"/>
+                      <TextBlock Text="Gifts, player fights and the Takedown leave this much. Half your bar at most." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ContentControl x:Name="num_FightStaminaReserve" Grid.Column="1" Tag="0,500,1," VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Give it to" FontSize="14"/></StackPanel>
+                    <ComboBox x:Name="cmb_StaminaPerk" Grid.Column="1" Width="260" Height="36" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <TextBlock x:Name="PerkHint" Style="{StaticResource Hint}" Margin="2,0,0,0"/>
                 <Border x:Name="GiveWhyBox" CornerRadius="10" Background="{StaticResource Panel2}" Padding="12,8" Margin="0,12,0,0" HorizontalAlignment="Left" Visibility="Collapsed">
                   <StackPanel Orientation="Horizontal">
                     <Path Style="{StaticResource Icon}" Data="{StaticResource IcoBolt}" Stroke="{StaticResource Stamina}" Width="14" Height="14" VerticalAlignment="Center"/>
@@ -1071,42 +1179,48 @@
                   </StackPanel>
                 </Border>
               </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Territory" Tag="{StaticResource IcoShield}">
-              <StackPanel>
-                <CheckBox x:Name="sw_DefendTerritory" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Defend our districts" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="When one is attacked: your whole crew to it, recalled after." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_DefendHeal" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Heal defenders with stamina" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="During an attack. Keeps the stamina for bosses and fights." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
+              <StackPanel x:Name="Opt_DefendTerritory" Visibility="Collapsed">
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_DefendHeal" Style="{StaticResource OptTile}" Content="Heal defenders with stamina" ToolTip="During an attack. Keeps the stamina for bosses and fights."/>
+                </UniformGrid>
               </StackPanel>
-            </HeaderedContentControl>
+              <StackPanel x:Name="Opt_Operations" Visibility="Collapsed">
+                <TextBlock x:Name="OpsEmpty" Text="Not read yet." Style="{StaticResource Hint}" Margin="2,0,0,8"/>
+                <ItemsControl x:Name="OpsList">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="#1A1A1C" BorderBrush="#222225" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
+                        <StackPanel>
+                          <Grid>
+                            <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="#E8E2D0"/>
+                            <TextBlock Text="{Binding Left}" FontSize="12.5" Foreground="#A8A292" HorizontalAlignment="Right"/>
+                          </Grid>
+                          <Grid Height="4" Margin="0,8,0,0">
+                            <Border CornerRadius="2" Background="#0D0D0E"/>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="{Binding A}"/><ColumnDefinition Width="{Binding B}"/></Grid.ColumnDefinitions><Border CornerRadius="2" Background="#5B8FB9"/></Grid>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
-            </Grid>
-          </StackPanel></Grid>
-        </ScrollViewer>
+              <StackPanel x:Name="Opt_Properties" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Lots for gold properties" FontSize="14"/>
+                      <TextBlock Text="Lots that get a property making gold bars (level 125+), once the others hold the best. 0 = none." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ContentControl x:Name="num_GoldLots" Grid.Column="1" Tag="0,50,1," VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+              </StackPanel>
+              <StackPanel x:Name="Opt_SafehouseUpgrade" Visibility="Collapsed">
 
-        <ScrollViewer x:Name="PageMoney" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Cols">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <StackPanel>
-
-                <Border Style="{StaticResource Card}">
+                <Border Style="{StaticResource OptLine}" Padding="16,14">
                   <StackPanel>
                     <Grid>
-                      <TextBlock Text="Your mafia" Style="{StaticResource CardTitle}"/>
+                      <TextBlock Text="Your mafia" FontSize="14"/>
                       <TextBlock x:Name="SafeWhen" Text="read once a day" Style="{StaticResource Label}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
                     <UniformGrid Columns="3" Margin="0,12,0,0">
@@ -1119,486 +1233,60 @@
                     </UniformGrid>
                   </StackPanel>
                 </Border>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Properties" Tag="{StaticResource IcoHome}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Properties" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Buy properties" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="The best you can afford, swapping out your weakest when a better one is affordable." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Lots for gold properties" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="How many lots get a property that makes gold bars (level 125+), once the others hold the best. 0 = none." Style="{StaticResource Hint}" TextWrapping="Wrap"/>
-                  </StackPanel>
-                  <ContentControl x:Name="num_GoldLots" Grid.Column="1" Tag="0,50,1," VerticalAlignment="Center"/>
-                </Grid>
               </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl x:Name="MarketCard" Style="{StaticResource Section}" Header="Black Market" Tag="{StaticResource IcoBag}" Visibility="Collapsed">
-              <StackPanel>
-                <CheckBox x:Name="sw_MarketRelist" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Relist my listings" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Takes each of your listings out and puts it back, same amount and price, so it shows first again." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel>
-                    <TextBlock Text="Relist every" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="5 to 60 minutes. You make the listings, the bot only puts them back up." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                  <ContentControl x:Name="num_MarketMinutes" Grid.Column="1" Tag="5,60,5,min" VerticalAlignment="Center"/>
-                </Grid>
+              <StackPanel x:Name="Opt_SpendPoints" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Spend them on" FontSize="14"/></StackPanel>
+                    <ComboBox x:Name="cmb_PointsStat" Grid.Column="1" Width="240" Height="36" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
               </StackPanel>
-            </HeaderedContentControl>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Bank" Tag="{StaticResource IcoBank}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Bank" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Bank my cash" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="After every round, so other players can't take it." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Safehouse" Tag="{StaticResource IcoLock}">
-              <StackPanel>
-                <CheckBox x:Name="sw_SafehouseUpgrade" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Upgrade the safehouse" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="With the cash left after the next property." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_SpendPoints" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Spend skill points" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="On the stat below." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <TextBlock Text="Spend them on" Style="{StaticResource Label}" Margin="0,16,0,8"/>
-                <ComboBox x:Name="cmb_PointsStat" Width="300" HorizontalAlignment="Left"/>
-              </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Shop" Tag="{StaticResource IcoBag}">
-              <StackPanel>
-                <CheckBox x:Name="sw_ShopBuy" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Buy from the shop" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Everything you can pay for with cash. Never Robux." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-
-                <StackPanel>
-                  <TextBlock Text="Rarities to buy" FontWeight="SemiBold" FontSize="15"/>
-                  <TextBlock x:Name="ShopRaritiesHint" Text="" Style="{StaticResource Hint}"/>
-                  <WrapPanel Margin="0,12,0,-8">
-                    <CheckBox x:Name="sw_ShopCommon" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityCommon}" Content="Common"/>
-                    <CheckBox x:Name="sw_ShopUncommon" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityUncommon}" Content="Uncommon"/>
-                    <CheckBox x:Name="sw_ShopRare" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityRare}" Content="Rare"/>
-                    <CheckBox x:Name="sw_ShopEpic" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityEpic}" Content="Epic"/>
-                    <CheckBox x:Name="sw_ShopLegendary" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityLegendary}" Content="Legendary"/>
-                    <CheckBox x:Name="sw_ShopMythic" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityMythic}" Content="Mythic"/>
-                    <CheckBox x:Name="sw_ShopSecret" Style="{StaticResource RarityChip}" Tag="{StaticResource RaritySecret}" Content="Secret"/>
-                    <CheckBox x:Name="sw_ShopForbidden" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityForbidden}" Content="Forbidden"/>
-                  </WrapPanel>
-                </StackPanel>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_ShopWithdraw" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Take cash out of the bank for the shop" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="For the rarities below, with the No Bank Fees pass." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-
-                <WrapPanel Margin="0,12,0,-8">
+              <StackPanel x:Name="Opt_ShopBuy" Visibility="Collapsed">
+                <TextBlock Text="Rarities to buy" Style="{StaticResource OptHead}" Margin="0,0,0,4"/>
+                <TextBlock x:Name="ShopRaritiesHint" Text="" Style="{StaticResource Hint}"/>
+                <WrapPanel Margin="0,10,0,6">
+                  <CheckBox x:Name="sw_ShopCommon" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityCommon}" Content="Common"/>
+                  <CheckBox x:Name="sw_ShopUncommon" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityUncommon}" Content="Uncommon"/>
+                  <CheckBox x:Name="sw_ShopRare" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityRare}" Content="Rare"/>
+                  <CheckBox x:Name="sw_ShopEpic" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityEpic}" Content="Epic"/>
+                  <CheckBox x:Name="sw_ShopLegendary" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityLegendary}" Content="Legendary"/>
+                  <CheckBox x:Name="sw_ShopMythic" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityMythic}" Content="Mythic"/>
+                  <CheckBox x:Name="sw_ShopSecret" Style="{StaticResource RarityChip}" Tag="{StaticResource RaritySecret}" Content="Secret"/>
+                  <CheckBox x:Name="sw_ShopForbidden" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityForbidden}" Content="Forbidden"/>
+                </WrapPanel>
+                <UniformGrid Columns="3" Margin="0,0,-10,0">
+                  <CheckBox x:Name="sw_ShopWithdraw" Style="{StaticResource OptTile}" Content="Take cash out of the bank" ToolTip="For the rarities below, with the No Bank Fees pass."/>
+                </UniformGrid>
+                <WrapPanel Margin="0,0,0,0">
                   <TextBlock Text="Only for" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,10,8"/>
                   <CheckBox x:Name="sw_ShopBankMythic" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityMythic}" Content="Mythic"/>
                   <CheckBox x:Name="sw_ShopBankSecret" Style="{StaticResource RarityChip}" Tag="{StaticResource RaritySecret}" Content="Secret"/>
                   <CheckBox x:Name="sw_ShopBankForbidden" Style="{StaticResource RarityChip}" Tag="{StaticResource RarityForbidden}" Content="Forbidden"/>
                 </WrapPanel>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-            </Grid>
-          </StackPanel></Grid>
-        </ScrollViewer>
-
-        <ScrollViewer x:Name="PageRewards" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Cols">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <StackPanel>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Daily rewards" Tag="{StaticResource IcoGift}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Playtime" Style="{StaticResource Switch}">
+                <HeaderedContentControl x:Name="MarketCard" Style="{StaticResource Section}" Header="Black Market" Tag="{StaticResource IcoBag}" Visibility="Collapsed">
                   <StackPanel>
-                    <TextBlock Text="Claim playtime rewards" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="At 5, 15, 30, 60 and 120 minutes a day." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_Contracts" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Claim contract tasks" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="Daily and weekly." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Operations" Tag="{StaticResource IcoHourglass}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Operations" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Run operations" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="The most XP per hour in every free slot." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Events" Tag="{StaticResource IcoCalendar}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Briefcases" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Pick Lucky Briefcases" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Free picks only, never keys." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_Events" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Make the most of events" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Plans around the game's events." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Your gear" Tag="{StaticResource IcoGear}">
-              <StackPanel>
-                <CheckBox x:Name="sw_EquipBest" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Equip the best gear" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Then the spare items go into the collection." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_Crates" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Open crates" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="All of the same crate at once, then the best gear on again." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-            </Grid>
-          </StackPanel></Grid>
-        </ScrollViewer>
-
-        <ScrollViewer x:Name="PageSettings" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-          <Grid Margin="30,0,30,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="1400"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <StackPanel>
-            <Grid Tag="Cols">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <StackPanel>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Your PC" Tag="{StaticResource IcoMonitor}">
-              <StackPanel>
-                <CheckBox x:Name="sw_WaitWhileBusy" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Wait while I use the PC" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="It only takes the mouse once you've left the PC alone for 15 seconds." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_GiveFocusBack" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Give my window back" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="After each round." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Staying in the game" Tag="{StaticResource IcoPlug}">
-              <StackPanel>
-                <CheckBox x:Name="sw_Rejoin" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Rejoin after a disconnect" FontWeight="SemiBold" FontSize="15"/>
-                    </StackPanel>
-                    <TextBlock Text="Presses Reconnect or starts the game again." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
-                <CheckBox x:Name="sw_KeepAlive" Style="{StaticResource Switch}">
-                  <StackPanel>
-                    <TextBlock Text="Stay in the game" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Text="A click after 15 quiet minutes, so Roblox doesn't kick you at 20." Style="{StaticResource Hint}"/>
-                  </StackPanel>
-                </CheckBox>
-              </StackPanel>
-            </HeaderedContentControl>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Tools" Tag="{StaticResource IcoScan}">
-              <StackPanel>
-
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Check my game" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock x:Name="CheckWhen" Style="{StaticResource Hint}" Text=""/>
-                  </StackPanel>
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Button x:Name="BtnReview" Style="{StaticResource Btn}" Margin="0,0,10,0">
-                      <TextBlock Text="See the last check" FontWeight="SemiBold"/>
-                    </Button>
-                    <Button x:Name="BtnCheck" Style="{StaticResource PrimaryBtn}">
-                      <StackPanel Orientation="Horizontal">
-                        <Path Style="{StaticResource Icon}" Data="{StaticResource IcoScan}" Stroke="{StaticResource OnGold}" Width="16" Height="16"/>
-                        <TextBlock Text="Check my game" Margin="8,0,0,0" FontWeight="Bold" Foreground="{StaticResource OnGold}"/>
-                      </StackPanel>
-                    </Button>
-                  </StackPanel>
-                </Grid>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,0"/>
-
-                <Grid Margin="0,14,0,0">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Updates" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock x:Name="UpdateStatus" Style="{StaticResource Hint}"
-                               Text="Looks for a new version on the bot's GitHub page, only when you press the button. Your settings stay."/>
-                  </StackPanel>
-                  <Grid Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Button x:Name="BtnUpdate" Style="{StaticResource Btn}">
-                      <TextBlock x:Name="UpdateText" Text="Check for updates" FontWeight="SemiBold"/>
-                    </Button>
-
-                    <Border x:Name="UpdateNew" Visibility="Collapsed" IsHitTestVisible="False" Height="16" CornerRadius="8" Padding="7,0"
-                            Background="{StaticResource Red}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-6,0">
-                      <TextBlock Text="new" FontSize="10" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                    </Border>
-                  </Grid>
-                </Grid>
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,0"/>
-                <TextBlock Style="{StaticResource Hint}" Text="Report a problem saves one zip on your Desktop to post in our Discord." Margin="0,12,0,10"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="10"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <Button x:Name="BtnLog" Style="{StaticResource Btn}" HorizontalAlignment="Stretch">
-                    <StackPanel Orientation="Horizontal">
-                      <Path Style="{StaticResource Icon}" Data="{StaticResource IcoLog}" Width="16" Height="16"/>
-                      <TextBlock Text="Open log" Margin="8,0,0,0" FontWeight="SemiBold"/>
-                    </StackPanel>
-                  </Button>
-                  <Button x:Name="BtnProblems" Grid.Column="2" Style="{StaticResource Btn}" HorizontalAlignment="Stretch">
-                    <StackPanel Orientation="Horizontal">
-                      <Path Style="{StaticResource Icon}" Data="{StaticResource IcoFolder}" Width="16" Height="16"/>
-                      <TextBlock x:Name="ProblemsText" Text="Problems" Margin="8,0,0,0" FontWeight="SemiBold"/>
-                    </StackPanel>
-                  </Button>
-                  <Button x:Name="BtnReport" Grid.Column="4" Style="{StaticResource Btn}" HorizontalAlignment="Stretch">
-                    <StackPanel Orientation="Horizontal">
-                      <Path Style="{StaticResource Icon}" Data="{StaticResource IcoFlag}" Width="16" Height="16"/>
-                      <TextBlock x:Name="ReportText" Text="Report a problem" Margin="8,0,0,0" FontWeight="SemiBold"/>
-                    </StackPanel>
-                  </Button>
-                </Grid>
-                <TextBlock x:Name="VersionText" Text="" Style="{StaticResource Label}" HorizontalAlignment="Right" Margin="0,6,0,0"/>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Discord messages" Tag="{StaticResource IcoDiscord}">
-              <StackPanel>
-                <TextBlock Style="{StaticResource Hint}" Text="Messages in your own Discord channel, for when you're away. Off until you paste a link, then only that link. Keep it to yourself."/>
-                <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
-                           Text="No server of your own? Type /alerts in our Discord for a private channel and its link."/>
-                <Grid Margin="0,14,0,0">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="40">
+                    <UniformGrid Columns="3" Margin="0,0,-10,0"><CheckBox x:Name="sw_MarketRelist" Style="{StaticResource OptTile}" Content="Relist my listings" ToolTip="Takes each of your listings out and puts it back, same amount and price, so it shows first again."/></UniformGrid>
+                    <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14"/>
                     <Grid>
-                      <PasswordBox x:Name="DiscordLinkBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
-                                   CaretBrush="{StaticResource Gold}" FontSize="14" VerticalContentAlignment="Center" Padding="12,0" PasswordChar="●"/>
-                      <TextBlock x:Name="DiscordLinkHint" Text="Paste your webhook link here" Foreground="{StaticResource Text3}"
-                                 VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <StackPanel>
+                        <TextBlock Text="Relist every" FontWeight="SemiBold" FontSize="15"/>
+                        <TextBlock Text="5 to 60 minutes. You make the listings, the bot only puts them back up." Style="{StaticResource Hint}"/>
+                      </StackPanel>
+                      <ContentControl x:Name="num_MarketMinutes" Grid.Column="1" Tag="5,60,5,min" VerticalAlignment="Center"/>
                     </Grid>
-                  </Border>
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                    <Button x:Name="BtnDiscordTest" Style="{StaticResource Btn}">
-                      <StackPanel Orientation="Horizontal">
-                        <Path Style="{StaticResource Icon}" Data="{StaticResource IcoDiscord}" Width="16" Height="16"/>
-                        <TextBlock Text="Send a test" Margin="8,0,0,0" FontWeight="SemiBold"/>
-                      </StackPanel>
-                    </Button>
-                    <Button x:Name="BtnDiscordClear" Style="{StaticResource GhostBtn}" Margin="6,0,0,0">
-                      <TextBlock Text="Remove" FontWeight="SemiBold" Foreground="{StaticResource Text2}"/>
-                    </Button>
                   </StackPanel>
-                </Grid>
-                <TextBlock x:Name="DiscordStatus" Style="{StaticResource Hint}" Margin="0,8,0,0" Text=""/>
-
-                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,12"/>
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Text="When to send a message" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
-                  <TextBlock x:Name="DiscordWhenCount" Grid.Column="1" Text="" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                  <ToggleButton x:Name="Fold_DiscordWhen" Grid.Column="2" Style="{StaticResource Fold}" ToolTip="Show or hide when it sends a message"/>
-                </Grid>
-                <Border x:Name="DiscordWhen" Margin="0,14,0,0">
-                  <UniformGrid Columns="2">
-                    <CheckBox x:Name="sw_DiscordProblems" Style="{StaticResource Switch}" Margin="0,0,24,16">
-                      <StackPanel>
-                        <TextBlock Text="Problems" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="Disconnected, stuck, or the bot stopped by itself." Style="{StaticResource Hint}"/>
-                      </StackPanel>
-                    </CheckBox>
-                    <CheckBox x:Name="sw_DiscordRarity" Style="{StaticResource Switch}" Margin="0,0,0,16">
-                      <StackPanel>
-                        <TextBlock Text="Mythic or better henchman" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="A hire or reroll that brings one." Style="{StaticResource Hint}"/>
-                      </StackPanel>
-                    </CheckBox>
-                    <CheckBox x:Name="sw_DiscordProperty" Style="{StaticResource Switch}" Margin="0,0,24,16">
-                      <StackPanel>
-                        <TextBlock Text="New property" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="Each property it builds." Style="{StaticResource Hint}"/>
-                      </StackPanel>
-                    </CheckBox>
-                    <CheckBox x:Name="sw_DiscordSummary" Style="{StaticResource Switch}" Margin="0,0,0,16">
-                      <StackPanel>
-                        <TextBlock Text="Update every 3 hours" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="Your level, cash and what the bot did." Style="{StaticResource Hint}"/>
-                      </StackPanel>
-                    </CheckBox>
-                    <CheckBox x:Name="sw_DiscordLevel" Style="{StaticResource Switch}" Margin="0,0,24,0">
-                      <StackPanel>
-                        <TextBlock Text="Level up" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="Often on a new account: one message per 10 minutes." Style="{StaticResource Hint}"/>
-                      </StackPanel>
-                    </CheckBox>
-                    <CheckBox x:Name="sw_DiscordBoss" Style="{StaticResource Switch}">
-                      <StackPanel>
-                        <TextBlock Text="Boss beaten" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="Often: one message per 10 minutes." Style="{StaticResource Hint}"/>
-                      </StackPanel>
-                    </CheckBox>
-                  </UniformGrid>
-                </Border>
+                </HeaderedContentControl>
               </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Style="{StaticResource Section}" Header="Stats in our Discord" Tag="{StaticResource IcoChart}">
-              <StackPanel>
-                <TextBlock x:Name="StatsHint" Style="{StaticResource Hint}" Text="Your level, cash and crew in our Discord. Type /link there and paste its link here. Only game numbers, never your Roblox name or a picture."/>
-                <Grid Margin="0,14,0,0">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="40">
-                    <Grid>
-                      <PasswordBox x:Name="StatsLinkBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
-                                   CaretBrush="{StaticResource Gold}" FontSize="14" VerticalContentAlignment="Center" Padding="12,0" PasswordChar="●"/>
-                      <TextBlock x:Name="StatsLinkHint" Text="Paste the link from /link here" Foreground="{StaticResource Text3}"
-                                 VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
-                    </Grid>
-                  </Border>
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                    <Button x:Name="BtnStatsPreview" Style="{StaticResource Btn}">
-                      <StackPanel Orientation="Horizontal">
-                        <Path Style="{StaticResource Icon}" Data="{StaticResource IcoScan}" Width="16" Height="16"/>
-                        <TextBlock x:Name="StatsPreviewLabel" Text="What it sends" Margin="8,0,0,0" FontWeight="SemiBold"/>
-                      </StackPanel>
-                    </Button>
-                    <Button x:Name="BtnStatsClear" Style="{StaticResource GhostBtn}" Margin="6,0,0,0">
-                      <TextBlock Text="Remove" FontWeight="SemiBold" Foreground="{StaticResource Text2}"/>
-                    </Button>
-                  </StackPanel>
-                </Grid>
-                <TextBlock x:Name="StatsStatus" Style="{StaticResource Hint}" Margin="0,8,0,0" Text=""/>
-                <Border x:Name="StatsPreviewBox" Visibility="Collapsed" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}"
-                        BorderThickness="1.5" CornerRadius="10" Margin="0,12,0,0" Padding="12,10">
-                  <StackPanel>
-                    <TextBlock Style="{StaticResource Hint}" Text="Exactly what goes to the link, as it is now. Numbers the bot hasn't read yet are left out."/>
-                    <TextBox x:Name="StatsPreview" IsReadOnly="True" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
-                             FontFamily="Consolas" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0" MaxHeight="300"
-                             VerticalScrollBarVisibility="Auto"/>
-                  </StackPanel>
-                </Border>
-              </StackPanel>
-            </HeaderedContentControl>
-            <HeaderedContentControl Style="{StaticResource Section}" Header="What it never presses" Tag="{StaticResource IcoShield}">
-              <StackPanel>
-
-                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                           Text="Never anything that costs Robux or tickets, never Trade, the Black Market or your family's settings. It only buys and upgrades with your cash, for the switches you turned on."/>
-                <Button x:Name="BtnNeverList" Style="{StaticResource Btn}" HorizontalAlignment="Left" Margin="0,12,0,0">
-                  <TextBlock x:Name="NeverListText" Text="Show the full list" FontWeight="SemiBold"/>
-                </Button>
-                <StackPanel x:Name="NeverList" Visibility="Collapsed" Margin="0,4,0,0">
-                  <TextBlock Text="Never" FontWeight="SemiBold" FontSize="13.5" Margin="0,12,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• Anything that costs Robux or tickets, and the + refill buttons" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• FINISH NOW, REPLACE, SABOTAGE, DELETE, AUTO ROLL" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• LEAVE FAMILY, MAKE BOSS, DONATE, DECLARE WAR, INVITE, EDIT, SAVE, JOIN" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• A collection card's own DEPOSIT, STOP on a henchman in training, briefcase keys" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• Trade and the Black Market" Margin="10,4,0,0"/>
-                  <TextBlock Text="Only with its switch on, and only with your cash" FontWeight="SemiBold" FontSize="13.5" Margin="0,12,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• BUILD on Properties, UPGRADE on the Safehouse" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• UNLOCK SLOT and the hires on the Crew, DISMISS on your worst henchman to reroll it, TRAIN" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• WITHDRAW ALL at the bank, for one of those buys, a Mythic or rarer shop item or your own heist's stake" Margin="10,4,0,0"/>
-                  <TextBlock Text="Only in these cases" FontWeight="SemiBold" FontSize="13.5" Margin="0,12,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• DEMOLISH on your weakest property, when a better one is ready to build" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• UNEQUIP ALL to read your crew's own stats for rerolls, then AUTO EQUIP BEST" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• SCOUT on a player's profile before a fight (1 stamina, with Scout players first on)" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• START A HEIST and its START, for a heist of your own (with Start my own heist on)" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• STATION ALL in a district of your family under attack, RECALL after, HEAL on its beaten defenders (with Defend our districts on)" Margin="10,4,0,0" TextWrapping="Wrap"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="• CANCEL, to back out of a crew or property window it won't go ahead with" Margin="10,4,0,0"/>
-                  <TextBlock Style="{StaticResource Hint}" Text="In the Shop it only buys items priced in cash. If a Robux purchase window opens, it stops." Margin="0,12,0,0" TextWrapping="Wrap"/>
-                </StackPanel>
-              </StackPanel>
-            </HeaderedContentControl>
-              </StackPanel>
-            </Grid>
-          </StackPanel></Grid>
-        </ScrollViewer>
-      </Grid>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
     </Grid>
+
+    <StackPanel x:Name="Toasts" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,96,26,0" Width="350" IsHitTestVisible="False"/>
 
     <Grid x:Name="Review" Grid.ColumnSpan="2" Background="#E6070708" Visibility="Collapsed">
 
@@ -1738,7 +1426,7 @@
               </StackPanel>
             </StackPanel>
             <TextBlock Style="{StaticResource Hint}" FontSize="14" Foreground="{StaticResource Text}" Margin="0,20,0,0"
-                       Text="It plays Idle Mafia Game on Roblox for you. Every part has its own switch on the pages on the left."/>
+                       Text="It plays Idle Mafia Game on Roblox for you. Every task is a tile on the Tasks page: gold is on, click it to turn it off."/>
 
             <Grid Margin="0,20,0,0">
               <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

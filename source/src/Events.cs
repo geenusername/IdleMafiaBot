@@ -58,8 +58,14 @@ namespace IdleMafiaBot
                                              && Math.Abs(r.Item3 - top.Item3) <= 2 && SameColour(r.Item4, top.Item4, 24))
                                  .OrderByDescending(r => r.Item1).FirstOrDefault();
                 if (bottom == null) continue;
+
                 int side = 0, n = 0;
-                for (int y = top.Item1; y <= bottom.Item1; y++) { n++; if (SameColour(f.Pixel(top.Item2, y), top.Item4, 30)) side++; }
+                for (int y = top.Item1; y <= bottom.Item1; y++)
+                {
+                    n++;
+                    for (int dx = 0; dx >= -2; dx--)
+                        if (SameColour(f.Pixel(Math.Max(0, top.Item2 + dx), y), top.Item4, 30)) { side++; break; }
+                }
                 if (side * 10 < n * 7) continue;
                 found.Add(new EventBadge { Box = Rectangle.FromLTRB(top.Item2, top.Item1, top.Item3 + 1, bottom.Item1 + 1), Colour = top.Item4 });
             }
