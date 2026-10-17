@@ -1,0 +1,27 @@
+name: Bug report
+description: Something the bot does wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The fastest way: in the bot go to **Settings → Report a problem**, then drag the zip from your Desktop into the box below.
+  - type: input
+    id: version
+    attributes:
+      label: Bot version
+      description: Shown in the window's title, like 1.8.0
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong?
+      description: What did the bot do, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Report zip
+      description: Drag your IdleMafiaBot-report zip here
