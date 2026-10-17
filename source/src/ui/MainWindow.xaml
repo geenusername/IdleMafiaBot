@@ -58,7 +58,7 @@
           <Image x:Name="ImgBack" Visibility="{DynamicResource HalloweenVisibility}" Canvas.Left="0" Canvas.Top="0" Width="1600" Height="240" Stretch="Fill"/>
           <Image x:Name="ImgMid" Visibility="{DynamicResource HalloweenVisibility}" Canvas.Left="272" Canvas.Top="0" Width="1056" Height="240" Stretch="Fill"/>
           <Image x:Name="ImgTomb" Visibility="{DynamicResource HalloweenVisibility}" Canvas.Left="1140" Canvas.Top="45" Width="110" Stretch="Uniform" Opacity="0.85"/>
-          <TextBlock x:Name="TombLosses" Visibility="{DynamicResource HalloweenVisibility}" Canvas.Left="1140" Canvas.Top="128" Width="110" Text="0"
+          <TextBlock x:Name="TombLosses" Visibility="{DynamicResource HalloweenVisibility}" Canvas.Left="1140" Canvas.Top="128" Width="110" Text=""
                      TextAlignment="Center" FontFamily="{StaticResource Deco}" FontSize="30" FontWeight="Bold" Foreground="#241F33" IsHitTestVisible="False"/>
           <TextBlock x:Name="TombWins" Visibility="{DynamicResource HalloweenVisibility}" Canvas.Left="1140" Canvas.Top="166" Width="110" Text=""
                      TextAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Text2}" IsHitTestVisible="False"/>

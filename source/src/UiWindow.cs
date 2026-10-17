@@ -2095,11 +2095,10 @@ namespace IdleMafiaBot
             El<TextBlock>("TotFightsSub").Text = c.Fights > 0 ? string.Format("fights, {0} won", c.Wins) : "fights";
             El<TextBlock>("TotDeposits").Text = c.Deposits.ToString();
             El<TextBlock>("TotRewards").Text = (c.Rewards + c.Crates).ToString();
-            try { El<TextBlock>("TombLosses").Text = c.Losses.ToString(); }
-            catch (Exception) { }
             try
             {
                 var gs = bot.LastGameStats;
+                El<TextBlock>("TombLosses").Text = gs != null && gs.FightLosses >= 0 ? gs.FightLosses.ToString("N0") : "";
                 El<TextBlock>("TombWins").Text = gs != null && gs.FightWins >= 0 ? gs.FightWins.ToString("N0") + " wins" : "";
             }
             catch (Exception) { }

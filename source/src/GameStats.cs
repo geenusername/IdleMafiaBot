@@ -12,7 +12,7 @@ namespace IdleMafiaBot
         public int PlaytimeSecs = -1;
         public string PlaytimeText = "";
         public long Respect = -1;
-        public long FightWins = -1, Defenses = -1, BossesBeaten = -1;
+        public long FightWins = -1, FightLosses = -1, Defenses = -1, BossesBeaten = -1;
         public long JobsDone = -1, JobsMastered = -1, OpsDone = -1, Properties = -1;
         public double IncomePerHour = -1, CashBanked = -1;
         public long HeistsDone = -1, HeistAssists = -1, HeistSabotages = -1, CleanRuns = -1;
@@ -27,8 +27,10 @@ namespace IdleMafiaBot
                 lines.Add("Player: level " + (Level > 0 ? Level.ToString() : "?")
                     + (Respect >= 0 ? ", respect " + Respect.ToString("N0") : "")
                     + (PlaytimeSecs >= 0 ? ", playtime " + PlaytimeText : ""));
-            if (FightWins >= 0 || Defenses >= 0 || BossesBeaten >= 0)
-                lines.Add("Combat: " + FightWins + " fight wins, " + Defenses + " defenses, " + BossesBeaten + " bosses beaten");
+            if (FightWins >= 0 || FightLosses >= 0 || Defenses >= 0 || BossesBeaten >= 0)
+                lines.Add("Combat: " + FightWins + " fight wins"
+                    + (FightLosses >= 0 ? ", " + FightLosses + " fight losses" : "")
+                    + ", " + Defenses + " defenses, " + BossesBeaten + " bosses beaten");
             if (JobsDone >= 0 || OpsDone >= 0 || Properties >= 0)
                 lines.Add("Empire: " + JobsDone + " jobs (" + JobsMastered + " mastered), " + OpsDone + " operations, " + Properties + " properties"
                     + (IncomePerHour >= 0 ? ", " + SafehouseInfo.Money(IncomePerHour) + "/hr" : "")
@@ -215,7 +217,7 @@ namespace IdleMafiaBot
         static readonly Tuple<string, string>[] StatLabels =
         {
             Tuple.Create("Level", "int"), Tuple.Create("Total playtime", "time"), Tuple.Create("Current respect", "int"),
-            Tuple.Create("Fight wins", "int"), Tuple.Create("Successful defenses", "int"), Tuple.Create("Bosses defeated", "int"),
+            Tuple.Create("Fight wins", "int"), Tuple.Create("Fight losses", "int"), Tuple.Create("Successful defenses", "int"), Tuple.Create("Bosses defeated", "int"),
             Tuple.Create("Jobs completed", "int"), Tuple.Create("Jobs fully mastered", "int"), Tuple.Create("Operations completed", "int"),
             Tuple.Create("Properties owned", "int"), Tuple.Create("Property income per hour", "money"), Tuple.Create("Total cash banked", "money"),
             Tuple.Create("Heists completed", "int"), Tuple.Create("Heist assists", "int"), Tuple.Create("Heist sabotages", "int"), Tuple.Create("Clean runs", "int"),
@@ -274,6 +276,7 @@ namespace IdleMafiaBot
                 case "Level": if (n <= 0 || n > 10000) return false; s.Level = (int)n; return true;
                 case "Current respect": s.Respect = n; return true;
                 case "Fight wins": s.FightWins = n; return true;
+                case "Fight losses": s.FightLosses = n; return true;
                 case "Successful defenses": s.Defenses = n; return true;
                 case "Bosses defeated": s.BossesBeaten = n; return true;
                 case "Jobs completed": s.JobsDone = n; return true;
