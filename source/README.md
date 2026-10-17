@@ -39,7 +39,7 @@ Nothing by itself. Only three things you switch on yourself, all in `Discord.cs`
 | `Vision.cs` | Pictures, the OCR and reading numbers from text |
 | `Game.cs` | Reading each game screen and pressing its buttons |
 | `Bot.cs` | The work rounds: jobs, heists, fights, bosses, bank, operations, rewards |
-| `Crew.cs`, `Family.cs`, `BlackMarket.cs`, `Events.cs`, `HeistStart.cs`, `Rejoin.cs` | Their own parts of the game |
+| `Crew.cs`, `Family.cs`, `BlackMarket.cs`, `Events.cs`, `HeistStart.cs`, `GameStats.cs`, `Rejoin.cs` | Their own parts of the game |
 | `UiWindow.cs`, `View.cs`, `ui\*.xaml` | The bot's window |
 | `Settings.cs`, `Accounts.cs`, `Profile.cs` | Settings and the account's own files |
 | `ProblemReport.cs` | "Report a problem": a zip on your Desktop, never sent anywhere |

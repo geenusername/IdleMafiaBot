@@ -85,7 +85,7 @@ namespace IdleMafiaBot
         public event Action<List<OpSlot>> OpsRead;
         public event Action CatalogChanged;
 
-        DateTime nextOps, nextBosses, nextPlaytime, nextContracts, nextCrates, nextHeists, nextFights, nextBank, nextPoints, nextJobs, nextLearn, lastBank;
+        DateTime nextOps, nextBosses, nextPlaytime, nextContracts, nextCrates, nextHeists, nextFights, nextBank, nextPoints, nextJobs, nextLearn, nextGameStats, lastBank;
         int level = -1, repeats, frontFails, logWrites;
         int xpNextLast = -1, xpNextSeen = -1;
         string lastError;
@@ -254,7 +254,7 @@ namespace IdleMafiaBot
             redone.Clear();
             oneJobSaid = null;
             DateTime now = DateTime.UtcNow;
-            nextOps = nextBosses = nextPlaytime = nextContracts = nextCrates = nextHeists = nextFights = nextBank = nextPoints = nextJobs = nextLearn = now;
+            nextOps = nextBosses = nextPlaytime = nextContracts = nextCrates = nextHeists = nextFights = nextBank = nextPoints = nextJobs = nextLearn = nextGameStats = now;
             ResetMenuNumbers();
             fullClock.Reset();
             ResetFamily(now);
@@ -803,6 +803,7 @@ namespace IdleMafiaBot
             if ((ShopOn() && now >= nextShop && Can(Tab.Shop)) || (S.Crates && now >= nextCrates && Can(Tab.Inventory) && !CratesHeld(now))
                 || (S.EquipBest && now >= nextEquip)) due.Add("gear");
             if (now >= nextSafehouse && Can(Tab.Safehouse)) due.Add("read safehouse");
+            if (S.GameStats && now >= nextGameStats) due.Add("game stats");
             if (S.SpendPoints && h.SkillPoints >= game.PointsCost && now >= nextPoints) due.Add("skill points");
             if (S.Jobs && NeedLearn() && Can(Tab.Jobs)) due.Add("learn jobs");
 
@@ -1059,6 +1060,7 @@ namespace IdleMafiaBot
                 case "gear back": gearBackHold = when; break;
                 case "gear": nextShop = nextCrates = nextEquip = when; break;
                 case "read safehouse": nextSafehouse = when; break;
+                case "game stats": nextGameStats = when; break;
                 case "skill points": nextPoints = when; break;
                 case "learn jobs": nextLearn = when; break;
                 case "heists": nextHeists = when; break;
@@ -1095,6 +1097,7 @@ namespace IdleMafiaBot
                 case "rerolls": nextReroll = now; break;
                 case "gear": nextCrates = nextEquip = now; break;
                 case "read safehouse": nextSafehouse = now; break;
+                case "game stats": nextGameStats = now; break;
                 case "skill points": nextPoints = now; break;
                 case "learn jobs": nextLearn = now.AddMinutes(5); break;
                 case "heists": nextHeists = now; break;
@@ -1153,6 +1156,7 @@ namespace IdleMafiaBot
                 }
                 case "gear": DoGear(); break;
                 case "read safehouse": ReadSafehouse(); break;
+                case "game stats": DoGameStats(); break;
                 case "skill points":
                 {
 
@@ -2768,7 +2772,7 @@ namespace IdleMafiaBot
         void ResetAccountState(string before)
         {
             DateTime now = DateTime.UtcNow;
-            nextOps = nextBosses = nextPlaytime = nextContracts = nextCrates = nextHeists = nextFights = nextBank = nextPoints = nextJobs = nextLearn = now;
+            nextOps = nextBosses = nextPlaytime = nextContracts = nextCrates = nextHeists = nextFights = nextBank = nextPoints = nextJobs = nextLearn = nextGameStats = now;
             ResetMenuNumbers();
             nextEquip = nextShop = nextSafehouse = nextProperties = nextTutorialLook = nextMarket = now;
             nextBriefcases = nextEvents = now; badgeSig = eventsSig = null; eventsOn.Clear(); briefcasesSaid = null; briefcasesStopped = false;
@@ -4766,6 +4770,10 @@ namespace IdleMafiaBot
 
         public event Action<SafehouseInfo> SafehouseRead;
 
+        public PlayerStats LastGameStats;
+
+        public event Action<PlayerStats> GameStatsRead;
+
         void DoGear()
         {
 
@@ -4954,6 +4962,23 @@ namespace IdleMafiaBot
             if (!info.Complete) SnapshotOnce("safehouse partly read");
             var h = SafehouseRead;
             if (h != null) h(info);
+        }
+
+        void DoGameStats()
+        {
+            nextGameStats = DateTime.UtcNow.AddHours(3);
+            var st = game.ReadPlayerStats();
+            if (st == null || st.Found == 0)
+            {
+                Log("Couldn't read YOUR STATS from the game's menu");
+                nextGameStats = DateTime.UtcNow.AddMinutes(30);
+                return;
+            }
+            LastGameStats = st;
+            Log("Game stats (" + st.Found + " read):");
+            foreach (var line in st.Lines()) Log("Game stats: " + line);
+            var g = GameStatsRead;
+            if (g != null) g(st);
         }
 
         void DoOperations()

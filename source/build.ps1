@@ -22,8 +22,10 @@ $refs = @(
 ) | ForEach-Object { "/r:$_" }
 # the window (WPF): src\ui\*.xaml are embedded in the exe and loaded at startup
 $resources = @(Get-ChildItem src\ui\*.xaml | ForEach-Object { "/resource:$($_.FullName),IdleMafiaBot.ui.$($_.Name)" })
-$icon = @('/win32icon:src\ui\app.ico', "/resource:$((Resolve-Path src\ui\app.ico).Path),IdleMafiaBot.ui.app.ico")
+$icon = @('/win32icon:src\ui\app_halloween.ico', "/resource:$((Resolve-Path src\ui\app.ico).Path),IdleMafiaBot.ui.app.ico",
+  "/resource:$((Resolve-Path src\ui\app_halloween.ico).Path),IdleMafiaBot.ui.app_halloween.ico")
+$art = @(Get-ChildItem src\ui\assets_halloween\*_halloween*.png | ForEach-Object { "/resource:$($_.FullName),IdleMafiaBot.ui.$($_.Name)" })
 $sources = @(Get-ChildItem src\*.cs | ForEach-Object { $_.FullName })
-& $csc /nologo /optimize+ /codepage:65001 /target:winexe "/out:$Out" @icon @refs @resources @sources
+& $csc /nologo /optimize+ /codepage:65001 /target:winexe "/out:$Out" @icon @refs @resources @art @sources
 if ($LASTEXITCODE -ne 0) { throw "compile failed ($LASTEXITCODE)" }
 "built $Out"

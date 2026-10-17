@@ -685,10 +685,18 @@ namespace IdleMafiaBot
             int left = name != null ? name.Box.X : family != null ? family.Box.X : -1;
 
             var xpLine = points == null ? lines.FirstOrDefault(l => Parse.Has(l.Text, "XP") && Regex.IsMatch(l.Text, @"\d\s*/")) : null;
-            Rectangle xpArea = Rectangle.Empty;
-            if (points != null && left > 0) xpArea = new Rectangle(left - 4, (int)(points.CenterY - row * 0.45), points.Box.X - left, (int)(row * 0.9));
-            else if (xpLine != null) xpArea = new Rectangle(xpLine.Box.X - 8, (int)(xpLine.CenterY - row * 0.45), xpLine.Box.Width + 16, (int)(row * 0.9));
-            var xpTries = new[] { new { S = s + 1, P = Prep.WhiteText }, new { S = s + 2, P = Prep.None } };
+            int xpRow = points != null ? points.CenterY : xpLine != null ? xpLine.CenterY
+                      : family != null ? family.Box.Bottom + (int)(row * 0.6) : name != null ? name.Box.Bottom + (int)(row * 1.4) : -1;
+            Rectangle xpArea = left > 0 && xpRow > 0
+                ? new Rectangle(left - 4, (int)(xpRow - row * 0.45), Math.Max(0, right - left + 4), (int)(row * 0.9))
+                : Rectangle.Empty;
+            var xpTries = new[]
+            {
+                new { S = s + 1, P = Prep.WhiteText }, new { S = s + 2, P = Prep.None },
+                new { S = s, P = Prep.WhiteText }, new { S = s, P = Prep.None }, new { S = s, P = Prep.WhiteBright },
+                new { S = Math.Max(1, s - 1), P = Prep.WhiteText }, new { S = Math.Max(1, s - 1), P = Prep.None },
+                new { S = s + 1, P = Prep.WhiteBright }, new { S = s + 2, P = Prep.WhiteText }, new { S = s + 1, P = Prep.Contrast },
+            };
             if (xpArea.Width > 0)
                 foreach (var t in xpTries)
                 {
