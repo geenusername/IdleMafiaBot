@@ -16,7 +16,7 @@ namespace IdleMafiaBot
     static class Program
     {
 
-        public const string Version = "1.7.10";
+        public const string Version = "1.8.0";
 
         [STAThread]
         static void Main(string[] args)
@@ -62,9 +62,9 @@ namespace IdleMafiaBot
                 };
                 try
                 {
-                    app.Resources = (ResourceDictionary)UiWindow.LoadXaml("Theme.xaml");
                     string dir = AppDomain.CurrentDomain.BaseDirectory;
                     var settings = Settings.Load(Path.Combine(dir, "IdleMafiaBot.ini"));
+                    app.Resources = (ResourceDictionary)UiWindow.LoadXaml(ThemeFile(settings.ThemeShown));
                     bot = new Bot(settings, dir);
                     if (dpi != null) bot.Log(dpi);
                     ui = new UiWindow(settings, bot, dir, args);
@@ -135,6 +135,11 @@ namespace IdleMafiaBot
                 return here.StartsWith(temp, StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception) { return false; }
+        }
+
+        internal static string ThemeFile(ThemeChoice theme)
+        {
+            return theme == ThemeChoice.Halloween ? "Theme.Halloween.xaml" : "Theme.xaml";
         }
     }
 }

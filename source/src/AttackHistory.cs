@@ -77,6 +77,15 @@ namespace IdleMafiaBot
             return n >= 6 && View.Distance(ka, kb) <= (n >= 10 ? 2 : 1);
         }
 
+        public static bool CloseName(string a, string b)
+        {
+            string ka = Parse.Key(a), kb = Parse.Key(b);
+            if (SamePlayer(a, b)) return true;
+            if (ka.Length < 4 || kb.Length < 4) return false;
+            if (ka.Substring(0, 4) == kb.Substring(0, 4)) return true;
+            return Math.Min(ka.Length, kb.Length) >= 6 && View.Distance(ka, kb) <= 3;
+        }
+
         public void AttackHistoryToTop()
         {
             Point at;

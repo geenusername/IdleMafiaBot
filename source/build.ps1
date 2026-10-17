@@ -21,7 +21,7 @@ $refs = @(
   "$gac\System.Threading.Tasks\v4.0_4.0.0.0__b03f5f7f11d50a3a\System.Threading.Tasks.dll"
 ) | ForEach-Object { "/r:$_" }
 # the window (WPF): src\ui\*.xaml are embedded in the exe and loaded at startup
-$resources = @(Get-ChildItem src\ui\*.xaml | ForEach-Object { "/resource:$($_.FullName),IdleMafiaBot.ui.$($_.Name)" })
+$resources = @(Get-ChildItem src\ui\*.xaml, src\ui\*.ttf, src\ui\assets_halloween\*.png, src\ui\app_halloween.ico | ForEach-Object { "/resource:$($_.FullName),IdleMafiaBot.ui.$($_.Name)" })
 $icon = @('/win32icon:src\ui\app.ico', "/resource:$((Resolve-Path src\ui\app.ico).Path),IdleMafiaBot.ui.app.ico")
 $sources = @(Get-ChildItem src\*.cs | ForEach-Object { $_.FullName })
 & $csc /nologo /optimize+ /codepage:65001 /target:winexe "/out:$Out" @icon @refs @resources @sources

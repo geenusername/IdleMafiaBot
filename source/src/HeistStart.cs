@@ -44,11 +44,56 @@ namespace IdleMafiaBot
 
         public string OwnHeistWords(Frame f)
         {
+            return string.Join(" | ", OwnHeistPanel(f).Select(l => l.Text.Trim()));
+        }
+
+        List<OcrLine> OwnHeistPanel(Frame f)
+        {
             var area = PageArea(f);
             var lines = Ocr.Read(f, area, PageScale(f), Prep.None);
             var board = lines.FirstOrDefault(l => Parse.Has(l.Text, "HEIST BOARD"));
             int bottom = board != null ? board.Box.Y : area.Top + (int)(area.Height * 0.4);
-            return string.Join(" | ", lines.Where(l => l.CenterY < bottom && l.CenterY > area.Top + area.Height * 0.08).OrderBy(l => l.Box.Y).ThenBy(l => l.Box.X).Select(l => l.Text.Trim()));
+            return lines.Where(l => l.CenterY < bottom && l.CenterY > area.Top + area.Height * 0.08).OrderBy(l => l.Box.Y).ThenBy(l => l.Box.X).ToList();
+        }
+
+        public sealed class OwnHeist
+        {
+            public string Name = "";
+            public int Got = -1, Need = -1, Seconds = -1;
+            public override string ToString() { return (Name.Length > 0 ? Name : "your heist") + " (" + Got + "/" + Need + " helps, " + (Seconds / 60) + " min left)"; }
+        }
+
+        static readonly Regex OwnHelpsRx = new Regex(@"([0-9OoIl]{1,3})\s*/\s*([0-9OoIl]{1,3})\s*HE[LI1|]PS?", RegexOptions.IgnoreCase);
+
+        static readonly Regex OwnEndsRx = new Regex(@"ENDS\s*IN\s*([0-9OoIl]{1,2})[\s:.;,\u2022\u00B7]+([0-9OoIl]{2})(?:[\s:.;,\u2022\u00B7]+([0-9OoIl]{2}))?", RegexOptions.IgnoreCase);
+
+        public OwnHeist ReadOwnHeist(Frame f)
+        {
+            return OwnHeistOf(OwnHeistPanel(f).Select(l => l.Text).ToList());
+        }
+
+        internal static OwnHeist OwnHeistOf(List<string> panel)
+        {
+            Match helps = null, ends = null;
+            foreach (var t in panel)
+            {
+                if (helps == null) { var m = OwnHelpsRx.Match(t); if (m.Success) helps = m; }
+                if (ends == null) { var m = OwnEndsRx.Match(t); if (m.Success) ends = m; }
+            }
+            if (helps == null || ends == null) return null;
+            var o = new OwnHeist();
+            int a, b, c;
+            if (!int.TryParse(Parse.Digits(helps.Groups[1].Value), out a) || !int.TryParse(Parse.Digits(helps.Groups[2].Value), out b) || b <= 0) return null;
+            o.Got = a; o.Need = b;
+            if (!int.TryParse(Parse.Digits(ends.Groups[1].Value), out a) || !int.TryParse(Parse.Digits(ends.Groups[2].Value), out b) || b > 59) return null;
+            if (ends.Groups[3].Success)
+            {
+                if (!int.TryParse(Parse.Digits(ends.Groups[3].Value), out c) || c > 59) return null;
+                o.Seconds = a * 3600 + b * 60 + c;
+            }
+            else o.Seconds = a * 60 + b;
+            o.Name = HeistNames.FirstOrDefault(n => panel.Any(t => SameHeist(t, n))) ?? "";
+            return o;
         }
 
         public OcrLine CollectTheTake(Frame f, out string heist, out string haul)

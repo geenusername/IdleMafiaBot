@@ -86,7 +86,9 @@ namespace IdleMafiaBot
             bot.WantShots = () => Family;
             bot.WantFamilyNews = () => Family;
             bot.TerritoryAttack += (city, no, name, lost, by) => NoteTerritory(city, no, name, lost, by);
-            bot.FamilyDistricts += held => NoteDistricts(held);
+            bot.FamilyDistricts += (held, garrisons) => NoteDistricts(held, garrisons);
+            bot.HeistShort += o => NoteHeistCall(o);
+            bot.ShipmentSeen += t => NoteShipment(t);
             bot.FightWon += w => { try { NoteWin(w); } finally { if (w.Shot != null) w.Shot.Dispose(); } };
             bot.ShopSeen += (item, stock) => { try { NoteShop(item, stock); } finally { if (item.Shot != null) { item.Shot.Dispose(); item.Shot = null; } } };
 
@@ -168,11 +170,27 @@ namespace IdleMafiaBot
                   + ",\n  \"lost\": " + (lost ? "true" : "false") + (string.IsNullOrEmpty(by) ? "" : ",\n  \"by\": " + Q(by)) + "\n}", null);
         }
 
-        internal void NoteDistricts(List<Tuple<string, int, string>> held)
+        internal void NoteDistricts(List<Tuple<string, int, string>> held, Dictionary<string, int[]> garrisons = null)
         {
             if (!Family || held == null) return;
-            var parts = held.Take(60).Select(t => "{ " + Q("city") + ": " + Q(t.Item1) + ", " + Q("number") + ": " + N(t.Item2) + ", " + Q("district") + ": " + Q(t.Item3) + " }");
+            int[] g;
+            var parts = held.Take(60).Select(t => "{ " + Q("city") + ": " + Q(t.Item1) + ", " + Q("number") + ": " + N(t.Item2) + ", " + Q("district") + ": " + Q(t.Item3)
+                                                  + (garrisons != null && garrisons.TryGetValue(t.Item3, out g) ? ", " + Q("garrison") + ": " + N(g[0]) + ", " + Q("max") + ": " + N(g[1]) : "") + " }");
             Queue(PostHead("districts") + ",\n  \"held\": [" + string.Join(", ", parts) + "]\n}", null);
+        }
+
+        internal void NoteShipment(string text)
+        {
+            if (!Family || string.IsNullOrWhiteSpace(text)) return;
+            string t = text.Trim();
+            Queue(PostHead("shipment") + ",\n  \"text\": " + Q(t.Length > 200 ? t.Substring(0, 200) : t) + "\n}", null);
+        }
+
+        internal void NoteHeistCall(Game.OwnHeist o)
+        {
+            if (!Family || o == null || o.Need <= 0 || o.Got >= o.Need || o.Seconds < 0) return;
+            Queue(PostHead("heistcall") + (o.Name.Length > 0 ? ",\n  \"heist\": " + Q(o.Name) : "") + ",\n  \"got\": " + N(o.Got) + ",\n  \"need\": " + N(o.Need)
+                  + ",\n  \"ends\": " + N(o.Seconds) + "\n}", null);
         }
 
         void SendPost(int timeoutMs)

@@ -179,7 +179,9 @@ namespace IdleMafiaBot
 
             try
             {
-                var ico = Assembly.GetExecutingAssembly().GetManifestResourceStream("IdleMafiaBot.ui.app.ico");
+                var asm = Assembly.GetExecutingAssembly();
+                string iconName = s.ThemeShown == ThemeChoice.Halloween ? "IdleMafiaBot.ui.app_halloween.ico" : "IdleMafiaBot.ui.app.ico";
+                var ico = asm.GetManifestResourceStream(iconName) ?? asm.GetManifestResourceStream("IdleMafiaBot.ui.app.ico");
                 if (ico != null) Window.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(ico, System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
             }
             catch (Exception) { }
@@ -192,7 +194,6 @@ namespace IdleMafiaBot
                 CornerRadius = new CornerRadius(0),
                 UseAeroCaptionButtons = false,
             });
-            Window.StateChanged += (a, b) => El<Grid>("Root").Margin = new Thickness(Window.WindowState == WindowState.Maximized ? 7 : 0);
 
             WirePages();
             WireSettings();
@@ -210,6 +211,11 @@ namespace IdleMafiaBot
             El<ItemsControl>("KeptList").ItemsSource = keptRows;
             Pulse("RunGlow");
             Pulse("NowGlow");
+            WireHalloween();
+            WireHalloweenArt();
+            WireSpiderGrab();
+            WireHalloweenHaunts();
+            Window.Loaded += (a, b) => Window.Dispatcher.BeginInvoke(new Action(CalmIdleAnimations), System.Windows.Threading.DispatcherPriority.Background);
 
             bot.Logged += line => Ui(() => AddFeed(line));
             bot.StateChanged += st => Ui(() => ShowState(st));
@@ -339,6 +345,467 @@ namespace IdleMafiaBot
         {
             var anim = new DoubleAnimation(0.08, 0.35, TimeSpan.FromSeconds(1.1)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
             El<Ellipse>(name).BeginAnimation(UIElement.OpacityProperty, anim);
+        }
+
+        readonly Random hauntRand = new Random();
+        readonly HashSet<string> batsFlying = new HashSet<string>();
+        System.Windows.Threading.DispatcherTimer batTimer;
+        readonly Dictionary<string, System.Windows.Media.Imaging.BitmapFrame> artCache = new Dictionary<string, System.Windows.Media.Imaging.BitmapFrame>();
+
+        System.Windows.Media.Imaging.BitmapFrame Art(string name)
+        {
+            System.Windows.Media.Imaging.BitmapFrame f;
+            if (artCache.TryGetValue(name, out f)) return f;
+            try
+            {
+                var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("IdleMafiaBot.ui." + name);
+                if (s != null)
+                {
+                    f = System.Windows.Media.Imaging.BitmapFrame.Create(s, System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+                    artCache[name] = f;
+                }
+            }
+            catch (Exception) { }
+            return f;
+        }
+
+        void SetArt(string element, string art)
+        {
+            try
+            {
+                var img = El<System.Windows.Controls.Image>(element);
+                var f = Art(art);
+                if (f != null) img.Source = f;
+            }
+            catch (Exception) { }
+        }
+
+        void WireHalloweenArt()
+        {
+            if (s.ThemeShown != ThemeChoice.Halloween) return;
+            Ui(() =>
+            {
+                SetArt("ImgBack", "bg_halloween_back.png");
+                SetArt("ImgMid", "bg_halloween_mid.png");
+                SetArt("ImgTomb", "tombstone_halloween.png");
+                SetArt("ImgFog", "fog_halloween.png");
+                SetArt("Bat1", "bat_halloween.png");
+                SetArt("Bat2", "bat_halloween.png");
+                SetArt("Bat3", "bat_halloween.png");
+                SetArt("GhostBack", "ghost_halloween.png");
+                SetArt("GhostHero", "ghost_halloween.png");
+                SetArt("HImgBack", "bg_halloween_back.png");
+                SetArt("HImgMid", "bg_halloween_mid.png");
+            });
+        }
+
+        void CalmIdleAnimations()
+        {
+            try
+            {
+                if (s.ThemeShown == ThemeChoice.Halloween) { StopOpacity(Window.FindName("SkyWinBack") as UIElement); return; }
+                StopOpacity(Window.FindName("MoonGlow") as UIElement);
+                StopOpacity(Window.FindName("HauntedLabel") as UIElement);
+                foreach (var n in new[] { "ImgFog", "GhostBack", "GhostHero", "Spider" })
+                    StopTransformAnim(Window.FindName(n) as FrameworkElement);
+            }
+            catch (Exception) { }
+        }
+
+        static void StopOpacity(UIElement el)
+        {
+            if (el != null) el.BeginAnimation(UIElement.OpacityProperty, null);
+        }
+
+        static void StopTransformAnim(FrameworkElement el)
+        {
+            var t = el == null ? null : el.RenderTransform;
+            if (t is TranslateTransform)
+            {
+                var tt = (TranslateTransform)t;
+                tt.BeginAnimation(TranslateTransform.XProperty, null);
+                tt.BeginAnimation(TranslateTransform.YProperty, null);
+            }
+            else if (t is RotateTransform) ((RotateTransform)t).BeginAnimation(RotateTransform.AngleProperty, null);
+            else if (t is TransformGroup)
+                foreach (var c in ((TransformGroup)t).Children) if (c is RotateTransform) ((RotateTransform)c).BeginAnimation(RotateTransform.AngleProperty, null);
+        }
+
+        void WireHalloween()
+        {
+            if (s.ThemeShown != ThemeChoice.Halloween) return;
+            batTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.2) };
+            batTimer.Tick += (a, b) =>
+            {
+                try
+                {
+                    batTimer.Interval = TimeSpan.FromSeconds(2.5 + hauntRand.NextDouble() * 3.5);
+                    FlyBat();
+                }
+                catch (Exception) { }
+            };
+            batTimer.Start();
+            Window.Closed += (a, b) => { try { if (batTimer != null) batTimer.Stop(); } catch (Exception) { } };
+            Ui(() => FlyBat());
+        }
+
+        void FlyBat()
+        {
+            var names = new[] { "Bat1", "Bat2", "Bat3" };
+            var free = names.Where(n => !batsFlying.Contains(n)).ToList();
+            if (free.Count == 0) return;
+            string name = free[hauntRand.Next(free.Count)];
+            FrameworkElement el;
+            try { el = El<FrameworkElement>(name); }
+            catch (Exception) { return; }
+            bool leftToRight = hauntRand.Next(2) == 0;
+            double fromX = leftToRight ? 1660 : -160, toX = leftToRight ? -160 : 1660;
+            double top = 15 + hauntRand.NextDouble() * 130;
+            double secs = 9 + hauntRand.NextDouble() * 11;
+            double wobble = 10 + hauntRand.NextDouble() * 14;
+            el.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    batsFlying.Add(name);
+                    Canvas.SetLeft(el, fromX);
+                    Canvas.SetTop(el, top);
+                    var sb = new Storyboard();
+                    var fly = new DoubleAnimation(fromX, toX, new Duration(TimeSpan.FromSeconds(secs)));
+                    Storyboard.SetTarget(fly, el);
+                    Storyboard.SetTargetProperty(fly, new PropertyPath("(Canvas.Left)"));
+                    var wob = new DoubleAnimation(-wobble, wobble, new Duration(TimeSpan.FromSeconds(1.4 + hauntRand.NextDouble())));
+                    wob.AutoReverse = true;
+                    wob.RepeatBehavior = new RepeatBehavior(Math.Max(2, (int)(secs / 2.4)));
+                    wob.EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut };
+                    Storyboard.SetTarget(wob, el);
+                    Storyboard.SetTargetProperty(wob, new PropertyPath("RenderTransform.(TranslateTransform.Y)"));
+                    sb.Children.Add(fly);
+                    sb.Children.Add(wob);
+                    sb.Completed += (a2, b2) => batsFlying.Remove(name);
+                    sb.Begin();
+                }
+                catch (Exception) { batsFlying.Remove(name); }
+            }));
+        }
+
+        Path spiderEl;
+        Line webLine;
+        TranslateTransform spiderDrag;
+        ScaleTransform spiderStretch;
+        bool spiderHeld;
+        Point spiderGrabAt;
+        System.Windows.Threading.DispatcherTimer spiderCycle;
+
+        void StartSpiderCycle()
+        {
+            try
+            {
+                if (spiderCycle != null) spiderCycle.Stop();
+                spiderCycle = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5 + hauntRand.NextDouble() * 4) };
+                spiderCycle.Tick += (a, b) => { try { spiderCycle.Stop(); } catch (Exception) { } SpiderDive(); };
+                spiderCycle.Start();
+            }
+            catch (Exception) { }
+        }
+
+        void SpiderDive()
+        {
+            try
+            {
+                if (spiderEl == null) { StartSpiderCycle(); return; }
+                bool deep = hauntRand.Next(100) < 20;
+                double target = deep ? CashSpiderTop() : 128;
+                AnimateSpiderTop(target, deep ? 4.5 : 3.0, () => HoldSpider(deep));
+            }
+            catch (Exception) { StartSpiderCycle(); }
+        }
+
+        void HoldSpider(bool deep)
+        {
+            try
+            {
+                var hold = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(deep ? 2.2 : 1.2) };
+                hold.Tick += (a, b) => { try { hold.Stop(); } catch (Exception) { } AnimateSpiderTop(70, deep ? 3.0 : 2.5, () => StartSpiderCycle()); };
+                hold.Start();
+            }
+            catch (Exception) { StartSpiderCycle(); }
+        }
+
+        void AnimateSpiderTop(double to, double secs, Action done)
+        {
+            try
+            {
+                var an = new DoubleAnimation(to, new Duration(TimeSpan.FromSeconds(secs)));
+                an.EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut };
+                Storyboard.SetTarget(an, spiderEl);
+                Storyboard.SetTargetProperty(an, new PropertyPath("(Canvas.Top)"));
+                var sb = new Storyboard();
+                sb.Children.Add(an);
+                if (done != null) sb.Completed += (a, b) => done();
+                sb.Begin();
+            }
+            catch (Exception) { if (done != null) done(); }
+        }
+
+        double CashSpiderTop()
+        {
+            try
+            {
+                var page = El<FrameworkElement>("PageOverview");
+                var cash = El<TextBlock>("CashText");
+                if (page.Visibility != Visibility.Visible || cash.ActualHeight <= 0) return 320;
+                var c = cash.TransformToAncestor(Window).Transform(new Point(cash.ActualWidth / 2, cash.ActualHeight / 2));
+                var sp = spiderEl.TransformToAncestor(Window).Transform(new Point(0, 0));
+                return Math.Max(150, Math.Min(600, c.Y - sp.Y - 13));
+            }
+            catch (Exception) { return 320; }
+        }
+
+        void WireSpiderGrab()
+        {
+            if (s.ThemeShown != ThemeChoice.Halloween) return;
+            try
+            {
+                spiderEl = El<Path>("Spider");
+                webLine = El<Line>("WebLine");
+                spiderDrag = (TranslateTransform)Window.FindName("SpiderDrag");
+                spiderStretch = (ScaleTransform)Window.FindName("SpiderStretch");
+            }
+            catch (Exception) { return; }
+            StartSpiderCycle();
+            System.Windows.Media.CompositionTarget.Rendering += (a, b) =>
+            {
+                try
+                {
+                    if (spiderEl == null || webLine == null || spiderDrag == null) return;
+                    double top = (double)spiderEl.GetValue(Canvas.TopProperty);
+                    webLine.X2 = 60 + spiderDrag.X * 0.9;
+                    webLine.Y2 = top + spiderDrag.Y + 4;
+                }
+                catch (Exception) { }
+            };
+            Window.PreviewMouseLeftButtonDown += (a, e) =>
+            {
+                try
+                {
+                    if (spiderEl.Visibility != Visibility.Visible) return;
+                    var at = e.GetPosition(Window);
+                    var c = spiderEl.TransformToAncestor(Window).Transform(new Point(13, 13));
+                    if ((at - c).Length > 30) return;
+
+                    for (var d = e.OriginalSource as DependencyObject; d != null; d = d is Visual ? VisualTreeHelper.GetParent(d) : null)
+                        if (d is System.Windows.Controls.Primitives.ButtonBase || d is TextBox || d is ComboBox) return;
+                    spiderHeld = true;
+                    spiderGrabAt = at;
+                    Window.CaptureMouse();
+                    e.Handled = true;
+                }
+                catch (Exception) { }
+            };
+            Window.PreviewMouseMove += (a, e) =>
+            {
+                try
+                {
+                    if (spiderEl.Visibility != Visibility.Visible)
+                    {
+                        if (!spiderHeld) System.Windows.Input.Mouse.OverrideCursor = null;
+                        return;
+                    }
+                    var at = e.GetPosition(Window);
+                    if (spiderHeld)
+                    {
+                        double dx = Math.Max(-140, Math.Min(140, at.X - spiderGrabAt.X));
+                        double dy = Math.Max(-140, Math.Min(140, at.Y - spiderGrabAt.Y));
+                        spiderDrag.X = dx;
+                        spiderDrag.Y = dy;
+                        double k = Math.Min(0.4, (at - spiderGrabAt).Length / 350.0);
+                        spiderStretch.ScaleY = 1 + k;
+                        spiderStretch.ScaleX = 1 - k * 0.4;
+                        System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Hand;
+                    }
+                    else
+                    {
+                        var c = spiderEl.TransformToAncestor(Window).Transform(new Point(13, 13));
+                        System.Windows.Input.Mouse.OverrideCursor = (at - c).Length <= 30 ? System.Windows.Input.Cursors.Hand : null;
+                    }
+                }
+                catch (Exception) { }
+            };
+            Window.PreviewMouseUp += (a, e) =>
+            {
+                if (!spiderHeld) return;
+                spiderHeld = false;
+                try { Window.ReleaseMouseCapture(); }
+                catch (Exception) { }
+                System.Windows.Input.Mouse.OverrideCursor = null;
+                try
+                {
+                    var sb = new Storyboard();
+                    foreach (var p in new[] { "X", "Y" })
+                    {
+                        var an = new DoubleAnimation(0, new Duration(TimeSpan.FromSeconds(0.7)));
+                        an.EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 4 };
+                        Storyboard.SetTarget(an, spiderDrag);
+                        Storyboard.SetTargetProperty(an, new PropertyPath(p));
+                        sb.Children.Add(an);
+                    }
+                    foreach (var p in new[] { "ScaleX", "ScaleY" })
+                    {
+                        var an = new DoubleAnimation(1, new Duration(TimeSpan.FromSeconds(0.7)));
+                        an.EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 4 };
+                        Storyboard.SetTarget(an, spiderStretch);
+                        Storyboard.SetTargetProperty(an, new PropertyPath(p));
+                        sb.Children.Add(an);
+                    }
+                    sb.Begin();
+                }
+                catch (Exception)
+                {
+                    try { spiderDrag.X = spiderDrag.Y = 0; spiderStretch.ScaleX = spiderStretch.ScaleY = 1; }
+                    catch (Exception) { }
+                }
+            };
+        }
+
+        FrameworkElement hauntFlash;
+        Canvas trailLayer;
+        readonly List<System.Windows.Controls.Image> trailPool = new List<System.Windows.Controls.Image>();
+        int trailNext;
+        DateTime trailLast;
+        FrameworkElement eyeL, eyeR;
+        TranslateTransform eyeLMove, eyeRMove;
+        ScaleTransform eyeLBlink, eyeRBlink;
+
+        void WireHalloweenHaunts()
+        {
+            if (s.ThemeShown != ThemeChoice.Halloween) return;
+            try { hauntFlash = El<FrameworkElement>("Lightning"); }
+            catch (Exception) { hauntFlash = null; }
+            try { trailLayer = El<Canvas>("TrailLayer"); }
+            catch (Exception) { trailLayer = null; }
+            try
+            {
+                eyeL = El<FrameworkElement>("EyeL");
+                eyeR = El<FrameworkElement>("EyeR");
+                eyeLMove = (TranslateTransform)Window.FindName("EyeLMove");
+                eyeRMove = (TranslateTransform)Window.FindName("EyeRMove");
+                eyeLBlink = (ScaleTransform)Window.FindName("EyeLBlink");
+                eyeRBlink = (ScaleTransform)Window.FindName("EyeRBlink");
+            }
+            catch (Exception) { eyeL = eyeR = null; }
+            if (trailLayer != null)
+            {
+                var bat = Art("bat_halloween.png");
+                for (int i = 0; i < 8; i++)
+                {
+                    var img = new System.Windows.Controls.Image { Width = 14, Stretch = Stretch.Uniform, Opacity = 0, IsHitTestVisible = false };
+                    if (bat != null) img.Source = bat;
+                    trailLayer.Children.Add(img);
+                    trailPool.Add(img);
+                }
+            }
+            Window.PreviewMouseMove += (a, e) =>
+            {
+                try
+                {
+                    if (s.ThemeShown != ThemeChoice.Halloween) return;
+                    var at = e.GetPosition(Window);
+                    if (eyeL != null && eyeL.Visibility == Visibility.Visible)
+                    {
+                        var c = eyeL.TransformToAncestor(Window).Transform(new Point(4.5, 5.5));
+                        double dx = Math.Max(-7, Math.Min(7, (at.X - c.X) / 45));
+                        double dy = Math.Max(-7, Math.Min(7, (at.Y - c.Y) / 45));
+                        eyeLMove.X = eyeRMove.X = dx;
+                        eyeLMove.Y = eyeRMove.Y = dy;
+                    }
+                    if (trailPool.Count > 0 && (DateTime.UtcNow - trailLast).TotalMilliseconds >= 220)
+                    {
+                        trailLast = DateTime.UtcNow;
+                        var img = trailPool[trailNext++ % trailPool.Count];
+                        var lp = e.GetPosition(trailLayer);
+                        Canvas.SetLeft(img, lp.X - 7 + hauntRand.Next(-6, 7));
+                        Canvas.SetTop(img, lp.Y - 6 + hauntRand.Next(-4, 5));
+                        var sb = new Storyboard();
+                        var fade = new DoubleAnimation(0.5, 0, new Duration(TimeSpan.FromSeconds(0.6)));
+                        Storyboard.SetTarget(fade, img);
+                        Storyboard.SetTargetProperty(fade, new PropertyPath("Opacity"));
+                        var rise = new DoubleAnimation(0, -16, new Duration(TimeSpan.FromSeconds(0.6)));
+                        Storyboard.SetTarget(rise, img);
+                        Storyboard.SetTargetProperty(rise, new PropertyPath("RenderTransform.(TranslateTransform.Y)"));
+                        img.RenderTransform = new TranslateTransform();
+                        sb.Children.Add(fade);
+                        sb.Children.Add(rise);
+                        sb.Begin();
+                    }
+                }
+                catch (Exception) { }
+            };
+            ScheduleLightning();
+            ScheduleBlink();
+        }
+
+        void ScheduleLightning()
+        {
+            try
+            {
+                var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(90 + hauntRand.NextDouble() * 150) };
+                t.Tick += (a, b) => { try { t.Stop(); } catch (Exception) { } LightningStrike(); ScheduleLightning(); };
+                t.Start();
+            }
+            catch (Exception) { }
+        }
+
+        void LightningStrike()
+        {
+            try
+            {
+                if (hauntFlash == null) return;
+                var sb = new Storyboard();
+                var flash = new DoubleAnimationUsingKeyFrames { RepeatBehavior = new RepeatBehavior(1) };
+                Storyboard.SetTarget(flash, hauntFlash);
+                Storyboard.SetTargetProperty(flash, new PropertyPath("Opacity"));
+                flash.KeyFrames.Add(new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+                flash.KeyFrames.Add(new LinearDoubleKeyFrame(0.28, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.06))));
+                flash.KeyFrames.Add(new DiscreteDoubleKeyFrame(0.04, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.14))));
+                flash.KeyFrames.Add(new LinearDoubleKeyFrame(0.2, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.2))));
+                flash.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.5))));
+                sb.Children.Add(flash);
+                sb.Begin();
+            }
+            catch (Exception) { }
+        }
+
+        void ScheduleBlink()
+        {
+            try
+            {
+                var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5 + hauntRand.NextDouble() * 4.5) };
+                t.Tick += (a, b) =>
+                {
+                    try { t.Stop(); } catch (Exception) { }
+                    try
+                    {
+                        if (eyeLBlink != null && eyeL != null && eyeL.Visibility == Visibility.Visible)
+                        {
+                            var sb = new Storyboard();
+                            foreach (var tr in new ScaleTransform[] { eyeLBlink, eyeRBlink })
+                            {
+                                var an = new DoubleAnimation(1, 0.08, new Duration(TimeSpan.FromSeconds(0.09))) { AutoReverse = true };
+                                an.RepeatBehavior = new RepeatBehavior(2);
+                                Storyboard.SetTarget(an, tr);
+                                Storyboard.SetTargetProperty(an, new PropertyPath("ScaleY"));
+                                sb.Children.Add(an);
+                            }
+                            sb.Begin();
+                        }
+                    }
+                    catch (Exception) { }
+                    ScheduleBlink();
+                };
+                t.Start();
+            }
+            catch (Exception) { }
         }
 
         void WirePages()
@@ -645,6 +1112,7 @@ namespace IdleMafiaBot
                 case "Reroll": return RollMode();
                 case "TrainCrew": return s.TrainOrder == TrainOrder.Evenly ? "Everyone evenly" : "The best first";
                 case "FamilyWatch": return Shown("FamName") != "Your family" ? Shown("FamName") : "";
+                case "GameStats": { var gs = bot.LastGameStats; return gs != null && gs.Level > 0 ? "Level " + gs.Level + (gs.Respect >= 0 ? ", " + gs.Respect.ToString("N0") + " respect" : "") : ""; }
                 case "Takedown": return known(Shown("TdFree")) ? Shown("TdFree") + " free attacks" : "";
                 case "GiveStamina": return s.StaminaPerk.Trim().Length == 0 ? "Closest perk" : s.StaminaPerk.Trim();
                 case "DefendTerritory": return known(Shown("FamTerritories")) ? Shown("FamTerritories") + " districts" : "";
@@ -663,7 +1131,7 @@ namespace IdleMafiaBot
             { "jobs", new[] { "sw_Jobs" } }, { "learn jobs", new[] { "sw_Jobs" } }, { "heists", new[] { "sw_Heists" } },
             { "bosses", new[] { "sw_Bosses" } }, { "fights", new[] { "sw_Fights" } },
             { "crew", new[] { "sw_CrewFill", "tile_Reroll", "sw_TrainCrew" } }, { "rerolls", new[] { "tile_Reroll" } },
-            { "family", new[] { "sw_FamilyWatch" } }, { "takedown", new[] { "sw_Takedown" } }, { "give stamina", new[] { "sw_GiveStamina" } },
+            { "family", new[] { "sw_FamilyWatch" } }, { "game stats", new[] { "sw_GameStats" } }, { "takedown", new[] { "sw_Takedown" } }, { "give stamina", new[] { "sw_GiveStamina" } },
             { "properties", new[] { "sw_Properties" } }, { "bank", new[] { "sw_Bank" } }, { "safehouse upgrade", new[] { "sw_SafehouseUpgrade" } },
             { "skill points", new[] { "sw_SpendPoints" } }, { "playtime rewards", new[] { "sw_Playtime" } }, { "contracts", new[] { "sw_Contracts" } },
             { "operations", new[] { "sw_Operations" } }, { "briefcases", new[] { "sw_Briefcases" } }, { "events", new[] { "sw_Events" } },
@@ -740,7 +1208,7 @@ namespace IdleMafiaBot
                     var value = v;
                     var seg = Window.FindName("seg_" + f.Name + "_" + v) as RadioButton;
                     if (seg == null) continue;
-                    seg.IsChecked = Equals(f.GetValue(s), v);
+                    seg.IsChecked = Equals(f.Name == "Theme" ? s.ThemeShown : f.GetValue(s), v);
                     seg.Checked += (a, b) => Set(field, value);
                 }
             }
@@ -903,9 +1371,19 @@ namespace IdleMafiaBot
 
         void Set(FieldInfo f, object value)
         {
+            var shownBefore = s.ThemeShown;
             f.SetValue(s, value);
+            bool themeChanged = f.Name == "Theme" && s.ThemeShown != shownBefore;
             Save();
             UpdateDerived();
+            if (themeChanged) SwitchTheme(s.ThemeShown);
+        }
+
+        void SwitchTheme(ThemeChoice t)
+        {
+            bot.Log("Appearance: " + (t == ThemeChoice.Halloween ? "Halloween 🎃" : "Mafia") + " - restarting to apply it"
+                    + (bot.Running && !bot.CheckOrScan ? ", it plays on" : ""));
+            StartAgain("close it and start it again to see the new look");
         }
 
         void Save()
@@ -1144,7 +1622,7 @@ namespace IdleMafiaBot
                 string t = box.Password.Trim(), saved = (s.StatsLink ?? "").Trim();
 
                 hint.Text = t == saved && bot.Stats.Family
-                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start, big wins and Mythic or better shop items, each with a picture of just that window."
+                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start (and a last call when one is short of helps near its end), big wins, territory shipments and Mythic or better shop items, the wins and items with a picture of just that window. With Defend districts on, also your family's districts' garrisons every 3 hours."
                     : plain;
                 El<TextBlock>("StatsLinkHint").Visibility = box.Password.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (t.Length == 0) StatsSays("Off. Nothing is sent without a link.", null);
@@ -1210,7 +1688,6 @@ namespace IdleMafiaBot
                 Open(p);
             };
             El<Button>("BtnMin").Click += (a, b) => Window.WindowState = WindowState.Minimized;
-            El<Button>("BtnMax").Click += (a, b) => Window.WindowState = Window.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
             El<Button>("BtnClose").Click += (a, b) => { closedBy = "you"; Window.Close(); };
 
             El<Button>("BtnReport").Click += (a, b) => MakeReport();
@@ -1622,6 +2099,14 @@ namespace IdleMafiaBot
             El<TextBlock>("TotFightsSub").Text = c.Fights > 0 ? string.Format("fights, {0} won", c.Wins) : "fights";
             El<TextBlock>("TotDeposits").Text = c.Deposits.ToString();
             El<TextBlock>("TotRewards").Text = (c.Rewards + c.Crates).ToString();
+            try
+            {
+                var gs = bot.LastGameStats;
+
+                El<TextBlock>("TombLosses").Text = gs != null && gs.FightLosses >= 0 ? gs.FightLosses.ToString("N0") : c.Losses.ToString();
+                El<TextBlock>("TombWins").Text = gs != null && gs.FightWins >= 0 ? gs.FightWins.ToString("N0") + " wins" : "";
+            }
+            catch (Exception) { }
             var parts = new List<string>();
             if (c.Rerolls > 0) parts.Add(c.Rerolls + (c.Rerolls == 1 ? " reroll" : " rerolls"));
             if (c.Hired > 0) parts.Add(c.Hired + (c.Hired == 1 ? " hire" : " hires"));
@@ -1769,6 +2254,10 @@ namespace IdleMafiaBot
         {
             var page = El<ScrollViewer>("PageOverview");
             var grid = El<Grid>("HomeGrid");
+            var scene = El<Grid>("HeroScene");
+            Action roundHero = () => scene.Clip = new RectangleGeometry(new Rect(0, 0, scene.ActualWidth, scene.ActualHeight), 13, 13);
+            scene.SizeChanged += (a, b) => roundHero();
+            scene.Loaded += (a, b) => roundHero();
             page.SizeChanged += (a, b) => FitHome();
             for (int i = 0; i < 2; i++)
             {

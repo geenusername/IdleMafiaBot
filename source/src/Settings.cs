@@ -14,6 +14,8 @@ namespace IdleMafiaBot
 
     enum TrainOrder { Best = 0, Evenly = 1 }
 
+    enum ThemeChoice { Mafia = 0, Halloween = 1, Auto = 2 }
+
     sealed class Settings
     {
 
@@ -147,6 +149,7 @@ namespace IdleMafiaBot
         public static string StatsGoalText(int n) { return n >= Perfect ? Perfect + " attack and defense" : n + "+ attack and defense"; }
 
         public bool FamilyWatch = true;
+        public bool GameStats = false;
         public bool Takedown = true;
         public bool GiveStamina = true;
         public string StaminaPerk = "";
@@ -179,15 +182,22 @@ namespace IdleMafiaBot
         public int LastLevel = -1;
         public int LastAttackPower = -1;
         public int LastDefensePower = -1;
+        public string BarMax = "";
         public bool WelcomeSeen = false;
         public string CheckOffered = "";
         public int CheckHintLevel = 0;
         public string JobsReadAt = "";
         public bool CrewGearOff = false;
         public bool ScreenFirst = false;
+        public ThemeChoice Theme = ThemeChoice.Auto;
+
+        public ThemeChoice ThemeShown
+        {
+            get { return Theme == ThemeChoice.Auto ? (DateTime.Now.Month == 10 ? ThemeChoice.Halloween : ThemeChoice.Mafia) : Theme; }
+        }
 
         public static readonly string[] PcFields = { "WelcomeSeen", "WaitWhileBusy", "GiveFocusBack", "Rejoin", "KeepAlive",
-            "DiscordLink", "DiscordProblems", "DiscordRarity", "DiscordProperty", "DiscordSummary", "DiscordLevel", "DiscordBoss", "StatsLink", "ScreenFirst" };
+            "DiscordLink", "DiscordProblems", "DiscordRarity", "DiscordProperty", "DiscordSummary", "DiscordLevel", "DiscordBoss", "StatsLink", "ScreenFirst", "Theme" };
 
         public static readonly string[] LinkFields = { "DiscordLink", "StatsLink" };
 

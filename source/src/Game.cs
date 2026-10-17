@@ -368,6 +368,9 @@ namespace IdleMafiaBot
         int viewAt, remeasures;
         readonly int[] barMax = { -1, -1, -1 };
         readonly Dictionary<string, int[]> maxOf = new Dictionary<string, int[]>();
+        readonly string[] barLook = { "", "", "" };
+
+        public string BarLook(int i) { return barLook[i]; }
         readonly int[] barShort = { 0, 0, 0 };
         IntPtr viewWindow;
         View lastGood;
@@ -685,10 +688,18 @@ namespace IdleMafiaBot
             int left = name != null ? name.Box.X : family != null ? family.Box.X : -1;
 
             var xpLine = points == null ? lines.FirstOrDefault(l => Parse.Has(l.Text, "XP") && Regex.IsMatch(l.Text, @"\d\s*/")) : null;
-            Rectangle xpArea = Rectangle.Empty;
-            if (points != null && left > 0) xpArea = new Rectangle(left - 4, (int)(points.CenterY - row * 0.45), points.Box.X - left, (int)(row * 0.9));
-            else if (xpLine != null) xpArea = new Rectangle(xpLine.Box.X - 8, (int)(xpLine.CenterY - row * 0.45), xpLine.Box.Width + 16, (int)(row * 0.9));
-            var xpTries = new[] { new { S = s + 1, P = Prep.WhiteText }, new { S = s + 2, P = Prep.None } };
+            int xpRow = points != null ? points.CenterY : xpLine != null ? xpLine.CenterY
+                      : family != null ? family.Box.Bottom + (int)(row * 0.6) : name != null ? name.Box.Bottom + (int)(row * 1.4) : -1;
+            Rectangle xpArea = left > 0 && xpRow > 0
+                ? new Rectangle(left - 4, (int)(xpRow - row * 0.45), Math.Max(0, right - left + 4), (int)(row * 0.9))
+                : Rectangle.Empty;
+            var xpTries = new[]
+            {
+                new { S = s + 1, P = Prep.WhiteText }, new { S = s + 2, P = Prep.None },
+                new { S = s, P = Prep.WhiteText }, new { S = s, P = Prep.None }, new { S = s, P = Prep.WhiteBright },
+                new { S = Math.Max(1, s - 1), P = Prep.WhiteText }, new { S = Math.Max(1, s - 1), P = Prep.None },
+                new { S = s + 1, P = Prep.WhiteBright }, new { S = s + 2, P = Prep.WhiteText }, new { S = s + 1, P = Prep.Contrast },
+            };
             if (xpArea.Width > 0)
                 foreach (var t in xpTries)
                 {
@@ -809,7 +820,10 @@ namespace IdleMafiaBot
         bool ReadTopBar(Frame f, Rectangle bar, int scale, int minMax, int i, out int cur, out int max, out string raw)
         {
             bool lost;
-            if (ReadBar(f, bar, scale, minMax, BarFill(f, bar), barMax[i], barShort[i] < 3, out cur, out max, out raw, out lost)) { barShort[i] = 0; return true; }
+            double fill = BarFill(f, bar);
+            barLook[i] = string.Format(System.Globalization.CultureInfo.InvariantCulture, "the bar measured {0}, its max known {1}",
+                fill < 0 ? "nothing" : fill.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " full", barMax[i] > 0 ? barMax[i].ToString() : "not yet");
+            if (ReadBar(f, bar, scale, minMax, fill, barMax[i], barShort[i] < 3, out cur, out max, out raw, out lost)) { barShort[i] = 0; return true; }
             if (lost) barShort[i]++;
             return false;
         }
@@ -1199,6 +1213,16 @@ namespace IdleMafiaBot
         public void MenuChanged() { notInMenu.Clear(); }
 
         public void MenuChanged(Tab t) { notInMenu.Remove(t); }
+
+        public string KnownMax { get { return string.Join(",", barMax); } }
+
+        public void SeedMax(string kept)
+        {
+            var parts = (kept ?? "").Split(',');
+            int m;
+            for (int i = 0; i < 3 && i < parts.Length; i++)
+                if (barMax[i] <= 0 && int.TryParse(parts[i].Trim(), out m) && m > 0) barMax[i] = m;
+        }
 
         public void ResetAccount(string from, string to)
         {
@@ -2628,6 +2652,49 @@ namespace IdleMafiaBot
 
         public bool FightWindowStuck;
 
+        public double LastFightCash = -1;
+
+        public bool LastFightPending;
+
+        internal double WinCash(Frame f, List<OcrLine> lines, OcrLine done)
+        {
+            double v = WindowCash(lines, done);
+            var pending = lines.LastOrDefault(l => Parse.Key(l.Text).EndsWith("PENDING") && l.Box.Bottom <= done.Box.Y + 2 && l.Box.Y > done.Box.Y - 8 * done.Box.Height);
+            LastFightPending = pending != null;
+            if (v >= 0 || pending == null) return v;
+
+            var p = pending.Box;
+            int h = Math.Max(8, p.Height);
+            var area = Rectangle.Intersect(new Rectangle(p.X - 3 * Math.Max(p.Width, 4 * h), p.Y - h, 3 * Math.Max(p.Width, 4 * h) + h, 3 * h), new Rectangle(0, 0, f.Width, f.Height));
+            if (area.Width <= 0 || area.Height <= 0) return -1;
+            foreach (var prep in new[] { Prep.None, Prep.Contrast })
+                foreach (int up in new[] { 1, 2 })
+                {
+                    var near = Ocr.Read(f, area, PopupScale(f) + up, prep);
+                    foreach (var l in near.OrderByDescending(l => l.Box.Right))
+                    {
+                        string t = l.Text.Replace(" ", "");
+                        double m = LastMoney(t.Replace("S", "$").Replace("O", "0"));
+
+                        bool unit = Regex.IsMatch(t, "[KMBT]$") || m == 0;
+                        if ((t.Contains("$") || t.StartsWith("S") || t.StartsWith("~")) && m >= 0 && unit) return m;
+                    }
+                }
+            return -1;
+        }
+
+        internal static double WindowCash(List<OcrLine> lines, OcrLine done)
+        {
+            var cash = lines.Where(l => l.Box.Bottom <= done.Box.Y + 2 && l.Box.Y > done.Box.Y - 8 * done.Box.Height && l.Text.Contains("$"))
+                            .OrderByDescending(l => l.Box.Y);
+            foreach (var l in cash)
+            {
+                double v = LastMoney(l.Text);
+                if (v >= 0) return v;
+            }
+            return -1;
+        }
+
         public Bitmap FightGone;
 
         const int FightWindowMs = 40000;
@@ -2660,6 +2727,8 @@ namespace IdleMafiaBot
             LastFightRefusal = null;
             LastFightToast = null;
             FightCalledOff = FightWindowStuck = false;
+            LastFightCash = -1;
+            LastFightPending = false;
             if (FightGone != null) { FightGone.Dispose(); FightGone = null; }
             bool first = true;
 
@@ -2685,6 +2754,7 @@ namespace IdleMafiaBot
                         var rewards = lines.Where(l => l.Box.Bottom < done.Box.Y && l.Box.Y > done.Box.Y - 4 * done.Box.Height
                                                        && (l.Text.Contains("+") || l.Text.Contains("-"))).Select(l => l.Text);
                         string outcome = all.Contains("VICTORY") ? "VICTORY" : all.Contains("DEFEAT") ? "DEFEAT" : "DONE";
+                        if (outcome == "VICTORY") LastFightCash = WinCash(f, lines, done);
 
                         if (LastFightShot != null) { LastFightShot.Dispose(); LastFightShot = null; }
                         if (outcome == "VICTORY" && ShotsWanted())
@@ -3127,6 +3197,9 @@ namespace IdleMafiaBot
             var lines = Ocr.Read(f, p, PageScale(f), Prep.None);
             var list = OpListRows(lines);
             int listTop = list.Count > 0 ? list.Min(r => r.Key.Box.Y) - 4 : p.Bottom;
+
+            var listWords = lines.Where(l => Parse.Has(l.Text, "POSSIBLE REWARDS") || Parse.Has(l.Text, "UP FRONT")).ToList();
+            if (listWords.Count > 0) listTop = Math.Min(listTop, listWords.Min(l => l.Box.Y) - 4);
 
             var head = lines.Where(l => Parse.Key(l.Text) == "OPERATIONS" || Parse.Key(l.Text) == "PERATIONS").OrderBy(l => l.Box.Y).FirstOrDefault();
             var top = SplitSlotTitles(f, lines.Where(l => l.Box.Bottom < listTop && (head == null || l.CenterY > head.Box.Bottom)).ToList(), p);
@@ -3655,7 +3728,8 @@ namespace IdleMafiaBot
                     return true;
                 }
             }
-            return false;
+
+            return CloseRulingFamily(f);
         }
 
         public sealed class Disconnect
@@ -4821,6 +4895,8 @@ namespace IdleMafiaBot
                             after = ReadShop(f);
                             CheckForPurchasePrompt(popup, after != null);
                             if (after != null) afterCash = ReadCash(f);
+
+                            else if (again < 2 && CloseRulingFamily(f)) continue;
 
                             if (toast == null) { string t = ToastIn(f); if (t != null && (Parse.Has(t, "BOUGHT") || Parse.Has(t, "PURCHASED"))) toast = t; }
                         }

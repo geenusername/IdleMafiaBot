@@ -393,7 +393,21 @@ namespace IdleMafiaBot
             if (a == null || b == null || a.Empty || a.Locked || b.Empty || b.Locked || a.Rarity < 0 || a.Rarity != b.Rarity) return false;
             if (a.Attack >= 0 && b.Attack >= 0 && a.Attack != b.Attack) return false;
             if (a.Defense >= 0 && b.Defense >= 0 && a.Defense != b.Defense) return false;
-            return WholeNameSame(a.Name, b.Name) || UnnamedLike(a, b);
+            return WholeNameSame(a.Name, b.Name) || UnnamedLike(a, b) || EndsLike(a, b);
+        }
+
+        internal static bool EndsLike(CrewRow a, CrewRow b)
+        {
+            if (a.Rarity >= (int)Rarity.Epic || a.Attack < 0 || a.Defense < 0 || a.Attack != b.Attack || a.Defense != b.Defense) return false;
+            if (a.Cut || b.Cut || a.Training || b.Training || a.Stationed || b.Stationed) return false;
+            var x = Words(a.Name); var y = Words(b.Name);
+            if (x.Length < 2 || y.Length < 2) return false;
+            return x[0] == y[0] && View.Distance(x[x.Length - 1], y[y.Length - 1]) <= 1;
+        }
+
+        static string[] Words(string name)
+        {
+            return (name ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(w => Parse.Key(w)).Where(w => w.Length >= 3).ToArray();
         }
 
         internal static bool UnnamedLike(CrewRow a, CrewRow b)
@@ -1692,17 +1706,18 @@ namespace IdleMafiaBot
                 {
                     var r = Rectangle.Intersect(Rectangle.FromLTRB(x0, top, x1, bottom), new Rectangle(0, 0, f.Width, f.Height));
                     if (r.Width < 8 || r.Height < 8) return -1;
-                    foreach (var prep in new[] { Prep.None, Prep.Contrast })
-                        foreach (var l in Ocr.Read(f, r, 3, prep))
-                        {
-                            var n = TrainLevelRx.Match(l.Text);
-                            if (n.Success) return int.Parse(n.Groups[1].Value);
-                        }
+
+                    foreach (int zoom in new[] { 3, 2 })
+                        foreach (var prep in new[] { Prep.None, Prep.Contrast })
+                            foreach (var l in Ocr.Read(f, r, zoom, prep))
+                            {
+                                var n = TrainLevelRx.Match(l.Text);
+                                if (n.Success) return int.Parse(n.Groups[1].Value);
+                            }
                     return -1;
                 };
                 int from = number(cx - 4 * hn, cx - hn * 4 / 5), to = number(cx + hn * 4 / 5, cx + 4 * hn);
                 if (to < 0) to = number(cx + hn * 6 / 5, cx + 4 * hn);
-
                 if (to >= 1 && to <= 10 && (from < 0 || to == from + 1)) w.ToLevel = to;
                 else if (to < 0 && from >= 0 && from < 10) w.ToLevel = from + 1;
             }
@@ -1744,7 +1759,9 @@ namespace IdleMafiaBot
             }
             Snapshot("crew train window", 0, true);
             bool named = offer.Names(picked.Name);
-            bool ours = named && offer.ToLevel >= 1 && offer.ToLevel <= 10 && (row.TrainLevel <= 0 || offer.ToLevel == row.TrainLevel + 1);
+
+            if (named && offer.ToLevel < 1 && row.TrainLevel > 0 && row.TrainLevel < 10) offer.ToLevel = row.TrainLevel + 1;
+            bool ours = named && (offer.ToLevel <= 0 || offer.ToLevel <= 10 && (row.TrainLevel <= 0 || offer.ToLevel == row.TrainLevel + 1));
             bool afford = offer.Price > 0 && offer.Price <= cash - Math.Max(0, keep);
             if (!ours || !afford)
             {
