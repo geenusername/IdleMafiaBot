@@ -2561,13 +2561,23 @@ namespace IdleMafiaBot
 
         public bool CloseProfile()
         {
-            for (int t = 0; t < 3; t++)
+            for (int t = 0; t < 5; t++)
             {
                 PlayerProfile p;
-                using (var f = Capture()) p = ReadPlayerProfile(f);
+                int fw = 0, fh = 0;
+                using (var f = Capture()) { p = ReadPlayerProfile(f); fw = f.Width; fh = f.Height; }
                 if (p == null) return true;
-                if (t == 2 || p.Close.IsEmpty) return false;
-                Press("x", p.Close.X, p.Close.Y, 500);
+                Point close = p.Close;
+                // If the X wasn't read as text, fall back to the top-right of the dialog next to
+                // the title, where the close button always is.
+                if (close.IsEmpty && p.Title != null)
+                {
+                    int h = Math.Max(8, p.Title.Box.Height);
+                    close = new Point(Math.Min(fw - 1, p.Title.Box.Right + 4 * h), Math.Max(0, Math.Min(fh - 1, p.Title.CenterY)));
+                }
+                if (close.IsEmpty) return false;
+                if (t == 4) return false;
+                Press("x", close.X, close.Y, 700);
             }
             return false;
         }
