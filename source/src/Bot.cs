@@ -239,7 +239,7 @@ namespace IdleMafiaBot
         void Run()
         {
             Native.RealPixels();
-            game = new Game(Log, () => stop) { ProblemsDir = Path.Combine(dir, "problems") };
+            game = new Game(Log, () => stop) { ProblemsDir = Path.Combine(dir, "problems"), CollectFights = CollectFights };
             game.SeedMax(S.BarMax);
 
             game.WantShots = () => { var w = WantShots; return w != null && w(); };
@@ -2396,6 +2396,10 @@ namespace IdleMafiaBot
         public event Action<Game.ShopItem, int> ShopSeen;
 
         public Func<bool> WantShots;
+
+        // --fightshots: keep a picture of every fight window (problems\fights) to check the odds
+        // the bot works out against real fights. Only for looking at them later.
+        public bool CollectFights;
 
         void Won(FightRow r, string result, double took)
         {

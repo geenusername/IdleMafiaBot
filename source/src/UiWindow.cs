@@ -273,6 +273,7 @@ namespace IdleMafiaBot
 
             bool scan = args.Contains("--scan"), check = args.Contains("--check"), start = args.Contains("--start"), exit = args.Contains("--exit");
             if (args.Contains("--once")) { bot.Once = true; start = true; }
+            if (args.Contains("--fightshots")) { bot.CollectFights = true; bot.Log("Fights: a picture of every fight window is kept (problems\\fights), to check the odds against real fights"); }
             var page = args.FirstOrDefault(a => a.StartsWith("--page="));
             if (page != null) { var rail = Window.FindName("Rail" + page.Substring(7)) as RadioButton; if (rail != null) rail.IsChecked = true; }
             bool demo = args.Contains("--demo");

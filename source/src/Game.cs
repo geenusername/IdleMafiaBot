@@ -2755,6 +2755,7 @@ namespace IdleMafiaBot
                                                        && (l.Text.Contains("+") || l.Text.Contains("-"))).Select(l => l.Text);
                         string outcome = all.Contains("VICTORY") ? "VICTORY" : all.Contains("DEFEAT") ? "DEFEAT" : "DONE";
                         if (outcome == "VICTORY") LastFightCash = WinCash(f, lines, done);
+                        if (CollectFights) KeepFightPicture(f, outcome);
 
                         if (LastFightShot != null) { LastFightShot.Dispose(); LastFightShot = null; }
                         if (outcome == "VICTORY" && ShotsWanted())
@@ -2797,6 +2798,25 @@ namespace IdleMafiaBot
             }
             FightWindowStuck = windowUp && lastUp;
             return null;
+        }
+
+        public bool CollectFights;
+
+        // --fightshots: keep a picture of the fight window of every fight, so the odds the bot works
+        // out can be compared with what really happened (the two rolls are in that picture). They
+        // land in problems\fights; delete that folder when they are not wanted any more.
+        void KeepFightPicture(Frame f, string outcome)
+        {
+            if (string.IsNullOrEmpty(ProblemsDir)) return;
+            try
+            {
+                string dir = System.IO.Path.Combine(ProblemsDir, "fights");
+                System.IO.Directory.CreateDirectory(dir);
+                string file = System.IO.Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + outcome + ".png");
+                f.Bitmap.Save(file, System.Drawing.Imaging.ImageFormat.Png);
+                log("Kept a picture of that fight: problems\\fights\\" + System.IO.Path.GetFileName(file));
+            }
+            catch (Exception e) { log("Couldn't keep a picture of that fight: " + e.Message); }
         }
 
         public OcrLine FindDepositAll(Frame f) { OcrLine w; return FindDepositAll(f, out w); }
