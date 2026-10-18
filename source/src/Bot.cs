@@ -3675,6 +3675,7 @@ namespace IdleMafiaBot
         DateTime listShortSince;
         int hiredRead = -1;
         DateTime hiredReadAt = DateTime.MinValue, slotBoughtAt = DateTime.MinValue;
+        int rerollHireFails;
 
         bool SlotStandsEmpty(out string count)
         {
@@ -3686,6 +3687,24 @@ namespace IdleMafiaBot
             if (!open(now)) return false;
             count = now.Henchmen + " of " + now.Slots;
             return true;
+        }
+
+        // A hire that showed no recruit and left the slot standing empty. The game ignores a hire
+        // for a spell sometimes: the report shows a slot standing empty for minutes like this,
+        // with the run cut short over it. Nothing else can be done while a slot stands empty, and
+        // pressing again at once only meets the same wall, so each of the three tries waits
+        // longer than the one before it.
+        int HireNoRecruit(CrewRoll roll, double paid, int fails, out string stop)
+        {
+            if (game.HireBusy) { stop = CrewBusy; return fails + 1; }
+            if (paid <= 0) { stop = "the " + roll + " hire isn't gold right now"; return fails + 1; }
+            rerollHireFails++;
+            stop = "the " + roll + " hire showed no recruit";
+            int wait = 10000 * rerollHireFails;
+            Log("Crew: a " + roll + " hire into an empty slot showed no recruit (try " + rerollHireFails + " of 3) - waiting "
+                + (wait / 1000) + " s before the same slot is tried again");
+            game.Wait(wait);
+            return rerollHireFails >= 3 ? 3 : fails;
         }
 
         void ListReadWhole()
@@ -3730,6 +3749,7 @@ namespace IdleMafiaBot
                 RollCash(roll, keep, autoRun != null ? autoRun.SpentBefore + Math.Max(0, autoRun.Spent) : 0);
             int rolls = 0, fails = 0, readAt = Environment.TickCount - 60000, badgesAt = Environment.TickCount;
             int emptyHolds = 0;
+            rerollHireFails = 0;
             double spent = 0;
             Game.CrewRow lastHired = null;
             var better = new List<string>();
@@ -3859,7 +3879,7 @@ namespace IdleMafiaBot
                         {
 
                             var seen = game.HiredUnseen;
-                            rerollEmpty = false; fails = 0; readAgain = true; counted = false;
+                            rerollEmpty = false; fails = 0; rerollHireFails = 0; readAgain = true; counted = false;
                             Count.Hired++; Count.CrewCash += paid; spent += paid;
                             PingHenchman(seen, emptiedRarity >= 0 ? emptiedRarity : crew.Count > 0 ? crew.Min(r => r.Rarity) : -1, false, crew);
                             emptiedRarity = -1; emptiedByStats = false;
@@ -3868,13 +3888,11 @@ namespace IdleMafiaBot
                         }
                         if (got == null)
                         {
-                            stop = game.HireBusy ? CrewBusy : paid > 0 ? "a hire showed no recruit" : "the " + roll + " hire isn't gold right now";
-                            if (paid > 0) readAgain = true;
-                            fails++;
+                            fails = HireNoRecruit(roll, paid, fails, out stop);
                             if (!only) break;
                             continue;
                         }
-                        rerollEmpty = false; fails = 0;
+                        rerollEmpty = false; fails = 0; rerollHireFails = 0;
                         Count.Hired++; Count.CrewCash += paid; spent += paid;
                         counted = false;
 
@@ -4076,7 +4094,7 @@ namespace IdleMafiaBot
                     {
 
                         var seen = game.HiredUnseen;
-                        rerollEmpty = false; fails = 0; reread = false; readAgain = true; counted = false; lastHired = null;
+                        rerollEmpty = false; fails = 0; rerollHireFails = 0; reread = false; readAgain = true; counted = false; lastHired = null;
                         emptiedRarity = -1; emptiedByStats = false;
                         rolls++; spent += paid; Count.Rerolls++; Count.CrewCash += paid;
                         if (seen.Rarity > worst.Rarity) better.Add(seen.ToString());
@@ -4086,14 +4104,12 @@ namespace IdleMafiaBot
                     }
                     if (got == null)
                     {
-
-                        stop = game.HireBusy ? CrewBusy : paid > 0 ? "a hire showed no recruit" : "the " + roll + " hire isn't gold right now";
-                        if (paid > 0) { rerollEmpty = false; readAgain = true; emptiedRarity = -1; }
-                        fails++;
+                        if (paid > 0) { rerollEmpty = true; emptiedRarity = -1; }
+                        fails = HireNoRecruit(roll, paid, fails, out stop);
                         if (!only) break;
                         continue;
                     }
-                    rerollEmpty = false; fails = 0; reread = false; emptiedRarity = -1; emptiedByStats = false;
+                    rerollEmpty = false; fails = 0; rerollHireFails = 0; reread = false; emptiedRarity = -1; emptiedByStats = false;
                     rolls++; spent += paid; Count.Rerolls++; Count.CrewCash += paid;
                     counted = false;
                     got.Recruit = true;
