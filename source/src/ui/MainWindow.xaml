@@ -1087,6 +1087,7 @@
                   </Grid>
                 </Border>
 
+                <TextBlock x:Name="FightRespect" Style="{StaticResource Hint}" Margin="2,6,0,0" Text=""/>
                 <Border Style="{StaticResource OptLine}" Margin="0,8,0,0">
                   <StackPanel>
                     <Grid>

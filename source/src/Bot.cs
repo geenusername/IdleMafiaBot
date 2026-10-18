@@ -105,7 +105,7 @@ namespace IdleMafiaBot
             this.dir = dir;
             catalogFile = Path.Combine(dir, "jobs.txt");
             logFile = Path.Combine(dir, "IdleMafiaBot.log");
-            memory = new FightMemory(Path.Combine(dir, "fight memory.txt"));
+            memory = new FightMemory(MemoryFile(s.Account));
             catalogBuiltIn = !File.Exists(catalogFile);
             Catalog = GameData.LoadCatalog(catalogFile);
             CatalogView = Catalog.Select(j => j.Copy()).ToList();
@@ -2276,7 +2276,9 @@ namespace IdleMafiaBot
 
                 bool won = result.StartsWith("VICTORY");
                 double took = won && target.Name.Length > 0 && (S.WhaleHunt || S.RememberPlayers) ? WinTook(h.Cash) : -1;
-                Remember(target, won, result, took);
+                var scoutedTarget = ScoutedNow(target);
+                Remember(target, won, result, took, Parse.Signed(result, "Respect"), scoutedTarget != null ? scoutedTarget.Defense : -1);
+                SayOnce("respect " + DateTime.UtcNow.ToString("yyyyMMddHH"), "Fights: " + memory.RespectSummary(DateTime.UtcNow));
 
                 if (S.WhaleHunt && S.WhaleHitsNow > 1 && won && target.Name.Length > 0 && max > 1 && took >= S.WhaleCash) fought += HitAgain(target, took, reserve, ref staminaLeft);
             }
@@ -2349,7 +2351,8 @@ namespace IdleMafiaBot
                 if (result.StartsWith("VICTORY")) Count.Wins++;
                 else if (result.StartsWith("DEFEAT")) Count.Losses++;
                 double got = result.StartsWith("VICTORY") ? WinTook(h.Cash) : -1;
-                Remember(target, result.StartsWith("VICTORY"), result, got);
+                Remember(target, result.StartsWith("VICTORY"), result, got, Parse.Signed(result, "Respect"),
+                         ScoutedNow(target) != null ? ScoutedNow(target).Defense : -1);
                 Log(string.Format("Fight vs {0} again (hit {1} of {2}): {3}{4}", name, hit, hits, result, got >= 0 ? " - took " + M(got) : ""));
                 if (got < S.WhaleCash) break;
             }
@@ -2370,6 +2373,22 @@ namespace IdleMafiaBot
 
         public FightMemory Memory { get { return memory; } }
 
+        // Every player gets its own memory of the fights, next to its settings and job list. The one
+        // file the bot used before that, shared by every player, is copied over the first time.
+        string MemoryFile(string account)
+        {
+            string shared = Path.Combine(dir, "fight memory.txt");
+            if (account.Length == 0) return shared;
+            string mine = Accounts.Fights(dir, account);
+            try
+            {
+                Directory.CreateDirectory(Accounts.Folder(dir, account));
+                if (!File.Exists(mine) && File.Exists(shared)) File.Copy(shared, mine);
+            }
+            catch (Exception e) { Log("Couldn't open " + account + "'s fight memory: " + e.Message); }
+            return mine;
+        }
+
         public sealed class FightWin { public string Name = ""; public int Level = -1; public double Took = -1; public System.Drawing.Bitmap Shot; }
 
         public event Action<FightWin> FightWon;
@@ -2389,11 +2408,11 @@ namespace IdleMafiaBot
             catch (Exception) { }
         }
 
-        void Remember(FightRow r, bool won, string result, double took)
+        void Remember(FightRow r, bool won, string result, double took, int respect, int defense)
         {
             Won(r, result, took);
             if (!S.RememberPlayers || r.Name.Length < 3 || r.War || !(won || result.StartsWith("DEFEAT"))) return;
-            memory.Add(r.Name, won, took, DateTime.UtcNow);
+            memory.Add(r.Name, won, took, respect, defense, DateTime.UtcNow);
         }
 
         double BigPayer(FightRow r, DateTime now)
@@ -2897,6 +2916,7 @@ namespace IdleMafiaBot
             energyRegen.Forget(); staminaRegen.Forget();
 
             ownAttack = ownDefense = -1; ownPowerAt = DateTime.MinValue; scouted.Clear(); fightSkip.Clear(); hitOnList.Clear(); refreshBrokenUntil = DateTime.MinValue;
+            memory = new FightMemory(MemoryFile(S.Account));
             crewHirePrice = new double[] { 10000, 10e6, 10e9 };
             tutorialHint = tutorialItem = tutorialAction = tutorialLogged = null;
             tutorialOver = tutorialFought = false;

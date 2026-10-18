@@ -228,6 +228,7 @@ namespace IdleMafiaBot
             {
                 if (accountShown != null && !string.Equals(Profile.Key(accountShown), Profile.Key(name), StringComparison.OrdinalIgnoreCase)) ForgetAccount();
                 accountShown = name;
+                UsePayers(bot.Memory);
                 RefreshControls(); UpdateDerived(); jobsDirty = true; RefreshJobs(); AccountSeen(name); ShowCrew(null);
             });
             bot.InfoChanged += (k, v) => { if (k == "ocr") Ui(() => ShowOcr(v)); };
@@ -1275,6 +1276,7 @@ namespace IdleMafiaBot
 
         void RefreshBigPayers()
         {
+            El<TextBlock>("FightRespect").Text = "Player fights the bot wrote down: " + bot.Memory.RespectSummary(DateTime.UtcNow);
             if (payers == null) return;
             var now = DateTime.UtcNow;
             var list = payers.BigPayers(s.BigPayerCash, now);
@@ -2483,14 +2485,14 @@ namespace IdleMafiaBot
 
             foreach (var f in new[]
             {
-                Tuple.Create("VelvetKnuckles", 1900, true, 4.2e9), Tuple.Create("VelvetKnuckles", 400, true, 8.6e9), Tuple.Create("VelvetKnuckles", 130, true, 2.9e9),
-                Tuple.Create("DockRat_77", 2500, false, -1.0), Tuple.Create("DockRat_77", 300, true, 3.1e9),
-                Tuple.Create("SilentMarco", 700, true, 1.45e9), Tuple.Create("SilentMarco", 95, true, 960e6),
-                Tuple.Create("NeonCasino", 3000, true, 640e6), Tuple.Create("NeonCasino", 1300, true, 715e6), Tuple.Create("NeonCasino", 1250, false, -1.0),
-                Tuple.Create("LuckyPaulie", 42, true, 312e6),
-                Tuple.Create("TinCanTony", 3600, true, 180e6), Tuple.Create("TinCanTony", 3500, true, 205e6),
-                Tuple.Create("QuietHarbor", 600, true, 12e6),
-            }) m.Add(f.Item1, f.Item3, f.Item4, now.AddMinutes(-f.Item2));
+                Tuple.Create("VelvetKnuckles", 1900, true, 4.2e9, 24), Tuple.Create("VelvetKnuckles", 400, true, 8.6e9, 21), Tuple.Create("VelvetKnuckles", 130, true, 2.9e9, 19),
+                Tuple.Create("DockRat_77", 2500, false, -1.0, -18), Tuple.Create("DockRat_77", 300, true, 3.1e9, 16),
+                Tuple.Create("SilentMarco", 700, true, 1.45e9, 14), Tuple.Create("SilentMarco", 95, true, 960e6, 13),
+                Tuple.Create("NeonCasino", 3000, true, 640e6, 11), Tuple.Create("NeonCasino", 1300, true, 715e6, 12), Tuple.Create("NeonCasino", 1250, false, -1.0, -15),
+                Tuple.Create("LuckyPaulie", 42, true, 312e6, 9),
+                Tuple.Create("TinCanTony", 3600, true, 180e6, 8), Tuple.Create("TinCanTony", 3500, true, 205e6, 9),
+                Tuple.Create("QuietHarbor", 600, true, 12e6, 7),
+            }) m.Add(f.Item1, f.Item3, f.Item4, f.Item5, -1, now.AddMinutes(-f.Item2));
             UsePayers(m);
         }
 

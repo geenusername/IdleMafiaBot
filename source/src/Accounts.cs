@@ -10,6 +10,7 @@ namespace IdleMafiaBot
         public static string Folder(string dir, string name) { return Path.Combine(Path.Combine(dir, "accounts"), Profile.Key(name)); }
         public static string Ini(string dir, string name) { return Path.Combine(Folder(dir, name), "IdleMafiaBot.ini"); }
         public static string Jobs(string dir, string name) { return Path.Combine(Folder(dir, name), "jobs.txt"); }
+        public static string Fights(string dir, string name) { return Path.Combine(Folder(dir, name), "fight memory.txt"); }
 
         public static bool Plausible(string name) { return name != null && Regex.IsMatch(name.Trim(), @"^[A-Za-z0-9_]{3,20}$"); }
 

@@ -372,6 +372,17 @@ namespace IdleMafiaBot
             return sb.ToString();
         }
 
+        // A signed number in front of a word, as in the "+19 Respect" or "-18 RESPECT" a fight ends
+        // with. 0 when there is none.
+        public static int Signed(string s, string before)
+        {
+            var m = Regex.Match(s ?? "", @"([+-]?)\s?([0-9OoIlSB][0-9OoIlSB,.]*)\s*" + Regex.Escape(before ?? ""), RegexOptions.IgnoreCase);
+            if (!m.Success) return 0;
+            int v;
+            if (!int.TryParse(Digits(m.Groups[2].Value), out v)) return 0;
+            return m.Groups[1].Value == "-" ? -v : v;
+        }
+
         public static bool Fraction(string s, out int cur, out int max, bool whole = false)
         {
             cur = max = 0;
