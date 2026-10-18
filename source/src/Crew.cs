@@ -151,7 +151,10 @@ namespace IdleMafiaBot
             {
                 if (Empty) return "an empty slot";
                 if (Locked) return "a locked slot";
-                return (Name.Length > 0 ? Name : "a henchman") + " (" + RarityName + (Power >= 0 ? ", +" + Attack + "/+" + Defense : "") + ")";
+                string power = Power >= 0 ? ", +" + Attack + "/+" + Defense
+                             : Attack >= 0 || Defense >= 0 ? ", +" + (Attack >= 0 ? Attack.ToString() : "?") + "/+" + (Defense >= 0 ? Defense.ToString() : "?")
+                             : "";
+                return (Name.Length > 0 ? Name : "a henchman") + " (" + RarityName + power + ")";
             }
         }
 
