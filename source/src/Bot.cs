@@ -3833,7 +3833,7 @@ namespace IdleMafiaBot
                         var short1 = game.CrewPageSeen;
                         if (empty == null && short1 != null && short1.Page && short1.Slots > 0 && short1.Henchmen == short1.Slots - 1)
                         {
-                            game.Wait(1500);
+                            game.Wait(900);
                             empty = game.FindCrewRow(r => r.Empty, out p, true);
                         }
                         if (empty == null)
@@ -3999,7 +3999,7 @@ namespace IdleMafiaBot
                     if (!game.DismissHenchman(row, worst, sure, out emptied))
                     {
 
-                        game.Wait(1200);
+                        game.Wait(800);
                         var late = game.EmptyRowNear(row.Anchor.CenterY);
                         emptied = late != null && late.Anchor.CenterY >= row.Top && late.Anchor.CenterY <= row.Bottom ? late : null;
 
@@ -4480,7 +4480,7 @@ namespace IdleMafiaBot
             if (done) { EndRerollOnly(why, true); return; }
             if (rerollShort)
             {
-                game.Wait(3000);
+                game.Wait(1500);
                 double cash = CashNow();
                 if (cash < 0 || cash >= crewHirePrice[(int)RollNow()] + keep) { nextReroll = now; return; }
                 EndRerollOnly(why, true);
@@ -4501,7 +4501,7 @@ namespace IdleMafiaBot
             if (got == null && paid <= 0)
             {
 
-                game.Wait(600);
+                game.Wait(400);
                 var again = game.EmptyRowNear(empty.Anchor.CenterY);
                 if (again != null) got = game.HireInto(again, roll, false, cash, keep, out used, out paid);
             }

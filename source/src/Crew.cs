@@ -1227,6 +1227,11 @@ namespace IdleMafiaBot
             Click(b.CenterX, b.CenterY, 0);
         }
 
+        // How long to wait before each look after a press, a hire or a dismiss. The first look
+        // comes quickly, so a game that updates fast isn't made to sit out a long, flat wait;
+        // later looks leave more room, so a slow one still gets about the same total time.
+        static int LookWaitMs(int look) { return look == 0 ? 250 : look < 3 ? 350 : 500; }
+
         public double UnlockCrewSlot(double cash, double keep, out double price)
         {
             price = -1;
@@ -1266,9 +1271,9 @@ namespace IdleMafiaBot
             var before = CrewPageSeen != null ? CrewPageSeen.Rows.Where(r => !r.Empty && !r.Locked && r.Name.Length > 0).Select(r => r.Name).ToList() : new List<string>();
             PressCrew(b, HireRx.IsMatch(b.Text) && empty.HireGold[t] && paid <= cash - Math.Max(0, keep), "not a crew hire within the cash on hand");
             int y = empty.Anchor.CenterY;
-            for (int look = 0; look < 4; look++)
+            for (int look = 0; look < 5; look++)
             {
-                Wait(look == 0 ? 500 : 400);
+                Wait(LookWaitMs(look));
                 using (var f = Capture())
                 {
 
@@ -1283,9 +1288,9 @@ namespace IdleMafiaBot
             string named;
             int rarity;
             using (var f = Capture()) if (!HiredNotification(f, out named, out rarity) || before.Any(n => WindowNames(named, n))) return null;
-            for (int look = 0; look < 6; look++)
+            for (int look = 0; look < 8; look++)
             {
-                Wait(500);
+                Wait(LookWaitMs(look));
                 using (var f = Capture())
                 {
                     var got = ReadCrew(f).Rows.FirstOrDefault(r => !r.Empty && !r.Locked && !r.Cut && r.Rarity >= 0 && (rarity < 0 || r.Rarity == rarity) && WindowNames(named, r.Name));
@@ -1515,7 +1520,7 @@ namespace IdleMafiaBot
             if (found == null || picked == null || found.Attack < 0 || found.Defense < 0 || !NamedLike(found, picked)) return null;
             for (int look = 0; look < 2; look++)
             {
-                if (look > 0) Wait(500);
+                if (look > 0) Wait(300);
                 CrewPage page;
                 using (var f = Capture()) page = ReadCrew(f);
                 var inSight = page.Rows.Where(r => !r.Cut && !r.Empty && !r.Locked).ToList();
@@ -1537,7 +1542,7 @@ namespace IdleMafiaBot
             emptied = null;
             for (int look = 0; look < 5; look++)
             {
-                Wait(look == 0 ? 800 : 500);
+                Wait(look == 0 ? 500 : 400);
                 var again = RowToPress(found, picked);
                 if (again != null && again.Dismiss != null && Parse.Key(again.Dismiss.Text) == "DISMISS") return again;
                 if (again != null) continue;
@@ -1610,7 +1615,7 @@ namespace IdleMafiaBot
 
                 for (int look = 0; look < 6; look++)
                 {
-                    Wait(look == 0 ? 400 : 300);
+                    Wait(LookWaitMs(look));
                     using (var f = Capture())
                     {
                         emptied = ReadCrew(f).Rows.FirstOrDefault(r => r.Empty && r.Top <= row.Anchor.CenterY + row.Anchor.Box.Height && r.Bottom > row.Anchor.CenterY - 3 * row.Anchor.Box.Height);
@@ -1628,7 +1633,7 @@ namespace IdleMafiaBot
             bool asked = false, mayAsk = MayAskAfterConfirm(row, picked);
             for (int look = 0; look < 6; look++)
             {
-                Wait(look == 0 ? 500 : 400);
+                Wait(LookWaitMs(look));
                 using (var f = Capture())
                 {
                     var p = ReadCrew(f);
