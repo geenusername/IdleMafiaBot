@@ -10,7 +10,16 @@ namespace IdleMafiaBot
 
     sealed class FightMemory
     {
-        sealed class Fight { public DateTime At; public bool Won; public double Took = -1; public int Respect; public int Defense = -1; }
+        sealed class Fight { public DateTime At; public bool Won; public double Took = -1; public int Respect; public int Defense = -1, Attack = -1, OwnRoll = -1, OtherRoll = -1; }
+
+        // What the fight window showed of a fight: the band the bot's attack was rolled in, the band
+        // the other player's defense was rolled in, and the two rolls themselves. The middle of a
+        // band is the figure the game used, which is exact - better than anything read off a profile.
+        // Null when the window couldn't be read.
+        public sealed class Rolls
+        {
+            public int OwnAttack = -1, TheirDefense = -1, OwnRoll = -1, TheirRoll = -1;
+        }
 
         readonly Dictionary<string, List<Fight>> fights = new Dictionary<string, List<Fight>>();
         readonly Dictionary<string, string> names = new Dictionary<string, string>();
@@ -29,16 +38,21 @@ namespace IdleMafiaBot
 
         static string Key(string name) { return Parse.Key(name); }
 
-        public void Add(string name, bool won, double took, int respect, int defense, DateTime at)
+        public void Add(string name, bool won, double took, int respect, int defense, Rolls roll, DateTime at)
         {
             string k = Key(name);
             if (k.Length < 3) return;
+            if (roll != null && roll.TheirDefense > 0) defense = roll.TheirDefense;
             lock (gate)
             {
                 List<Fight> list;
                 if (!fights.TryGetValue(k, out list)) fights[k] = list = new List<Fight>();
                 names[k] = name.Trim();
-                list.Add(new Fight { At = at, Won = won, Took = won ? took : -1, Respect = respect, Defense = defense });
+                list.Add(new Fight
+                {
+                    At = at, Won = won, Took = won ? took : -1, Respect = respect, Defense = defense,
+                    Attack = roll == null ? -1 : roll.OwnAttack, OwnRoll = roll == null ? -1 : roll.OwnRoll, OtherRoll = roll == null ? -1 : roll.TheirRoll,
+                });
                 if (list.Count > PerPlayer) list.RemoveRange(0, list.Count - PerPlayer);
                 Save();
             }
@@ -165,20 +179,23 @@ namespace IdleMafiaBot
                     var p = line.Split('\t');
                     DateTime at;
                     double took;
-                    int respect, defense;
+                    int respect, defense, attack, ownRoll, otherRoll;
                     if (p.Length < 4 || line.StartsWith("#")) continue;
                     if (!DateTime.TryParseExact(p[1], "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out at)) continue;
                     if (at < cutoff) continue;
                     if (!double.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out took)) took = -1;
-                    respect = 0; defense = -1;
+                    respect = 0; defense = -1; attack = -1; ownRoll = -1; otherRoll = -1;
                     if (p.Length > 4) int.TryParse(p[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out respect);
                     if (p.Length > 5) int.TryParse(p[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out defense);
+                    if (p.Length > 6) int.TryParse(p[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out attack);
+                    if (p.Length > 7) int.TryParse(p[7], NumberStyles.Integer, CultureInfo.InvariantCulture, out ownRoll);
+                    if (p.Length > 8) int.TryParse(p[8], NumberStyles.Integer, CultureInfo.InvariantCulture, out otherRoll);
                     string k = Key(p[0]);
                     if (k.Length < 3) continue;
                     List<Fight> list;
                     if (!fights.TryGetValue(k, out list)) fights[k] = list = new List<Fight>();
                     names[k] = p[0];
-                    list.Add(new Fight { At = at, Won = p[2] == "W", Took = took, Respect = respect, Defense = defense });
+                    list.Add(new Fight { At = at, Won = p[2] == "W", Took = took, Respect = respect, Defense = defense, Attack = attack, OwnRoll = ownRoll, OtherRoll = otherRoll });
                 }
                 foreach (var list in fights.Values) list.Sort((a, b) => a.At.CompareTo(b.At));
             }
@@ -197,12 +214,13 @@ namespace IdleMafiaBot
                     if (fights[k].Count == 0) { fights.Remove(k); names.Remove(k); }
                 }
                 var sb = new StringBuilder();
-                sb.AppendLine("# Idle Mafia Bot's player memory for fights: the last 3 days, one fight a line (name, UTC time, Won/Lost, cash a win took, respect it was worth, the defense it was fought at when it was scouted). Delete it to forget.");
+                sb.AppendLine("# Idle Mafia Bot's player memory for fights: the last 3 days, one fight a line (name, UTC time, Won/Lost, cash a win took, respect it was worth, the defense it was fought at, the attack it was fought with, and the two rolls the fight window showed). Delete it to forget.");
                 foreach (var kv in fights)
                     foreach (var f in kv.Value)
                         sb.AppendLine(names[kv.Key] + "\t" + f.At.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "\t" + (f.Won ? "W" : "L") + "\t"
                                       + f.Took.ToString("0", CultureInfo.InvariantCulture) + "\t" + f.Respect.ToString(CultureInfo.InvariantCulture) + "\t"
-                                      + f.Defense.ToString(CultureInfo.InvariantCulture));
+                                      + f.Defense.ToString(CultureInfo.InvariantCulture) + "\t" + f.Attack.ToString(CultureInfo.InvariantCulture) + "\t"
+                                      + f.OwnRoll.ToString(CultureInfo.InvariantCulture) + "\t" + f.OtherRoll.ToString(CultureInfo.InvariantCulture));
                 File.WriteAllText(file, sb.ToString(), Encoding.UTF8);
             }
             catch (Exception) { }

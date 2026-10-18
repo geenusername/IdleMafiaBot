@@ -2415,8 +2415,21 @@ namespace IdleMafiaBot
         void Remember(FightRow r, bool won, string result, double took, int respect, int defense)
         {
             Won(r, result, took);
+            // What the fight window showed of this fight: the band the attack was rolled in, the band
+            // the defense was rolled in, and the two rolls themselves. The bands are the game's own
+            // figures, so the figures behind them (the middle of each band) are exact.
+            var roll = new FightMemory.Rolls
+            {
+                OwnAttack = game.LastOwnAttack, TheirDefense = game.LastOtherDefense,
+                OwnRoll = game.LastOwnRoll, TheirRoll = game.LastOtherRoll,
+            };
+            if (roll.OwnAttack > 0 && roll.TheirDefense > 0)
+                Log(string.Format(CultureInfo.InvariantCulture, "Fights: the fight window shows the bot's attack was {0:N0} and {1}'s defense {2:N0}{3}",
+                                  roll.OwnAttack, r.Name, roll.TheirDefense,
+                                  roll.OwnRoll > 0 && roll.TheirRoll > 0
+                                      ? string.Format(CultureInfo.InvariantCulture, " - rolled {0:N0} against {1:N0}", roll.OwnRoll, roll.TheirRoll) : ""));
             if (!S.RememberPlayers || r.Name.Length < 3 || r.War || !(won || result.StartsWith("DEFEAT"))) return;
-            memory.Add(r.Name, won, took, respect, defense, DateTime.UtcNow);
+            memory.Add(r.Name, won, took, respect, defense, roll, DateTime.UtcNow);
         }
 
         double BigPayer(FightRow r, DateTime now)

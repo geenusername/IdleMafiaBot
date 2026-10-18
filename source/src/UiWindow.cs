@@ -2493,7 +2493,7 @@ namespace IdleMafiaBot
                 Tuple.Create("LuckyPaulie", 42, true, 312e6, 9),
                 Tuple.Create("TinCanTony", 3600, true, 180e6, 8), Tuple.Create("TinCanTony", 3500, true, 205e6, 9),
                 Tuple.Create("QuietHarbor", 600, true, 12e6, 7),
-            }) m.Add(f.Item1, f.Item3, f.Item4, f.Item5, -1, now.AddMinutes(-f.Item2));
+            }) m.Add(f.Item1, f.Item3, f.Item4, f.Item5, -1, null, now.AddMinutes(-f.Item2));
             UsePayers(m);
         }
 

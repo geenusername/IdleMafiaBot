@@ -2729,6 +2729,8 @@ namespace IdleMafiaBot
             FightCalledOff = FightWindowStuck = false;
             LastFightCash = -1;
             LastFightPending = false;
+            LastOwnRoll = LastOtherRoll = -1;
+            LastOwnAttack = LastOtherDefense = -1;
             if (FightGone != null) { FightGone.Dispose(); FightGone = null; }
             bool first = true;
 
@@ -2755,6 +2757,7 @@ namespace IdleMafiaBot
                                                        && (l.Text.Contains("+") || l.Text.Contains("-"))).Select(l => l.Text);
                         string outcome = all.Contains("VICTORY") ? "VICTORY" : all.Contains("DEFEAT") ? "DEFEAT" : "DONE";
                         if (outcome == "VICTORY") LastFightCash = WinCash(f, lines, done);
+                        ReadFightWindow(f, done);
                         if (CollectFights) KeepFightPicture(f, outcome);
 
                         if (LastFightShot != null) { LastFightShot.Dispose(); LastFightShot = null; }
@@ -2801,6 +2804,120 @@ namespace IdleMafiaBot
         }
 
         public bool CollectFights;
+
+        // What the game rolled in the last fight and what it rolled it against. The fight window
+        // shows each side's roll over the +-20% band it was drawn from, so the middle of a band is
+        // the attack (the bot's) or the defense (the other player's) the game used: the bands are
+        // the game's own figures, which is better than anything read off a profile. -1 when it
+        // couldn't be read. Reading only - nothing is pressed or changed.
+        public int LastOwnRoll = -1, LastOtherRoll = -1, LastOwnAttack = -1, LastOtherDefense = -1;
+
+        static readonly Prep[] FightPreps = { Prep.Contrast, Prep.DarkText, Prep.None };
+
+        void ReadFightWindow(Frame f, OcrLine done)
+        {
+            LastOwnRoll = LastOtherRoll = -1;
+            LastOwnAttack = LastOtherDefense = -1;
+            int h = Math.Max(6, done.Box.Height);
+            var zooms = new List<int>();
+            foreach (int z in new[] { 3, 4, 5, 6, PopupScale(f) })
+                if (z >= 2 && z <= 8 && !zooms.Contains(z)) zooms.Add(z);
+            // The rolls and the bands sit a couple of dozen "DONE" text heights above the button. A
+            // crop of that strip reads like a picture of its own and is a lot cheaper; the whole
+            // window is the fallback for when the strip isn't where it is expected to be.
+            var strip = Rectangle.FromLTRB(0, Math.Max(0, done.Box.Y - 26 * h), f.Width, Math.Max(1, done.Box.Y - 17 * h));
+            try
+            {
+                using (var bmp = strip.Width > 40 && strip.Height > 20 ? Crop(f, strip) : null)
+                {
+                    if (bmp != null)
+                        using (var sf = new Frame(bmp))
+                            foreach (var prep in FightPreps)
+                                foreach (int zoom in zooms)
+                                    if (FightWindowIn(sf, new Rectangle(0, 0, sf.Width, sf.Height), zoom, prep)) return;
+                }
+            }
+            catch (Exception) { }
+            var whole = new Rectangle(0, 0, f.Width, f.Height);
+            foreach (var prep in FightPreps)
+                foreach (int zoom in zooms)
+                    if (FightWindowIn(f, whole, zoom, prep)) return;
+        }
+
+        bool FightWindowIn(Frame f, Rectangle area, int zoom, Prep prep)
+        {
+            List<OcrLine> lines;
+            try { lines = Ocr.Read(f, area, zoom, prep); }
+            catch (Exception) { return false; }
+            var bands = new List<OcrLine>();
+            var lows = new List<int>();
+            var highs = new List<int>();
+            foreach (var l in lines)
+            {
+                int lo, hi;
+                if (!BandLine(l.Text, out lo, out hi)) continue;
+                bands.Add(l); lows.Add(lo); highs.Add(hi);
+            }
+            if (bands.Count < 2) return false;
+            int left = 0, right = 0;
+            for (int i = 1; i < bands.Count; i++)
+            {
+                if (bands[i].Box.X < bands[left].Box.X) left = i;
+                if (bands[i].Box.X > bands[right].Box.X) right = i;
+            }
+            // side by side, on the same row of the window, close enough to be the two halves of it
+            if (left == right) return false;
+            if (bands[left].Box.X + bands[left].Box.Width > bands[right].Box.X + 8) return false;
+            if (Math.Abs(bands[left].Box.Y - bands[right].Box.Y) > 2 * bands[left].Box.Height) return false;
+            LastOwnAttack = (lows[left] + highs[left]) / 2;
+            LastOtherDefense = (lows[right] + highs[right]) / 2;
+            if (LastOwnAttack < 100 || LastOtherDefense < 100) return false;
+            LastOwnRoll = RollIn(lines, bands[left], lows[left], highs[left]);
+            LastOtherRoll = RollIn(lines, bands[right], lows[right], highs[right]);
+            return true;
+        }
+
+        // A band line, as in the "7,693 11,539" the fight window shows: the first and the last number
+        // on it, the top one half as big again (the +-20% the game rolls in, 1.2 against 0.8).
+        static bool BandLine(string text, out int lo, out int hi)
+        {
+            lo = hi = -1;
+            var n = Numbers(text);
+            if (n.Count < 2) return false;
+            int bottom = n[0], top = n[n.Count - 1];
+            if (bottom < 100 || top <= bottom) return false;
+            if ((double)top / bottom < 1.47 || (double)top / bottom > 1.53) return false;
+            lo = bottom; hi = top;
+            return true;
+        }
+
+        // Every number on a line of text, as the bot reads them ("7,693 11,539" gives 7693, 11539).
+        static List<int> Numbers(string text)
+        {
+            var got = new List<int>();
+            foreach (Match m in Regex.Matches(text ?? "", @"[0-9][0-9,.]*"))
+            {
+                int v;
+                if (int.TryParse(Parse.Digits(m.Value), out v) && v > 0) got.Add(v);
+            }
+            return got;
+        }
+
+        // The figure in the box over a band: the one number above it, over the same stretch of the
+        // window, that falls inside the band. That is the roll the game made for that side.
+        static int RollIn(List<OcrLine> lines, OcrLine band, int lo, int hi)
+        {
+            int found = -1;
+            foreach (var l in lines)
+            {
+                if (l.Box.Bottom > band.Box.Y + band.Box.Height / 3) continue;
+                if (l.Box.Y < band.Box.Y - 5 * band.Box.Height) continue;
+                if (l.CenterX < band.Box.Left - band.Box.Width / 10 || l.CenterX > band.Box.Right + band.Box.Width / 10) continue;
+                foreach (int v in Numbers(l.Text))
+                    if (v >= lo && v <= hi && v > found) found = v;
+            }
+            return found;
+        }
 
         // --fightshots: keep a picture of the fight window of every fight, so the odds the bot works
         // out can be compared with what really happened (the two rolls are in that picture). They
