@@ -651,6 +651,45 @@ namespace IdleMafiaBot
                         row.Name = Regex.Replace(inName.Groups[1].Value.Trim(), @"\s+[A-Z@©•]$", "");
                     }
                     if (row.Attack < 0 && row.Defense >= 0) row.Attack = AttackAboveDefense(f, s, near);
+                    if (!row.Cut && (row.Attack < 0 || row.Defense < 0))
+                    {
+                        // Some rows lose one of the two numbers (Windows OCR reads the word but not
+                        // the "+NN" beside it). Re-read just this row's POWER column with other
+                        // preparations before giving up: an unread statistic blocks the dismissal.
+                        var zone = Rectangle.Intersect(Rectangle.FromLTRB(a.Box.X + 6 * h, row.Top, a.Box.X + 24 * h, row.Bottom), area);
+                        if (zone.Width > 8 && zone.Height > 8)
+                        {
+                            var power = new List<OcrLine>();
+                            foreach (var t in new[] { Tuple.Create(s + 1, Prep.None), Tuple.Create(s, Prep.WhiteSoft),
+                                                      Tuple.Create(s + 1, Prep.Contrast), Tuple.Create(s + 1, Prep.DarkText),
+                                                      Tuple.Create(s + 2, Prep.None), Tuple.Create(s, Prep.WhiteText) })
+                            {
+                                var more = Ocr.Read(f, zone, t.Item1, t.Item2);
+                                if (more.Count == 0) continue;
+                                power.AddRange(more);
+                                if (row.Attack < 0) row.Attack = PowerOf(f, t.Item1, more, "ATTACK");
+                                if (row.Defense < 0) row.Defense = PowerOf(f, t.Item1, more, "DEFENSE");
+                                if (row.Attack >= 0 && row.Defense >= 0) break;
+                            }
+                            if (row.Attack < 0 || row.Defense < 0)
+                            {
+                                // Still missing: the column holds ATTACK above DEFENSE, so pair each
+                                // lone number with the nearest of the two words.
+                                int atkY = StatWordY(near, "A[TI][TI]ACK"), defY = StatWordY(near, "DEFENSE");
+                                foreach (var l in power.Where(l => PowerRx.IsMatch(l.Text) && !StatWord(l.Text)
+                                                                   && l.Box.X > a.Box.X + 6 * h).OrderBy(l => l.Box.Y))
+                                {
+                                    int n;
+                                    if (!int.TryParse(Parse.Digits(PowerRx.Match(l.Text).Groups[1].Value), out n)) continue;
+                                    bool nearDef = defY >= 0 && (atkY < 0 || Math.Abs(l.CenterY - defY) < Math.Abs(l.CenterY - atkY));
+                                    if (nearDef ? row.Defense < 0 : row.Attack < 0) { if (nearDef) row.Defense = n; else row.Attack = n; }
+                                    else if (row.Defense < 0) row.Defense = n;
+                                    else if (row.Attack < 0) row.Attack = n;
+                                    else break;
+                                }
+                            }
+                        }
+                    }
                     row.Dismiss = lines.FirstOrDefault(l => inBand(l) && l.CenterX > area.X + area.Width / 2 && Math.Abs(l.CenterY - a.CenterY) <= 3 * h
                                                             && (Parse.Key(l.Text) == "DISMISS" || Parse.Key(l.Text) == "CONFIRM" || Parse.Key(l.Text) == "CONFIRMDISMISS"));
                     row.Train = lines.FirstOrDefault(l => inBand(l) && l.CenterX > area.X + area.Width / 2 && Math.Abs(l.CenterY - a.CenterY) <= 3 * h
@@ -773,6 +812,14 @@ namespace IdleMafiaBot
             }
         }
 
+        static bool StatWord(string t) { return Regex.IsMatch(Parse.Key(t ?? ""), "A[TI][TI]ACK|DEFENSE"); }
+
+        static int StatWordY(List<OcrLine> lines, string rx)
+        {
+            var l = lines.Where(x => Regex.IsMatch(Parse.Key(x.Text), rx)).OrderBy(x => x.Box.Y).FirstOrDefault();
+            return l == null ? -1 : l.CenterY;
+        }
+
         static int PowerOf(Frame f, int scale, List<OcrLine> near, string word)
         {
 
@@ -792,7 +839,7 @@ namespace IdleMafiaBot
                 if (!m.Success && f != null)
                 {
                     var spot = Rectangle.Intersect(Rectangle.FromLTRB(l.Box.X - 4 * h, l.Box.Y - 2 * h, l.Box.Right, l.Box.Bottom + 2), new Rectangle(0, 0, f.Width, f.Height));
-                    foreach (var t in new[] { Tuple.Create(scale + 1, Prep.None), Tuple.Create(scale + 1, Prep.WhiteText), Tuple.Create(scale + 2, Prep.Contrast) })
+                    foreach (var t in new[] { Tuple.Create(scale + 1, Prep.None), Tuple.Create(scale + 1, Prep.WhiteText), Tuple.Create(scale, Prep.WhiteSoft), Tuple.Create(scale + 2, Prep.Contrast) })
                     {
                         if (spot.Width < 8 || spot.Height < 8) break;
                         m = PowerRx.Match(Ocr.ReadText(f, spot, t.Item1, t.Item2));
