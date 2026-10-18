@@ -82,7 +82,7 @@ namespace IdleMafiaBot
 
         static readonly Regex TrainedRx = new Regex(@"(?:^|\s)\+\s?([1-9]|10)\s*$");
 
-        internal static readonly Regex PowerInNameRx = new Regex(@"^(.*[A-Za-z.'’""”])\s+(?:[^\s+]\s*)?\+\s*([0-9OoIlS]{1,5})\s*(A\s?[TI]\s?[TI]?\s?A\s?C\s?K|D\s?E\s?F\s?E\s?N\s?S\s?E)\b.*$", RegexOptions.IgnoreCase);
+        internal static readonly Regex PowerInNameRx = new Regex(@"^(.*[A-Za-z.'’""”])\s+(?:[^\s+]{0,2}\s*)?\+\s*([0-9OoIlS]{1,5})\s*(A\s?[TI]\s?[TI]?\s?A\s?C\s?K|D\s?E\s?F\s?E\s?N\s?S\s?E)\b.*$", RegexOptions.IgnoreCase);
 
         static readonly Regex TrainLeftRx = new Regex(@"\b(\d{1,2}):(\d{2})(?::(\d{2}))?\s*[lI1]eft\b", RegexOptions.IgnoreCase);
 
@@ -615,7 +615,7 @@ namespace IdleMafiaBot
                         for (int piece = 0; piece < 3; piece++)
                         {
                             var end = last;
-                            var glued = lines.Where(l => !nameLines.Contains(l) && l != end && Math.Abs(l.Box.Y - nl.Box.Y) <= slack
+                            var glued = lines.Where(l => !nameLines.Contains(l) && l != end && !StatWord(l.Text) && Math.Abs(l.Box.Y - nl.Box.Y) <= slack
                                                          && l.Box.X >= end.Box.Right - 2 && l.Box.X - end.Box.Right <= gap).OrderBy(l => l.Box.X).FirstOrDefault();
                             var g = glued != null ? GluedRx.Match(glued.Text) : Match.Empty;
                             if (!g.Success) break;
