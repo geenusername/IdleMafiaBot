@@ -1425,8 +1425,16 @@ namespace IdleMafiaBot
             foreach (var n in names) El<CheckBox>("sw_Shop" + n).IsEnabled = s.ShopBuy;
             El<ComboBox>("cmb_WhaleCash").IsEnabled = s.WhaleHunt;
 
-            El<CheckBox>("sw_CrewAutoRoll").IsEnabled = s.CrewReroll;
-            El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+            var autoRoll = El<CheckBox>("sw_CrewAutoRoll");
+            autoRoll.IsEnabled = s.CrewReroll;
+            autoRoll.ToolTip = s.CrewReroll
+                ? "Needs the game's Auto Roll pass. The game rolls, the bot restarts it."
+                : "Turn Rerolls on first (On, First or Only).";
+            var autoLimit = El<ComboBox>("cmb_AutoRollLimit");
+            autoLimit.IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+            autoLimit.ToolTip = !s.CrewReroll
+                ? "Turn Rerolls on first (On, First or Only), then tick Use the game's Auto Roll."
+                : !s.CrewAutoRoll ? "Tick Use the game's Auto Roll first." : "What a slot's rolls may spend before the bot stops it";
 
             El<Border>("LuckRollBar").IsEnabled = s.Events;
             El<Border>("LuckRollBar").Opacity = s.Events ? 1 : 0.45;
