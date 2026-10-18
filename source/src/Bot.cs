@@ -3967,8 +3967,8 @@ namespace IdleMafiaBot
                         findFailsOn = worst.Key;
                         if (findFails >= 3)
                         {
-                            rerollSkip.Add(Tuple.Create(worst.Name, worst.Rarity, DateTime.UtcNow.AddHours(3)));
-                            Log("Crew: couldn't find " + worst + " in the list 3 times - it's left alone for 3 hours, the next one goes first");
+                            rerollSkip.Add(Tuple.Create(worst.Name, worst.Rarity, DateTime.UtcNow.AddMinutes(45)));
+                            Log("Crew: couldn't find " + worst + " in the list 3 times - it's left alone for 45 minutes, the next one goes first");
                             findFails = 0; fails = 0;
                             continue;
                         }
@@ -4032,8 +4032,8 @@ namespace IdleMafiaBot
                                 if (dismissFails >= 3)
                                 {
 
-                                    rerollSkip.Add(Tuple.Create(worst.Name, worst.Rarity, DateTime.UtcNow.AddHours(3)));
-                                    Log("Crew: DISMISS failed 3 times on " + worst + " - it's left alone for 3 hours, the next one goes first");
+                                    rerollSkip.Add(Tuple.Create(worst.Name, worst.Rarity, DateTime.UtcNow.AddMinutes(45)));
+                                    Log("Crew: DISMISS failed 3 times on " + worst + " - it's left alone for 45 minutes, the next one goes first");
                                     dismissFails = 0; fails = 0; readAgain = true;
                                     continue;
                                 }
