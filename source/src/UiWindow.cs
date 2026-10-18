@@ -1416,6 +1416,7 @@ namespace IdleMafiaBot
             SyncRoll();
             ShowCrewOdds();
             SyncRollMode();
+            SyncFightMode();
 
             var names = new[] { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Forbidden" };
             var off = names.Where((n, i) => !s.ShopWants(i)).ToList();
@@ -1561,10 +1562,13 @@ namespace IdleMafiaBot
                 syncingFight = true;
                 try { rb.IsChecked = true; tile.IsChecked = m != "Off"; } finally { syncingFight = false; }
             }
+            El<CheckBox>("sw_OnlyFightsSpendAll").IsEnabled = m == "Only";
             El<TextBlock>("FightModeHint").Text =
                   m == "Off" ? "No player fights."
                 : m == "On" ? "In between the other tasks, with the stamina the bosses leave."
-                : "Nothing else: players are attacked with every point of stamina above the reserve, and the bot waits when there is none. It stops when nobody is worth attacking.";
+                : s.OnlyFightsSpendAll
+                  ? "Nothing else: nothing is kept back for the bosses, so attacks go on until the stamina bar is empty and the bot waits for it to fill. It stops when nobody is worth attacking."
+                  : "Nothing else: players are attacked with every point of stamina above the reserve, and the bot waits when there is none. It stops when nobody is worth attacking.";
         }
 
         CrewInfo crewSeen;

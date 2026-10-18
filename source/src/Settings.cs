@@ -49,6 +49,10 @@ namespace IdleMafiaBot
         // bot will take: 85 is about 20% more attack than the defense of the one it attacks.
         public int FightWinChance = 85;
 
+        // In the Only mode nothing else runs, so there is no reason to keep stamina back for the
+        // bosses: attacks go on until the bar is empty.
+        public bool OnlyFightsSpendAll = false;
+
         public bool WhaleHunt = false;
 
         public bool RememberPlayers = true;

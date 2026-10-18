@@ -1075,6 +1075,9 @@
                   </Grid>
                 </Border>
                 <TextBlock x:Name="FightModeHint" Style="{StaticResource Hint}" Margin="2,0,0,4"/>
+                <UniformGrid Columns="3" Margin="0,4,0,0">
+                  <CheckBox x:Name="sw_OnlyFightsSpendAll" Style="{StaticResource OptTile}" Content="Spend it all when only fighting" ToolTip="In the Only mode the bosses don't run, so nothing is kept back for them: attacks go on until the stamina bar is empty."/>
+                </UniformGrid>
                 <Border Style="{StaticResource OptLine}">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

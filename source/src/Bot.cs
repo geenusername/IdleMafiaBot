@@ -622,7 +622,7 @@ namespace IdleMafiaBot
                     taskNow = "fights";
                     failedNow = neutralNow = false;
                     int fought = 0;
-                    try { fought = DoFights(100, AboveKept); if (!failedNow && !neutralNow) TaskWorked("fights"); }
+                    try { fought = DoFights(100, S.OnlyFightsSpendAll ? 0 : AboveKept); if (!failedNow && !neutralNow) TaskWorked("fights"); }
                     finally { taskNow = null; if (failedNow) StreakCheck("fights"); }
                     AfterFightOnly(fought);
                 });
@@ -3683,11 +3683,13 @@ namespace IdleMafiaBot
             var now = DateTime.UtcNow;
             if (fought > 0) { onlyFightFails = 0; onlyFightProgressAt = now; return; }
 
-            // Nothing was attacked. Stamina below what is kept back for the bosses is a wait and not
-            // a failure: the bar fills up again on its own and the bot tries then.
+            // Nothing was attacked. Stamina down to what the bot fights to - the reserve kept for the
+            // bosses, or nothing at all when it spends it all - is a wait and not a failure: the bar
+            // fills up again on its own and the bot tries then.
             var h = ReadBarsSettled(2000);
-            int kept = Kept(h.StaminaMax);
-            if (h.Stamina >= 0 && (h.StaminaMax <= 0 || h.Stamina - kept < FightSpare(h.StaminaMax, kept)))
+            int kept = S.OnlyFightsSpendAll ? 0 : Kept(h.StaminaMax);
+            bool noStamina = h.Stamina >= 0 && (S.OnlyFightsSpendAll ? h.Stamina <= 0 : h.Stamina - kept < FightSpare(h.StaminaMax, kept));
+            if (noStamina)
             {
                 Log("Only fighting: waiting for stamina (" + h.Stamina + (h.StaminaMax > 0 ? "/" + h.StaminaMax : "") + ")");
                 if (nextFights < now.AddMinutes(1)) nextFights = now.AddMinutes(1);
