@@ -387,8 +387,12 @@ namespace IdleMafiaBot
         public static bool SameForPress(CrewRow a, CrewRow b)
         {
             if (a == null || b == null || a.Empty || a.Locked || b.Empty || b.Locked || a.Rarity < 0 || a.Rarity != b.Rarity) return false;
-            if (a.Attack < 0 || a.Defense < 0 || a.Attack != b.Attack || a.Defense != b.Defense) return false;
-            return WholeNameSame(a.Name, b.Name) || UnnamedLike(a, b);
+            if (!WholeNameSame(a.Name, b.Name) && !UnnamedLike(a, b)) return false;
+            // Only the numbers both rows hold are compared: a row at the bottom of the list can lose
+            // the one that sits lowest (the DEFENSE) behind the panel under the list.
+            if (a.Attack >= 0 && b.Attack >= 0 && a.Attack != b.Attack) return false;
+            if (a.Defense >= 0 && b.Defense >= 0 && a.Defense != b.Defense) return false;
+            return true;
         }
 
         public static bool NamedLike(CrewRow a, CrewRow b)
@@ -1522,7 +1526,12 @@ namespace IdleMafiaBot
 
         CrewRow RowToPress(CrewRow found, CrewRow picked)
         {
-            if (found == null || picked == null || found.Attack < 0 || found.Defense < 0 || !NamedLike(found, picked)) return null;
+            if (found == null || picked == null || !NamedLike(found, picked)) return null;
+            // A row at the bottom of the list can lose the number that sits lowest (the DEFENSE sits
+            // under the shield icon, sometimes behind the panel under the list). The row is still the
+            // one picked - the whole name says so - and the question read after the press is what
+            // tells which henchman is being dismissed anyway.
+            if ((found.Attack < 0 || found.Defense < 0) && !WholeNameSame(found.Name, picked.Name)) return null;
             for (int look = 0; look < 2; look++)
             {
                 if (look > 0) Wait(300);
