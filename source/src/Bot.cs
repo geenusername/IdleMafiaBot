@@ -346,6 +346,7 @@ namespace IdleMafiaBot
             finally
             {
                 RerollOnly = false;
+                FightOnly = false;
                 Log("Bot stopped");
 
                 if (stopWhy != null) Discord.Problem("stopped", "\U0001F6D1 The bot stopped", stopWhy + "\nPress Start in the bot's window to go on.", Shot, false, 0);
@@ -595,6 +596,39 @@ namespace IdleMafiaBot
                 return;
             }
 
+            if (FightOnly)
+            {
+                if (S.WaitWhileBusy && game.Win.UserActiveWithin(S.IdleSeconds * 1000))
+                {
+                    State("Waiting until you stop using the mouse/keyboard (only fighting)");
+                    Sleep(1500);
+                    return;
+                }
+
+                if (DateTime.UtcNow < nextFights)
+                {
+                    State("Only fighting: the next go at " + nextFights.ToLocalTime().ToString("HH:mm"));
+                    Sleep(2000);
+                    return;
+                }
+                if (DisconnectBeforeRound()) return;
+                State("Working: only fighting players");
+                Act(delegate
+                {
+                    Log(string.Format("Doing: only fighting players   (stamina {0}/{1}, health {2}/{3})", h.Stamina, h.StaminaMax, h.Health, h.HealthMax));
+                    CloseEventWindow();
+
+                    if (GearBackDue(DateTime.UtcNow)) RunTask("gear back", h);
+                    taskNow = "fights";
+                    failedNow = neutralNow = false;
+                    int fought = 0;
+                    try { fought = DoFights(100, AboveKept); if (!failedNow && !neutralNow) TaskWorked("fights"); }
+                    finally { taskNow = null; if (failedNow) StreakCheck("fights"); }
+                    AfterFightOnly(fought);
+                });
+                return;
+            }
+
             LookForTutorial();
             var due = WhatIsDue(h);
             if (due.Contains("learn jobs")) due = new List<string> { "learn jobs" };
@@ -629,7 +663,7 @@ namespace IdleMafiaBot
                 Log(string.Format("Doing: {0}   (energy {1}/{2}, stamina {3}/{4}, health {5}/{6})",
                     string.Join(", ", due), h.Energy, h.EnergyMax, h.Stamina, h.StaminaMax, h.Health, h.HealthMax));
                 CloseEventWindow();
-                for (int i = 0; i < due.Count && !RerollOnly; i++)
+                for (int i = 0; i < due.Count && !RerollOnly && !FightOnly; i++)
                 {
                     State("Working: " + Doing(due, i));
                     game.Check();
@@ -638,7 +672,7 @@ namespace IdleMafiaBot
                     RunTask(due[i], h);
                     BankNext(due, i);
                 }
-                if (!due.Contains("learn jobs") || RerollOnly) return;
+                if (!due.Contains("learn jobs") || RerollOnly || FightOnly) return;
 
                 Header h2;
                 using (var f = game.Capture()) h2 = game.ReadHeader(f);
@@ -3593,7 +3627,7 @@ namespace IdleMafiaBot
 
         public volatile bool RerollOnly;
 
-        public void StartRerollOnly() { onlyFails = 0; onlyProgressAt = DateTime.UtcNow; nextReroll = DateTime.UtcNow; RerollOnly = true; if (!Running) Begin(false); }
+        public void StartRerollOnly() { FightOnly = false; onlyFails = 0; onlyProgressAt = DateTime.UtcNow; nextReroll = DateTime.UtcNow; RerollOnly = true; if (!Running) Begin(false); }
 
         public void StopRerollOnly() { if (!RerollOnly) return; RerollOnly = false; stop = true; }
 
@@ -3604,6 +3638,57 @@ namespace IdleMafiaBot
             RerollOnly = false;
             stop = true;
             stopWhy = (finished ? "Only rerolling is over: " : "Only rerolling gave up: ") + why;
+        }
+
+        public volatile bool FightOnly;
+
+        public void StartFightOnly()
+        {
+            RerollOnly = false;
+            onlyFightFails = 0; onlyFightProgressAt = DateTime.UtcNow; nextFights = DateTime.UtcNow;
+            FightOnly = true;
+            if (!Running) Begin(false);
+        }
+
+        public void StopFightOnly() { if (!FightOnly) return; FightOnly = false; stop = true; }
+
+        void EndFightOnly(string why, bool finished)
+        {
+            if (!FightOnly) return;
+            Log("Only fighting: " + why + " - the bot stops");
+            FightOnly = false;
+            stop = true;
+            stopWhy = (finished ? "Only fighting is over: " : "Only fighting gave up: ") + why;
+        }
+
+        int onlyFightFails;
+        DateTime onlyFightProgressAt;
+
+        void AfterFightOnly(int fought)
+        {
+            var now = DateTime.UtcNow;
+            if (fought > 0) { onlyFightFails = 0; onlyFightProgressAt = now; return; }
+
+            // Nothing was attacked. Stamina below what is kept back for the bosses is a wait and not
+            // a failure: the bar fills up again on its own and the bot tries then.
+            var h = ReadBarsSettled(2000);
+            int kept = Kept(h.StaminaMax);
+            if (h.Stamina >= 0 && (h.StaminaMax <= 0 || h.Stamina - kept < FightSpare(h.StaminaMax, kept)))
+            {
+                Log("Only fighting: waiting for stamina (" + h.Stamina + (h.StaminaMax > 0 ? "/" + h.StaminaMax : "") + ")");
+                if (nextFights < now.AddMinutes(1)) nextFights = now.AddMinutes(1);
+                return;
+            }
+
+            onlyFightFails++;
+            if (onlyFightFails >= 3 || now - onlyFightProgressAt > TimeSpan.FromHours(1))
+            {
+                EndFightOnly("nothing left worth attacking (after " + onlyFightFails + " tries)", false);
+                return;
+            }
+            Log("Only fighting: nothing worth attacking right now (try " + onlyFightFails + " of 3) - looking again at "
+                + nextFights.ToLocalTime().ToString("HH:mm"));
+            if (nextFights < now.AddMinutes(1)) nextFights = now.AddMinutes(1);
         }
 
         void DoRerolls(bool only)

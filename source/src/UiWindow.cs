@@ -1130,6 +1130,7 @@ namespace IdleMafiaBot
         {
             { "jobs", new[] { "sw_Jobs" } }, { "learn jobs", new[] { "sw_Jobs" } }, { "heists", new[] { "sw_Heists" } },
             { "bosses", new[] { "sw_Bosses" } }, { "fights", new[] { "sw_Fights" } },
+            { "only fighting players", new[] { "sw_Fights" } },
             { "crew", new[] { "sw_CrewFill", "tile_Reroll", "sw_TrainCrew" } }, { "rerolls", new[] { "tile_Reroll" } },
             { "family", new[] { "sw_FamilyWatch" } }, { "game stats", new[] { "sw_GameStats" } }, { "takedown", new[] { "sw_Takedown" } }, { "give stamina", new[] { "sw_GiveStamina" } },
             { "properties", new[] { "sw_Properties" } }, { "bank", new[] { "sw_Bank" } }, { "safehouse upgrade", new[] { "sw_SafehouseUpgrade" } },
@@ -1517,6 +1518,55 @@ namespace IdleMafiaBot
                 : "Nothing else: rerolls with the cash on hand until the crew is done" + then + ", then the bot stops.";
         }
 
+        bool syncingFight;
+
+        void WireFightMode()
+        {
+            foreach (var mode in new[] { "Off", "On", "Only" })
+            {
+                string m = mode;
+                El<RadioButton>("FightMode_" + m).Checked += (a, b) => FightModePicked(m);
+            }
+
+            var tile = El<CheckBox>("sw_Fights");
+            tile.Checked += (a, b) => { if (!syncingFight && FightMode() == "Off") El<RadioButton>("FightMode_On").IsChecked = true; };
+            tile.Unchecked += (a, b) => { if (!syncingFight) El<RadioButton>("FightMode_Off").IsChecked = true; };
+        }
+
+        void FightModePicked(string m)
+        {
+            if (syncingFight) return;
+            if (m == "Only")
+            {
+                if (Covered) { SyncFightMode(); return; }
+                bot.StartFightOnly();
+                ShowState("Working: only fighting players");
+                return;
+            }
+            if (bot.FightOnly) { bot.StopFightOnly(); ShowState("Stopping"); }
+            s.Fights = m != "Off";
+            Save();
+            UpdateDerived();
+        }
+
+        string FightMode() { return bot.FightOnly ? "Only" : !s.Fights ? "Off" : "On"; }
+
+        void SyncFightMode()
+        {
+            string m = FightMode();
+            var rb = El<RadioButton>("FightMode_" + m);
+            var tile = El<CheckBox>("sw_Fights");
+            if (rb.IsChecked != true || tile.IsChecked != (m != "Off"))
+            {
+                syncingFight = true;
+                try { rb.IsChecked = true; tile.IsChecked = m != "Off"; } finally { syncingFight = false; }
+            }
+            El<TextBlock>("FightModeHint").Text =
+                  m == "Off" ? "No player fights."
+                : m == "On" ? "In between the other tasks, with the stamina the bosses leave."
+                : "Nothing else: players are attacked with every point of stamina above the reserve, and the bot waits when there is none. It stops when nobody is worth attacking.";
+        }
+
         CrewInfo crewSeen;
 
         void ShowCrew(CrewInfo ci)
@@ -1680,6 +1730,7 @@ namespace IdleMafiaBot
         {
             El<Button>("BtnStart").Click += (a, b) => Toggle();
             WireRollMode();
+            WireFightMode();
 
             El<Button>("BtnNeverList").Click += (a, b) =>
             {
@@ -1891,8 +1942,10 @@ namespace IdleMafiaBot
             El<Ellipse>("RunGlow").Fill = running ? Res("Green") : Res("Text3");
 
             SyncRollMode();
+            SyncFightMode();
             string shortText = !running ? (st == "Scanning" || st == "Checking" ? st : "Stopped")
                              : bot.RerollOnly && !lower.Contains("using the mouse") ? "Rerolling"
+                             : bot.FightOnly && !lower.Contains("using the mouse") ? "Fighting"
                              : lower.StartsWith("working") ? "Working"
                              : lower.StartsWith("checking") ? "Checking"
                              : lower.Contains("using the mouse") ? "Waiting for you"
