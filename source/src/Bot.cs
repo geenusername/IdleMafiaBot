@@ -2077,6 +2077,7 @@ namespace IdleMafiaBot
             bool refreshed = false;
             int moved = 0;
             int calledOff = 0;
+            int scoutedThisRound = 0;
 
             for (int i = 0; i < max; i++)
             {
@@ -2159,6 +2160,12 @@ namespace IdleMafiaBot
                 var cheap = ready.Where(r => r.StaminaCost == 1).ToList();
                 if (cheap.Count > 0) ready = cheap;
 
+                // Once three stamina-paid scouts have been spent this round, stop scouting new ones
+                // and attack only the rows that are already scouted. Otherwise a full row of bad odds
+                // burns one stamina per player for nothing.
+                if (S.ScoutFights && scoutedThisRound >= 3)
+                    ready = ready.Where(r => ScoutedNow(r) != null).ToList();
+
                 var target = ready.OrderByDescending(r => BigPayer(r, now)).ThenBy(r => S.ScoutFights && ScoutedNow(r) != null ? 0 : 1).ThenBy(r => r.Level < 0 ? 999 : r.Level).First();
                 if (BigPayer(target, now) > 0) Log("Fights: " + target.Name + " paid " + M(BigPayer(target, now)) + " in the last day (" + memory.Record(target.Name) + ") - attacked first");
                 if (S.ScoutFights && ScoutedNow(target) == null)
@@ -2167,7 +2174,11 @@ namespace IdleMafiaBot
                     bool may = spare >= target.StaminaCost + 1, paid;
                     string why;
                     var p = game.ScoutPlayer(target, may, out paid, out why);
-                    if (paid) staminaLeft = h.Stamina - 1;
+                    if (paid)
+                    {
+                        scoutedThisRound++;
+                        staminaLeft = h.Stamina - 1;
+                    }
                     if (game.ProfileShowing() && !game.CloseProfile())
                     {
 
