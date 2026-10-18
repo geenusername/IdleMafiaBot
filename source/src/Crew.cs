@@ -394,9 +394,14 @@ namespace IdleMafiaBot
         public static bool NamedLike(CrewRow a, CrewRow b)
         {
             if (a == null || b == null || a.Empty || a.Locked || b.Empty || b.Locked || a.Rarity < 0 || a.Rarity != b.Rarity) return false;
+            // The whole name is the surest way to know it's the same henchman. The ATTACK/DEFENSE
+            // numbers of a row change as the gear moves around the crew (and a row at the bottom of
+            // the list loses one of them behind the panel below it), so two reads of the same
+            // henchman can hold different numbers: matching them too would never find that row again.
+            if (WholeNameSame(a.Name, b.Name)) return true;
             if (a.Attack >= 0 && b.Attack >= 0 && a.Attack != b.Attack) return false;
             if (a.Defense >= 0 && b.Defense >= 0 && a.Defense != b.Defense) return false;
-            return WholeNameSame(a.Name, b.Name) || UnnamedLike(a, b) || EndsLike(a, b);
+            return UnnamedLike(a, b) || EndsLike(a, b);
         }
 
         internal static bool EndsLike(CrewRow a, CrewRow b)
