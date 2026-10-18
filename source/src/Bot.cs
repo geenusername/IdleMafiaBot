@@ -2068,6 +2068,7 @@ namespace IdleMafiaBot
         {
             nextFights = DateTime.UtcNow.AddSeconds(30);
             if (!game.OpenTab(Tab.Fight)) return 0;
+            if (!S.ScoutFights) SayOnce("not scouting", "Fights: nothing is scouted, so the odds are unknown and anyone on the list can be attacked (\"Scout players first\" is off)");
 
             if (game.ProfileShowing() && !game.CloseProfile()) { Log("Fights: a player's profile is open and didn't close - fights wait 5 minutes"); nextFights = DateTime.UtcNow.AddMinutes(5); return 0; }
             int fought = 0, staminaLeft = -1;
@@ -2124,7 +2125,7 @@ namespace IdleMafiaBot
                 }
                 var now = DateTime.UtcNow;
                 var ready = rows.Where(r => r.Ready && r.StaminaCost <= spare && !(fightSkip.ContainsKey(FightKey(r)) && fightSkip[FightKey(r)] > now)
-                                            && !(S.ScoutFights && TooStrong(ScoutedNow(r))) && !LeftAlone(r, now)).ToList();
+                                            && !(S.ScoutFights && BadOdds(ScoutedNow(r))) && !LeftAlone(r, now)).ToList();
 
                 var notHit = ready.Where(r => r.War || !HitOnList(r)).ToList();
                 if (notHit.Count == 0 && rows.Count > 0 && !refreshed && !(war && S.WarTargetsOnly))
@@ -2139,10 +2140,10 @@ namespace IdleMafiaBot
                 if (ready.Count == 0)
                 {
 
-                    if (fought == 0 && S.ScoutFights && rows.Any(r => r.Ready) && rows.Where(r => r.Ready).All(r => TooStrong(ScoutedNow(r))))
+                    if (fought == 0 && S.ScoutFights && rows.Any(r => r.Ready) && rows.Where(r => r.Ready).All(r => BadOdds(ScoutedNow(r))))
                     {
                         nextFights = now.AddMinutes(15);
-                        SayOnce("all stronger", "Fights: every player on the list is stronger than you (scouted) - looking again in 15 minutes");
+                        SayOnce("all below the odds", "Fights: every player on the list is below the " + S.FightWinChance + "% the bot attacks at (scouted) - looking again in 15 minutes");
                         break;
                     }
 
@@ -2183,9 +2184,9 @@ namespace IdleMafiaBot
                         continue;
                     }
                     var s = scouted[FightKey(target)] = new Scouted { Attack = p.Attack, Defense = p.Defense, At = DateTime.UtcNow };
-                    Log(string.Format(CultureInfo.InvariantCulture, "Fights: scouted a {0}player{1} - attack {2:N0}, defense {3:N0} (yours {4:N0} and {5:N0}): {6}",
+                    Log(string.Format(CultureInfo.InvariantCulture, "Fights: scouted a {0}player{1} - attack {2:N0}, defense {3:N0} (yours {4:N0} attack, {5:N0} defense): {6}% to win, {7}",
                                       target.Level > 0 ? "level " + target.Level + " " : "", paid ? "" : " (scouted before)", s.Attack, s.Defense, ownAttack, ownDefense,
-                                      TooStrong(s) ? "stronger, left alone" : "attacking"));
+                                      WinChance(ownAttack, s.Defense), BadOdds(s) ? "left alone, you asked for " + S.FightWinChance + "%" : "attacking"));
                     continue;
                 }
 
@@ -2492,14 +2493,27 @@ namespace IdleMafiaBot
             return scouted.TryGetValue(FightKey(r), out s) && DateTime.UtcNow - s.At < TimeSpan.FromHours(1) ? s : null;
         }
 
-        bool TooStrong(Scouted s)
+        // Each side of a player fight rolls its own power, 20% below and above the figure in the
+        // profile it was scouted from, and the higher roll takes the fight. So the odds depend on
+        // your attack power against their defense power and on nothing else. This is the integral of
+        // the two rolls against each other, the chance that your roll comes out higher, as a percentage.
+        internal static int WinChance(int attack, int defense)
         {
-            return s != null && Stronger(s.Attack, s.Defense, ownAttack, ownDefense);
+            if (attack <= 0 || defense <= 0) return 0;
+            double x1 = attack * (1 - FightRoll), x2 = attack * (1 + FightRoll);
+            double y1 = defense * (1 - FightRoll), y2 = defense * (1 + FightRoll);
+            double lo = Math.Max(x1, y1), hi = Math.Min(x2, y2);
+            double wins = Math.Max(0, x2 - Math.Max(x1, y2));
+            if (hi > lo) wins += ((hi - y1) * (hi - y1) - (lo - y1) * (lo - y1)) / (2 * (y2 - y1));
+            return (int)Math.Round(100 * Math.Max(0, Math.Min(1, wins / (x2 - x1))));
         }
 
-        internal static bool Stronger(int attack, int defense, int ownAttack, int ownDefense)
+        internal const double FightRoll = 0.20;
+
+        // With "Scout players first" on, a player is attacked only when the odds say it is worth it.
+        bool BadOdds(Scouted s)
         {
-            return ownAttack >= 0 && ownDefense >= 0 && (attack > ownDefense || defense > ownAttack);
+            return s != null && ownAttack > 0 && WinChance(ownAttack, s.Defense) < S.FightWinChance;
         }
 
         static string FightKey(FightRow r) { return r.Name.Length > 0 ? Parse.Key(r.Name) : "#" + r.Index + " L" + r.Level; }

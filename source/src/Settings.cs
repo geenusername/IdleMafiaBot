@@ -43,6 +43,12 @@ namespace IdleMafiaBot
 
         public bool ScoutFights = false;
 
+        // A player fight is a roll: each side rolls its own power, 20% below and above the figure
+        // in its profile, and the higher roll takes it. So the odds depend only on the attack
+        // power on your side against the defense power on theirs. This is the least chance the
+        // bot will take: 85 is about 20% more attack than the defense of the one it attacks.
+        public int FightWinChance = 85;
+
         public bool WhaleHunt = false;
 
         public bool RememberPlayers = true;
