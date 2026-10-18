@@ -2088,6 +2088,13 @@ namespace IdleMafiaBot
                 using (var f = game.Capture()) { rows = game.ReadFightRows(f, out war); if (i == 0) hospital = game.Hospitalized(f); }
                 if (hospital) { Hospital(); return fought; }
 
+                if (S.FightMinHealth > 0 && h.Health >= 0 && h.HealthMax > 0 && h.Health * 100 < S.FightMinHealth * h.HealthMax)
+                {
+                    Log("Fights: health is " + h.Health + "/" + h.HealthMax + " - player fights wait until it comes back");
+                    nextFights = DateTime.UtcNow.AddMinutes(5);
+                    return fought;
+                }
+
                 if (rows.Count == 0 && game.ProfileShowing())
                 {
                     if (!game.CloseProfile()) { Log("Fights: a player's profile is open and didn't close - fights wait 5 minutes"); nextFights = DateTime.UtcNow.AddMinutes(5); return fought; }

@@ -68,13 +68,14 @@ namespace IdleMafiaBot
         public long BigPayerCash = 100000000;
 
         public int FightStaminaReserve = 15;
+        public int FightMinHealth = 10;
 
         public bool Bosses = true;
 
         public bool BossWeakestFirst = true;
 
         public static readonly string[] Retired = { "BossHitsPerRound", "FightsPerRound", "SpecificJob", "MasteryTarget", "CrewTarget", "CrewKeepGoing",
-            "OpenNewCities", "HeistMinXp", "HeistsFamilyFirst", "FightMinHealth", "FightTarget", "BankMinutes", "BankWithFee", "WithdrawForPurchases",
+            "OpenNewCities", "HeistMinXp", "HeistsFamilyFirst", "FightTarget", "BankMinutes", "BankWithFee", "WithdrawForPurchases",
             "OpsCollect", "OpsStart", "OpsName", "ShopMaxPrice", "ShopGold", "Collection", "CrewSort", "StaminaKeepPct", "IdleSeconds" };
 
         public bool Bank = true;

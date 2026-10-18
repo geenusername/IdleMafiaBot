@@ -1081,6 +1081,14 @@
                 <Border Style="{StaticResource OptLine}">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Don't fight below" FontSize="14"/>
+                      <TextBlock Text="Player fights wait while health is under this percentage, like bosses and the Takedown do." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ContentControl x:Name="num_FightMinHealth" Grid.Column="1" Tag="0,90,1,%" VerticalAlignment="Center" ToolTip="0 turns the guard off."/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Attack only at" FontSize="14"/>
                       <TextBlock Text="How often the bot has to win on paper. Each side rolls its power 20% either way and the higher roll takes the fight, so 85 is about 20% more attack power than the defense of the player it attacks." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
                     <ContentControl x:Name="num_FightWinChance" Grid.Column="1" Tag="50,99,1,%" VerticalAlignment="Center" ToolTip="Needs &quot;Scout players first&quot;: a scouted player is attacked only when the odds are at least this."/>
