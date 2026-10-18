@@ -2078,6 +2078,7 @@ namespace IdleMafiaBot
             int moved = 0;
             int calledOff = 0;
             int scoutedThisRound = 0;
+            bool respectChoiceLogged = false;
 
             for (int i = 0; i < max; i++)
             {
@@ -2173,8 +2174,20 @@ namespace IdleMafiaBot
                 if (S.ScoutFights && scoutedThisRound >= 3)
                     ready = ready.Where(r => ScoutedNow(r) != null).ToList();
 
-                var target = ready.OrderByDescending(r => BigPayer(r, now)).ThenBy(r => S.ScoutFights && ScoutedNow(r) != null ? 0 : 1).ThenBy(r => r.Level < 0 ? 999 : r.Level).First();
+                var target = ready.OrderByDescending(r => BigPayer(r, now) > 0 ? BigPayer(r, now) : ExpectedRespect(r, now))
+                                  .ThenByDescending(r => ExpectedRespect(r, now))
+                                  .ThenBy(r => S.ScoutFights && ScoutedNow(r) != null ? 0 : 1)
+                                  .ThenBy(r => r.Level < 0 ? 999 : r.Level).First();
                 if (BigPayer(target, now) > 0) Log("Fights: " + target.Name + " paid " + M(BigPayer(target, now)) + " in the last day (" + memory.Record(target.Name) + ") - attacked first");
+                else
+                {
+                    double er = ExpectedRespect(target, now);
+                    if (er > 0 && !respectChoiceLogged)
+                    {
+                        Log(string.Format(CultureInfo.InvariantCulture, "Fights: {0} is the best respect bet right now (+{1:0.0} expected)", target.Name, er));
+                        respectChoiceLogged = true;
+                    }
+                }
                 if (S.ScoutFights && ScoutedNow(target) == null)
                 {
 
@@ -2448,6 +2461,26 @@ namespace IdleMafiaBot
                                       ? string.Format(CultureInfo.InvariantCulture, " - rolled {0:N0} against {1:N0}", roll.OwnRoll, roll.TheirRoll) : ""));
             if (!S.RememberPlayers || r.Name.Length < 3 || r.War || !(won || result.StartsWith("DEFEAT"))) return;
             memory.Add(r.Name, won, took, respect, defense, roll, DateTime.UtcNow);
+        }
+
+        double ExpectedRespect(FightRow r, DateTime now)
+        {
+            if (!S.ScoutFights || ownAttack <= 0 || memory == null) return 0;
+            var s = ScoutedNow(r);
+            if (s == null) return 0;
+            double p = WinChance(ownAttack, s.Defense) / 100.0;
+            double winRes = AverageRespect(r.Name, now, true, 25);
+            double lossRes = AverageRespect(r.Name, now, false, -15);
+            return p * winRes + (1 - p) * lossRes;
+        }
+
+        double AverageRespect(string name, DateTime now, bool won, double fallback)
+        {
+            if (memory == null) return fallback;
+            double v = memory.AverageRespect(name, now, won);
+            if (!double.IsNaN(v)) return v;
+            v = memory.GlobalAverageRespect(now, won);
+            return double.IsNaN(v) ? fallback : v;
         }
 
         double BigPayer(FightRow r, DateTime now)

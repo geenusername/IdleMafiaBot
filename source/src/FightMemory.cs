@@ -60,6 +60,28 @@ namespace IdleMafiaBot
             if (c != null) c();
         }
 
+        public double AverageRespect(string name, DateTime now, bool won)
+        {
+            lock (gate)
+            {
+                var list = For(name);
+                if (list == null) return double.NaN;
+                var subset = list.Where(f => now - f.At < Keep && f.Won == won && f.Respect != 0).ToList();
+                if (subset.Count == 0) return double.NaN;
+                return subset.Average(f => (double)f.Respect);
+            }
+        }
+
+        public double GlobalAverageRespect(DateTime now, bool won)
+        {
+            lock (gate)
+            {
+                var subset = fights.Values.SelectMany(l => l).Where(f => now - f.At < Keep && f.Won == won && f.Respect != 0).ToList();
+                if (subset.Count == 0) return double.NaN;
+                return subset.Average(f => (double)f.Respect);
+            }
+        }
+
         public sealed class Payer
         {
             public string Name = "";
