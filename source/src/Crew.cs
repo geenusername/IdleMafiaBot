@@ -448,7 +448,26 @@ namespace IdleMafiaBot
                 var price = lines.Where(l => l != w && l.Text.TrimStart().StartsWith("$") && Math.Abs(l.CenterY - w.CenterY) <= h
                                              && l.Box.X > w.Box.Right && l.Box.X - w.Box.Right < 4 * h)
                                  .OrderBy(l => l.Box.X).FirstOrDefault();
-                if (price != null) all.Add(new OcrLine { Text = w.Text.Trim() + " " + price.Text.Trim(), Box = Rectangle.Union(w.Box, price.Box) });
+
+                // At low resolutions a button like "PROFESSIONAL $7.5M" wraps: the label sits on
+                // one line and its price on the line right below. Join those too, with some slack
+                // so it keeps working as the monitor resolution moves the buttons around.
+                if (price == null)
+                    price = lines.Where(l => l != w && l.Text.TrimStart().StartsWith("$")
+                                             && l.Box.Y >= w.Box.Bottom - h / 2 && l.Box.Y - w.Box.Bottom <= 3 * h
+                                             && l.Box.X < w.Box.Right + 3 * h && l.Box.Right > w.Box.X - 3 * h)
+                                 .OrderBy(l => Math.Abs(l.CenterX - w.CenterX)).ThenBy(l => l.Box.Y).FirstOrDefault();
+
+                if (price != null)
+                {
+                    var box = Rectangle.Union(w.Box, price.Box);
+
+                    // When it wrapped, keep the joined box one line tall, centred on the button,
+                    // so the gold check and the click still land on the button itself.
+                    if (box.Height > h * 3 / 2)
+                        box = Rectangle.FromLTRB(box.Left, box.Top + box.Height / 2 - h / 2, box.Right, box.Top + box.Height / 2 + h / 2);
+                    all.Add(new OcrLine { Text = w.Text.Trim() + " " + price.Text.Trim(), Box = box });
+                }
             }
             return all;
         }
