@@ -10,7 +10,9 @@ namespace IdleMafiaBot
 
     sealed class FightMemory
     {
-        sealed class Fight { public DateTime At; public bool Won; public double Took = -1; }
+        sealed class Fight { public DateTime At; public bool Won; public double Took = -1; public int Respect; public int Defense = -1, Attack = -1, OwnRoll = -1, OtherRoll = -1; }
+
+        public sealed class Rolls { public int OwnAttack = -1, TheirDefense = -1, OwnRoll = -1, TheirRoll = -1; }
 
         readonly Dictionary<string, List<Fight>> fights = new Dictionary<string, List<Fight>>();
         readonly Dictionary<string, string> names = new Dictionary<string, string>();
@@ -29,8 +31,13 @@ namespace IdleMafiaBot
 
         static string Key(string name) { return Parse.Key(name); }
 
-        public void Add(string name, bool won, double took, DateTime at)
+        public void Add(string name, bool won, double took, DateTime at) { Add(name, won, took, 0, -1, at); }
+
+        public void Add(string name, bool won, double took, int respect, int defense, DateTime at) { Add(name, won, took, respect, defense, null, at); }
+
+        public void Add(string name, bool won, double took, int respect, int defense, Rolls roll, DateTime at)
         {
+            if (roll != null && roll.TheirDefense > 0) defense = roll.TheirDefense;
             string k = Key(name);
             if (k.Length < 3) return;
             lock (gate)
@@ -38,7 +45,8 @@ namespace IdleMafiaBot
                 List<Fight> list;
                 if (!fights.TryGetValue(k, out list)) fights[k] = list = new List<Fight>();
                 names[k] = name.Trim();
-                list.Add(new Fight { At = at, Won = won, Took = won ? took : -1 });
+                list.Add(new Fight { At = at, Won = won, Took = won ? took : -1, Respect = respect, Defense = defense,
+                                     Attack = roll == null ? -1 : roll.OwnAttack, OwnRoll = roll == null ? -1 : roll.OwnRoll, OtherRoll = roll == null ? -1 : roll.TheirRoll });
                 if (list.Count > PerPlayer) list.RemoveRange(0, list.Count - PerPlayer);
                 Save();
             }
@@ -128,6 +136,40 @@ namespace IdleMafiaBot
             return until > now ? until : DateTime.MinValue;
         }
 
+        public double AverageRespect(string name, DateTime now, bool won)
+        {
+            lock (gate)
+            {
+                var list = For(name);
+                if (list == null) return double.NaN;
+                var some = list.Where(f => now - f.At < Keep && f.Won == won && f.Respect != 0).ToList();
+                return some.Count == 0 ? double.NaN : some.Average(f => (double)f.Respect);
+            }
+        }
+
+        public double GlobalAverageRespect(DateTime now, bool won)
+        {
+            lock (gate)
+            {
+                var some = fights.Values.SelectMany(l => l).Where(f => now - f.At < Keep && f.Won == won && f.Respect != 0).ToList();
+                return some.Count == 0 ? double.NaN : some.Average(f => (double)f.Respect);
+            }
+        }
+
+        public string RespectSummary(DateTime now)
+        {
+            lock (gate)
+            {
+                int count = 0, respect = 0;
+                foreach (var list in fights.Values)
+                    foreach (var f in list)
+                        if (now - f.At < Keep) { count++; respect += f.Respect; }
+                if (count == 0) return "no player fight written down yet.";
+                return (respect >= 0 ? "+" : "") + respect.ToString("N0", CultureInfo.InvariantCulture) + " respect in " + count
+                       + " fight" + (count == 1 ? "" : "s") + " over the last " + (int)Keep.TotalDays + " days.";
+            }
+        }
+
         public string Record(string name)
         {
             lock (gate)
@@ -154,12 +196,19 @@ namespace IdleMafiaBot
                     if (!DateTime.TryParseExact(p[1], "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out at)) continue;
                     if (at < cutoff) continue;
                     if (!double.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out took)) took = -1;
+                    int respect = 0, defense = -1;
+                    if (p.Length > 4) int.TryParse(p[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out respect);
+                    if (p.Length > 5 && !int.TryParse(p[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out defense)) defense = -1;
+                    int attack = -1, ownRoll = -1, otherRoll = -1;
+                    if (p.Length > 6 && !int.TryParse(p[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out attack)) attack = -1;
+                    if (p.Length > 7 && !int.TryParse(p[7], NumberStyles.Integer, CultureInfo.InvariantCulture, out ownRoll)) ownRoll = -1;
+                    if (p.Length > 8 && !int.TryParse(p[8], NumberStyles.Integer, CultureInfo.InvariantCulture, out otherRoll)) otherRoll = -1;
                     string k = Key(p[0]);
                     if (k.Length < 3) continue;
                     List<Fight> list;
                     if (!fights.TryGetValue(k, out list)) fights[k] = list = new List<Fight>();
                     names[k] = p[0];
-                    list.Add(new Fight { At = at, Won = p[2] == "W", Took = took });
+                    list.Add(new Fight { At = at, Won = p[2] == "W", Took = took, Respect = respect, Defense = defense, Attack = attack, OwnRoll = ownRoll, OtherRoll = otherRoll });
                 }
                 foreach (var list in fights.Values) list.Sort((a, b) => a.At.CompareTo(b.At));
             }
@@ -178,11 +227,13 @@ namespace IdleMafiaBot
                     if (fights[k].Count == 0) { fights.Remove(k); names.Remove(k); }
                 }
                 var sb = new StringBuilder();
-                sb.AppendLine("# Idle Mafia Bot's player memory for fights: the last 3 days, one fight a line (name, UTC time, Won/Lost, cash a win took). Delete it to forget.");
+                sb.AppendLine("# Idle Mafia Bot's player memory for fights: the last 3 days, one fight a line (name, UTC time, Won/Lost, cash a win took, respect it gave, their defense, your attack, your roll, their roll). Delete it to forget.");
                 foreach (var kv in fights)
                     foreach (var f in kv.Value)
                         sb.AppendLine(names[kv.Key] + "\t" + f.At.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "\t" + (f.Won ? "W" : "L") + "\t"
-                                      + f.Took.ToString("0", CultureInfo.InvariantCulture));
+                                      + f.Took.ToString("0", CultureInfo.InvariantCulture) + "\t" + f.Respect.ToString(CultureInfo.InvariantCulture) + "\t"
+                                      + f.Defense.ToString(CultureInfo.InvariantCulture) + "\t" + f.Attack.ToString(CultureInfo.InvariantCulture) + "\t"
+                                      + f.OwnRoll.ToString(CultureInfo.InvariantCulture) + "\t" + f.OtherRoll.ToString(CultureInfo.InvariantCulture));
                 File.WriteAllText(file, sb.ToString(), Encoding.UTF8);
             }
             catch (Exception) { }

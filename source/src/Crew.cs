@@ -82,7 +82,7 @@ namespace IdleMafiaBot
 
         static readonly Regex TrainedRx = new Regex(@"(?:^|\s)\+\s?([1-9]|10)\s*$");
 
-        internal static readonly Regex PowerInNameRx = new Regex(@"^(.*[A-Za-z.'’""”])\s+(?:[^\s+]\s*)?\+\s*([0-9OoIlS]{1,5})\s*(A\s?[TI]\s?[TI]?\s?A\s?C\s?K|D\s?E\s?F\s?E\s?N\s?S\s?E)\b.*$", RegexOptions.IgnoreCase);
+        internal static readonly Regex PowerInNameRx = new Regex(@"^(.*[A-Za-z.'’""”])\s+(?:[^\s+]{0,2}\s*)?\+\s*([0-9OoIlS]{1,5})\s*(A\s?[TI]\s?[TI]?\s?A\s?C\s?K|D\s?E\s?F\s?E\s?N\s?S\s?E)\b.*$", RegexOptions.IgnoreCase);
 
         static readonly Regex TrainLeftRx = new Regex(@"\b(\d{1,2}):(\d{2})(?::(\d{2}))?\s*[lI1]eft\b", RegexOptions.IgnoreCase);
 
@@ -151,7 +151,11 @@ namespace IdleMafiaBot
             {
                 if (Empty) return "an empty slot";
                 if (Locked) return "a locked slot";
-                return (Name.Length > 0 ? Name : "a henchman") + " (" + RarityName + (Power >= 0 ? ", +" + Attack + "/+" + Defense : "") + ")";
+
+                string power = Power >= 0 ? ", +" + Attack + "/+" + Defense
+                             : Attack >= 0 || Defense >= 0 ? ", +" + (Attack >= 0 ? Attack.ToString() : "?") + "/+" + (Defense >= 0 ? Defense.ToString() : "?")
+                             : "";
+                return (Name.Length > 0 ? Name : "a henchman") + " (" + RarityName + power + ")";
             }
         }
 
@@ -384,21 +388,26 @@ namespace IdleMafiaBot
         public static bool SameForPress(CrewRow a, CrewRow b)
         {
             if (a == null || b == null || a.Empty || a.Locked || b.Empty || b.Locked || a.Rarity < 0 || a.Rarity != b.Rarity) return false;
-            if (a.Attack < 0 || a.Defense < 0 || a.Attack != b.Attack || a.Defense != b.Defense) return false;
-            return WholeNameSame(a.Name, b.Name) || UnnamedLike(a, b);
+            if (!WholeNameSame(a.Name, b.Name) && !UnnamedLike(a, b)) return false;
+
+            if (a.Attack >= 0 && b.Attack >= 0 && a.Attack != b.Attack) return false;
+            if (a.Defense >= 0 && b.Defense >= 0 && a.Defense != b.Defense) return false;
+            return true;
         }
 
         public static bool NamedLike(CrewRow a, CrewRow b)
         {
             if (a == null || b == null || a.Empty || a.Locked || b.Empty || b.Locked || a.Rarity < 0 || a.Rarity != b.Rarity) return false;
+
+            if (WholeNameSame(a.Name, b.Name)) return true;
             if (a.Attack >= 0 && b.Attack >= 0 && a.Attack != b.Attack) return false;
             if (a.Defense >= 0 && b.Defense >= 0 && a.Defense != b.Defense) return false;
-            return WholeNameSame(a.Name, b.Name) || UnnamedLike(a, b) || EndsLike(a, b);
+            return UnnamedLike(a, b) || EndsLike(a, b);
         }
 
         internal static bool EndsLike(CrewRow a, CrewRow b)
         {
-            if (a.Rarity >= (int)Rarity.Epic || a.Attack < 0 || a.Defense < 0 || a.Attack != b.Attack || a.Defense != b.Defense) return false;
+            if (a.Rarity < 0 || a.Rarity != b.Rarity || a.Attack < 0 || a.Defense < 0 || a.Attack != b.Attack || a.Defense != b.Defense) return false;
             if (a.Cut || b.Cut || a.Training || b.Training || a.Stationed || b.Stationed) return false;
             var x = Words(a.Name); var y = Words(b.Name);
             if (x.Length < 2 || y.Length < 2) return false;
@@ -444,8 +453,16 @@ namespace IdleMafiaBot
                 int h = Math.Max(8, w.Box.Height);
                 var price = lines.Where(l => l != w && l.Text.TrimStart().StartsWith("$") && Math.Abs(l.CenterY - w.CenterY) <= h
                                              && l.Box.X > w.Box.Right && l.Box.X - w.Box.Right < 4 * h)
-                                 .OrderBy(l => l.Box.X).FirstOrDefault();
-                if (price != null) all.Add(new OcrLine { Text = w.Text.Trim() + " " + price.Text.Trim(), Box = Rectangle.Union(w.Box, price.Box) });
+                                 .OrderBy(l => l.Box.X).FirstOrDefault()
+
+                            ?? lines.Where(l => l != w && l.Text.TrimStart().StartsWith("$") && l.Box.Y >= w.Box.Bottom - h / 2
+                                                && l.Box.Y - w.Box.Bottom <= 3 * h && l.CenterX > w.Box.X - 3 * h && l.CenterX < w.Box.Right + 3 * h)
+                                    .OrderBy(l => Math.Abs(l.CenterX - w.CenterX)).ThenBy(l => l.Box.Y).FirstOrDefault();
+                if (price == null) continue;
+                var box = Rectangle.Union(w.Box, price.Box);
+
+                if (box.Height > h * 3 / 2) box = Rectangle.FromLTRB(box.Left, box.Top + box.Height / 2 - h / 2, box.Right, box.Top + box.Height / 2 + h / 2);
+                all.Add(new OcrLine { Text = w.Text.Trim() + " " + price.Text.Trim(), Box = box });
             }
             return all;
         }
@@ -559,7 +576,7 @@ namespace IdleMafiaBot
                 if (row.Empty)
                 {
                     var eliteB8 = new List<Tuple<OcrLine, string>>();
-                    foreach (var l in HireJoined(lines.Concat(dark).Where(inBand).ToList()))
+                    foreach (var l in HireJoined(dark.Concat(lines).Where(inBand).ToList()))
                     {
                         var m = HireRx.Match(l.Text);
                         if (!m.Success) continue;
@@ -615,7 +632,7 @@ namespace IdleMafiaBot
                         for (int piece = 0; piece < 3; piece++)
                         {
                             var end = last;
-                            var glued = lines.Where(l => !nameLines.Contains(l) && l != end && Math.Abs(l.Box.Y - nl.Box.Y) <= slack
+                            var glued = lines.Where(l => !nameLines.Contains(l) && l != end && !PowerOnly(l.Text) && Math.Abs(l.Box.Y - nl.Box.Y) <= slack
                                                          && l.Box.X >= end.Box.Right - 2 && l.Box.X - end.Box.Right <= gap).OrderBy(l => l.Box.X).FirstOrDefault();
                             var g = glued != null ? GluedRx.Match(glued.Text) : Match.Empty;
                             if (!g.Success) break;
@@ -651,6 +668,40 @@ namespace IdleMafiaBot
                         row.Name = Regex.Replace(inName.Groups[1].Value.Trim(), @"\s+[A-Z@©•]$", "");
                     }
                     if (row.Attack < 0 && row.Defense >= 0) row.Attack = AttackAboveDefense(f, s, near);
+
+                    if (!row.Cut && (row.Attack < 0 || row.Defense < 0))
+                    {
+                        var zone = Rectangle.Intersect(Rectangle.FromLTRB(a.Box.X + 6 * h, row.Top, a.Box.X + 24 * h, row.Bottom), area);
+                        if (zone.Width > 8 && zone.Height > 8)
+                        {
+                            var power = new List<OcrLine>();
+                            foreach (var t in new[] { Tuple.Create(s + 1, Prep.None), Tuple.Create(s, Prep.WhiteSoft),
+                                                      Tuple.Create(s + 1, Prep.Contrast), Tuple.Create(s + 1, Prep.DarkText),
+                                                      Tuple.Create(s + 2, Prep.None), Tuple.Create(s, Prep.WhiteText) })
+                            {
+                                var more = Ocr.Read(f, zone, t.Item1, t.Item2);
+                                if (more.Count == 0) continue;
+                                power.AddRange(more);
+                                if (row.Attack < 0) row.Attack = PowerOf(f, t.Item1, more, "ATTACK");
+                                if (row.Defense < 0) row.Defense = PowerOf(f, t.Item1, more, "DEFENSE");
+                                if (row.Attack >= 0 && row.Defense >= 0) break;
+                            }
+                            if (row.Attack < 0 || row.Defense < 0)
+                            {
+                                int atkY = StatWordY(near, "A[TI][TI]ACK"), defY = StatWordY(near, "DEFENSE");
+                                foreach (var l in power.Where(l => PowerRx.IsMatch(l.Text) && !StatWord(l.Text) && l.Box.X > a.Box.X + 6 * h).OrderBy(l => l.Box.Y))
+                                {
+                                    int n;
+                                    if (!int.TryParse(Parse.Digits(PowerRx.Match(l.Text).Groups[1].Value), out n)) continue;
+                                    bool nearDef = defY >= 0 && (atkY < 0 || Math.Abs(l.CenterY - defY) < Math.Abs(l.CenterY - atkY));
+                                    if (nearDef ? row.Defense < 0 : row.Attack < 0) { if (nearDef) row.Defense = n; else row.Attack = n; }
+                                    else if (row.Defense < 0) row.Defense = n;
+                                    else if (row.Attack < 0) row.Attack = n;
+                                    else break;
+                                }
+                            }
+                        }
+                    }
                     row.Dismiss = lines.FirstOrDefault(l => inBand(l) && l.CenterX > area.X + area.Width / 2 && Math.Abs(l.CenterY - a.CenterY) <= 3 * h
                                                             && (Parse.Key(l.Text) == "DISMISS" || Parse.Key(l.Text) == "CONFIRM" || Parse.Key(l.Text) == "CONFIRMDISMISS"));
                     row.Train = lines.FirstOrDefault(l => inBand(l) && l.CenterX > area.X + area.Width / 2 && Math.Abs(l.CenterY - a.CenterY) <= 3 * h
@@ -773,6 +824,21 @@ namespace IdleMafiaBot
             }
         }
 
+        static int LookWaitMs(int look) { return look == 0 ? 250 : look < 3 ? 350 : 500; }
+
+        static bool StatWord(string t) { return Regex.IsMatch(Parse.Key(t ?? ""), "A[TI][TI]ACK|DEFENSE"); }
+
+        static bool PowerOnly(string t)
+        {
+            return StatWord(t) && Regex.IsMatch(t ?? "", @"^\s*(?:\S{0,2}\s+)?[+•]?\s*[0-9OoIlS,.]*\s*(?:A\s?[TI]|D\s?E\s?F)");
+        }
+
+        static int StatWordY(List<OcrLine> lines, string rx)
+        {
+            var l = lines.Where(x => Regex.IsMatch(Parse.Key(x.Text), rx)).OrderBy(x => x.Box.Y).FirstOrDefault();
+            return l == null ? -1 : l.CenterY;
+        }
+
         static int PowerOf(Frame f, int scale, List<OcrLine> near, string word)
         {
 
@@ -792,7 +858,7 @@ namespace IdleMafiaBot
                 if (!m.Success && f != null)
                 {
                     var spot = Rectangle.Intersect(Rectangle.FromLTRB(l.Box.X - 4 * h, l.Box.Y - 2 * h, l.Box.Right, l.Box.Bottom + 2), new Rectangle(0, 0, f.Width, f.Height));
-                    foreach (var t in new[] { Tuple.Create(scale + 1, Prep.None), Tuple.Create(scale + 1, Prep.WhiteText), Tuple.Create(scale + 2, Prep.Contrast) })
+                    foreach (var t in new[] { Tuple.Create(scale + 1, Prep.None), Tuple.Create(scale + 1, Prep.WhiteText), Tuple.Create(scale, Prep.WhiteSoft), Tuple.Create(scale + 2, Prep.Contrast) })
                     {
                         if (spot.Width < 8 || spot.Height < 8) break;
                         m = PowerRx.Match(Ocr.ReadText(f, spot, t.Item1, t.Item2));
@@ -1147,7 +1213,7 @@ namespace IdleMafiaBot
             if (p.Page && p.TopInSight && !p.Rows.Any(r => r.Locked)) WaitLateRoll(4000);
             using (var f = Capture()) p = ReadCrew(f);
             if (!p.Page) return "not the crew page";
-            return p.Rows.Count == 0 ? "no rows read" : string.Join(", ", p.Rows.Select(r => r.Empty ? "an empty slot" : r.Locked ? "a locked slot" : r.Name));
+            return p.Rows.Count == 0 ? "no rows read" : string.Join(", ", p.Rows.Select(r => r.Empty ? "an empty slot" : r.Locked ? "a locked slot" : r.ToString()));
         }
 
         void PressCrew(OcrLine b, bool ok, string why)
@@ -1197,9 +1263,9 @@ namespace IdleMafiaBot
             var before = CrewPageSeen != null ? CrewPageSeen.Rows.Where(r => !r.Empty && !r.Locked && r.Name.Length > 0).Select(r => r.Name).ToList() : new List<string>();
             PressCrew(b, HireRx.IsMatch(b.Text) && empty.HireGold[t] && paid <= cash - Math.Max(0, keep), "not a crew hire within the cash on hand");
             int y = empty.Anchor.CenterY;
-            for (int look = 0; look < 4; look++)
+            for (int look = 0; look < 5; look++)
             {
-                Wait(look == 0 ? 500 : 400);
+                Wait(LookWaitMs(look));
                 using (var f = Capture())
                 {
 
@@ -1214,9 +1280,9 @@ namespace IdleMafiaBot
             string named;
             int rarity;
             using (var f = Capture()) if (!HiredNotification(f, out named, out rarity) || before.Any(n => WindowNames(named, n))) return null;
-            for (int look = 0; look < 6; look++)
+            for (int look = 0; look < 8; look++)
             {
-                Wait(500);
+                Wait(LookWaitMs(look));
                 using (var f = Capture())
                 {
                     var got = ReadCrew(f).Rows.FirstOrDefault(r => !r.Empty && !r.Locked && !r.Cut && r.Rarity >= 0 && (rarity < 0 || r.Rarity == rarity) && WindowNames(named, r.Name));
@@ -1443,10 +1509,12 @@ namespace IdleMafiaBot
 
         CrewRow RowToPress(CrewRow found, CrewRow picked)
         {
-            if (found == null || picked == null || found.Attack < 0 || found.Defense < 0 || !NamedLike(found, picked)) return null;
+            if (found == null || picked == null || !NamedLike(found, picked)) return null;
+
+            if ((found.Attack < 0 || found.Defense < 0) && !WholeNameSame(found.Name, picked.Name)) return null;
             for (int look = 0; look < 2; look++)
             {
-                if (look > 0) Wait(500);
+                if (look > 0) Wait(300);
                 CrewPage page;
                 using (var f = Capture()) page = ReadCrew(f);
                 var inSight = page.Rows.Where(r => !r.Cut && !r.Empty && !r.Locked).ToList();
@@ -1468,7 +1536,7 @@ namespace IdleMafiaBot
             emptied = null;
             for (int look = 0; look < 5; look++)
             {
-                Wait(look == 0 ? 800 : 500);
+                Wait(look == 0 ? 500 : 400);
                 var again = RowToPress(found, picked);
                 if (again != null && again.Dismiss != null && Parse.Key(again.Dismiss.Text) == "DISMISS") return again;
                 if (again != null) continue;
@@ -1541,7 +1609,7 @@ namespace IdleMafiaBot
 
                 for (int look = 0; look < 6; look++)
                 {
-                    Wait(look == 0 ? 400 : 300);
+                    Wait(LookWaitMs(look));
                     using (var f = Capture())
                     {
                         emptied = ReadCrew(f).Rows.FirstOrDefault(r => r.Empty && r.Top <= row.Anchor.CenterY + row.Anchor.Box.Height && r.Bottom > row.Anchor.CenterY - 3 * row.Anchor.Box.Height);
@@ -1559,7 +1627,7 @@ namespace IdleMafiaBot
             bool asked = false, mayAsk = MayAskAfterConfirm(row, picked);
             for (int look = 0; look < 6; look++)
             {
-                Wait(look == 0 ? 500 : 400);
+                Wait(LookWaitMs(look));
                 using (var f = Capture())
                 {
                     var p = ReadCrew(f);
@@ -1606,7 +1674,17 @@ namespace IdleMafiaBot
             public OcrLine Train, Cancel;
             public string Words = "";
 
-            public bool Names(string rowName) { return WindowNames(Name, rowName); }
+            public bool Names(string rowName) { return WindowNames(Name, rowName) || FirstNameLost(Name, rowName); }
+        }
+
+        internal static bool FirstNameLost(string window, string row)
+        {
+            var m = Regex.Match(window ?? "", @"^\s*[^A-Za-z0-9\s""“”„″]*\s*([""“”„″][A-Za-z].*)$");
+            if (!m.Success || Regex.IsMatch(window.TrimStart(), "^[A-Za-z]")) return false;
+            string rest = m.Groups[1].Value, rowRest = Regex.Replace((row ?? "").Trim(), @"^[A-Za-z]+\s+(?=[""“”„″'•-])", "");
+            if (rowRest == (row ?? "").Trim() || Parse.Key(rest).Length < 10) return false;
+            var w = NameWords(rest); var r = NameWords(rowRest);
+            return w.Count >= 2 && r.Count >= 2 && WordSame(w[w.Count - 1], r[r.Count - 1], 4) && (WholeNameSame(rest, rowRest, 2) || WordsAlike(rest, rowRest));
         }
 
         static readonly Regex TrainOfferRx = new Regex(@"trains\s*to\s*\+\s*([0-9]{1,2})\s*for\s*\$\s?([0-9OoIlS]{1,3}(?:[,.][0-9OoIlS]{1,3})*\s*[KMBT]?)", RegexOptions.IgnoreCase);

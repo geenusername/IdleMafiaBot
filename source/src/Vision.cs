@@ -68,6 +68,21 @@ namespace IdleMafiaBot
             return white * 10 >= n * 3;
         }
 
+        public bool TopBarDrawn()
+        {
+            int band = Math.Max(1, Height * 11 / 100), n = 0, detail = 0;
+            int k0 = 2 * stride + 2 * 4;
+            int r0 = px[k0 + 2], g0 = px[k0 + 1], b0 = px[k0];
+            for (int y = 2; y < band; y += 3)
+                for (int x = 2; x < Width; x += 3)
+                {
+                    int k = y * stride + x * 4;
+                    n++;
+                    if (Math.Abs(px[k + 2] - r0) + Math.Abs(px[k + 1] - g0) + Math.Abs(px[k] - b0) > 30) detail++;
+                }
+            return detail * 200 >= n;
+        }
+
         public void Dispose() { Bitmap.Dispose(); }
     }
 
@@ -370,6 +385,15 @@ namespace IdleMafiaBot
                 if (char.IsDigit(c)) sb.Append(c);
             }
             return sb.ToString();
+        }
+
+        public static int Signed(string s, string before)
+        {
+            var m = Regex.Match(s ?? "", @"([+-]?)\s?([0-9OoIlSB][0-9OoIlSB,.]*)\s*" + Regex.Escape(before ?? ""), RegexOptions.IgnoreCase);
+            if (!m.Success) return 0;
+            int v;
+            if (!int.TryParse(Digits(m.Groups[2].Value), out v)) return 0;
+            return m.Groups[1].Value == "-" ? -v : v;
         }
 
         public static bool Fraction(string s, out int cur, out int max, bool whole = false)

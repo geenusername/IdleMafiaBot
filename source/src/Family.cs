@@ -381,7 +381,7 @@ namespace IdleMafiaBot
                                          && l.CenterY > free.Box.Y && l.CenterY < free.Box.Bottom + 4 * h).OrderBy(l => l.Box.X).ToList();
             t.Under = string.Join(" ", under.Select(l => l.Text)).Trim();
             t.Full = under.Any(l => Parse.Key(l.Text) == "FUII");
-            if (!t.Full) t.NextFreeSeconds = Span(t.Under);
+            if (!t.Full) t.NextFreeSeconds = NextFreeSpan(t.Under);
 
             if (tickets != null) t.Tickets = NumberUnder(f, lines, tickets, s);
             if (damage != null)
@@ -853,6 +853,14 @@ namespace IdleMafiaBot
             if (nums.Count >= 2 && long.TryParse(nums[nums.Count - 2], out a) && long.TryParse(nums[nums.Count - 1], out b) && a <= b && b > 0) return true;
             a = b = -1;
             return false;
+        }
+
+        internal static int NextFreeSpan(string under)
+        {
+            string s = Regex.Replace(under ?? "", @"(?<=[0-9])\s?r\s?[•·.,]?\s?n(?![A-Za-z])", "m");
+            int d = Span(s);
+            if (d >= 0) return d;
+            return Regex.IsMatch(s, @"\+\s*[0-9Il]\s*in\b", RegexOptions.IgnoreCase) ? 600 : -1;
         }
 
         internal static int Span(string s)

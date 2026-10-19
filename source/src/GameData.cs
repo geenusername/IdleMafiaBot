@@ -39,6 +39,24 @@ namespace IdleMafiaBot
         public static readonly string[] Cities = { "NEW ASHPORT", "PORT CALDERA", "VOLKOVSK", "JADE HARBOR", "STERLING CROSS", "VEILMONT", "VESPERA", "THE EXILES" };
         public static readonly int[] CityLevels = { 1, 30, 54, 78, 102, 126, 150, 174 };
 
+        public static readonly KeyValuePair<string, string[]>[] Properties =
+        {
+            new KeyValuePair<string, string[]>("New Ashport", new[] { "Newsstand Front", "Pizzeria", "Pawn Shop", "Chop Shop", "Nightclub", "Import/Export Warehouse", "Ashport Grand Theater" }),
+            new KeyValuePair<string, string[]>("Port Caldera", new[] { "Private Marina", "Caldera Cannery", "Cane Sugar Plantation", "Pearl Diving Wharf", "Grand Boardwalk Pier" }),
+            new KeyValuePair<string, string[]>("Volkovsk", new[] { "Fur Trading Post", "Volkovsk Steelworks", "Icebreaker Shipping Fleet", "Diamond Exchange" }),
+            new KeyValuePair<string, string[]>("Jade Harbor", new[] { "Night Market", "Silk Trading House", "Jade Auction House", "The Floating Palace" }),
+            new KeyValuePair<string, string[]>("Sterling Cross", new[] { "The Morning Herald", "Sterling Grand Exchange", "Marble Row Bank", "The Gold Exchange" }),
+            new KeyValuePair<string, string[]>("Veilmont", new[] { "The Grand Funicular Line", "Summit Observatory", "The Veilmont Private Bank", "The Sovereign Vault" }),
+            new KeyValuePair<string, string[]>("Vespera", new[] { "The Old Amphitheater", "The Marble Terraces", "The Ancestral Crypt Vaults", "The First Family Estate" }),
+            new KeyValuePair<string, string[]>("The Exiles", new[] { "The Caravanserai", "The Great Cistern", "The Iron Gate Tollhouse", "The Citadel of Grudges" }),
+        };
+
+        public static readonly HashSet<string> GoldProperties = new HashSet<string>
+        {
+            "The Gold Exchange", "The Grand Funicular Line", "Summit Observatory", "The Veilmont Private Bank", "The Sovereign Vault",
+            "The Marble Terraces", "The Ancestral Crypt Vaults", "The First Family Estate", "The Great Cistern", "The Iron Gate Tollhouse", "The Citadel of Grudges",
+        };
+
         static readonly string[] DefaultJobs =
         {
             "NEW ASHPORT|1|1|Keep Watch on the Corner|1|2",

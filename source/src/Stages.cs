@@ -29,6 +29,7 @@ namespace IdleMafiaBot
         public int ListFirst = -1, ListLast = -1;
         public System.Drawing.Point ListAt;
         public string Said = "";
+        public int YourStamina = -1, YourStaminaMax = -1;
         public override string ToString() { return "stage " + Stage + (Boss.Length > 0 ? ", " + Boss : "") + (HealthMax > 0 ? " (" + Health + " / " + HealthMax + ")" : ""); }
     }
 
@@ -43,6 +44,7 @@ namespace IdleMafiaBot
         static readonly Regex StageHighestRx = new Regex(@"HIGHEST\s*STA[GC]E\s*([0-9IlOo]{1,3})", RegexOptions.IgnoreCase);
         static readonly Regex StageResetRx = new Regex(@"RESETS\s*IN\s*([0-9]{1,2})\s*:\s*([0-9]{2})\s*:\s*([0-9]{2})", RegexOptions.IgnoreCase);
         static readonly Regex StageTokensRx = new Regex(@"([0-9OoIl][0-9OoIl,]*)\s*BOSS\s*TOKENS", RegexOptions.IgnoreCase);
+        static readonly Regex YourStaminaRx = new Regex(@"^\s*([0-9Oo]{1,4})\s*[/|Il]?\s*([0-9Oo]{1,4})\s*STAMINA\s*$", RegexOptions.IgnoreCase);
         static readonly Regex StageLevelRx = new Regex(@"LEVEL\s*([0-9IlOo]{2,3})\b", RegexOptions.IgnoreCase);
 
         public BossStage ReadBossStage(Frame f)
@@ -90,6 +92,25 @@ namespace IdleMafiaBot
                         var hit = Ocr.Read(f, spot, t.Item1, t.Item2).FirstOrDefault(l => StageHealthRx.IsMatch(l.Text));
                         if (hit != null && StageHealth(hit.Text, st)) break;
                     }
+            }
+
+            if (st != null && st.Stage > 0 && st.YourStamina < 0)
+            {
+                int split = area.Left + (int)(area.Width * 0.70), mid = area.Left + (split - area.Left) / 2;
+                var hp = lines.Where(l => l.CenterX < mid && Parse.Key(l.Text).EndsWith("HEAITH") && Regex.IsMatch(l.Text, "[0-9]")).OrderBy(l => l.Box.Y).FirstOrDefault();
+                if (hp != null)
+                {
+                    int hh = Math.Max(8, hp.Box.Height);
+                    var spot = Rectangle.Intersect(Rectangle.FromLTRB(hp.Box.X - 4 * hh, hp.Box.Bottom, hp.Box.Right + 4 * hh, hp.Box.Bottom + 3 * hh), area);
+                    if (spot.Width > 10 && spot.Height > 5)
+                        foreach (var t in new[] { Tuple.Create(s + 1, Prep.WhiteText), Tuple.Create(s + 1, Prep.None), Tuple.Create(s + 2, Prep.WhiteText) })
+                        {
+                            var m = Ocr.Read(f, spot, t.Item1, t.Item2).Select(l => YourStaminaRx.Match(l.Text)).FirstOrDefault(x => x.Success);
+                            int ya, yb;
+                            if (m != null && int.TryParse(Parse.Digits(m.Groups[1].Value), out ya) && int.TryParse(Parse.Digits(m.Groups[2].Value), out yb) && ya <= yb)
+                            { st.YourStamina = ya; st.YourStaminaMax = yb; break; }
+                        }
+                }
             }
             return st;
         }
@@ -170,6 +191,11 @@ namespace IdleMafiaBot
                               .OrderByDescending(l => l.Box.Y).FirstOrDefault();
                 if (row != null && int.TryParse(Parse.Digits(StageTitleRx.Match(row.Text).Groups[1].Value), out n)) st.ReadyStage = n;
             }
+
+            var ys = main.Where(l => l.CenterX < mid).Select(l => YourStaminaRx.Match(l.Text)).FirstOrDefault(m => m.Success);
+            int ya, yb;
+            if (ys != null && int.TryParse(Parse.Digits(ys.Groups[1].Value), out ya) && int.TryParse(Parse.Digits(ys.Groups[2].Value), out yb) && ya <= yb)
+            { st.YourStamina = ya; st.YourStaminaMax = yb; }
             st.Said = string.Join(" | ", main.Where(l => l.CenterY > area.Top + area.Height / 10).Select(l => l.Text.Trim()));
             return st;
         }

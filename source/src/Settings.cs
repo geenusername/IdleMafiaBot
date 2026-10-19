@@ -14,6 +14,8 @@ namespace IdleMafiaBot
 
     enum TrainOrder { Best = 0, Evenly = 1 }
 
+    enum OtherDeviceWait { Off = 0, M15 = 15, M30 = 30, H1 = 60, H2 = 120 }
+
     enum ThemeChoice { Mafia = 0, Halloween = 1, Auto = 2 }
 
     sealed class Settings
@@ -42,6 +44,12 @@ namespace IdleMafiaBot
         public bool WarTargetsOnly = true;
 
         public bool ScoutFights = false;
+
+        public int FightWinChance = 85;
+
+        public bool OnlyFightsSpendAll = false;
+
+        public int FightLowHealth = 10;
 
         public bool WhaleHunt = false;
 
@@ -116,6 +124,9 @@ namespace IdleMafiaBot
 
         public int GoldLots = 0;
 
+        public string PropertyOnly = "";
+        public string PropertySeen = "";
+
         public bool SafehouseUpgrade = true;
 
         public bool CrewSlots = true;
@@ -164,6 +175,7 @@ namespace IdleMafiaBot
 
         public bool Rejoin = true;
         public bool KeepAlive = true;
+        public OtherDeviceWait OtherDeviceRejoin = OtherDeviceWait.Off;
 
         public string DiscordLink = "";
         public bool DiscordProblems = true;
@@ -176,6 +188,9 @@ namespace IdleMafiaBot
         public string StatsLink = "";
         public string StatsMessage = "";
 
+        public bool RemoteControl = false;
+        public string RemoteMessage = "";
+
         public Focus Focus = Focus.Balanced;
 
         public string Account = "";
@@ -186,6 +201,7 @@ namespace IdleMafiaBot
         public bool WelcomeSeen = false;
         public string CheckOffered = "";
         public int CheckHintLevel = 0;
+        public string FamilyDistrictsAt = "";
         public string JobsReadAt = "";
         public bool CrewGearOff = false;
         public bool ScreenFirst = false;
@@ -196,8 +212,8 @@ namespace IdleMafiaBot
             get { return Theme == ThemeChoice.Auto ? (DateTime.Now.Month == 10 ? ThemeChoice.Halloween : ThemeChoice.Mafia) : Theme; }
         }
 
-        public static readonly string[] PcFields = { "WelcomeSeen", "WaitWhileBusy", "GiveFocusBack", "Rejoin", "KeepAlive",
-            "DiscordLink", "DiscordProblems", "DiscordRarity", "DiscordProperty", "DiscordSummary", "DiscordLevel", "DiscordBoss", "StatsLink", "ScreenFirst", "Theme" };
+        public static readonly string[] PcFields = { "WelcomeSeen", "WaitWhileBusy", "GiveFocusBack", "Rejoin", "OtherDeviceRejoin", "KeepAlive",
+            "DiscordLink", "DiscordProblems", "DiscordRarity", "DiscordProperty", "DiscordSummary", "DiscordLevel", "DiscordBoss", "StatsLink", "RemoteControl", "RemoteMessage", "ScreenFirst", "Theme" };
 
         public static readonly string[] LinkFields = { "DiscordLink", "StatsLink" };
 
@@ -233,24 +249,32 @@ namespace IdleMafiaBot
                 if (eq <= 0) continue;
                 var field = typeof(Settings).GetField(line.Substring(0, eq).Trim());
                 if (field == null) continue;
-                string v = line.Substring(eq + 1).Trim();
-                try
-                {
-                    int n;
-                    if (field.FieldType == typeof(bool)) field.SetValue(s, v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase));
-                    else if (field.FieldType == typeof(int)) { if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) field.SetValue(s, n); }
-                    else if (field.FieldType == typeof(long)) { long l; if (long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out l) && l > 0) field.SetValue(s, l); }
-                    else if (field.FieldType == typeof(string)) field.SetValue(s, v);
-                    else if (field.FieldType.IsEnum)
-                    {
-                        object e = Enum.Parse(field.FieldType, v);
-                        if (Enum.IsDefined(field.FieldType, e)) field.SetValue(s, e);
-                    }
-                }
-                catch (Exception) { }
+                SetText(s, field, line.Substring(eq + 1).Trim());
             }
             if (s.PointsStat < 0 || s.PointsStat >= Game.StatNames.Length) s.PointsStat = 0;
             return s;
+        }
+
+        internal static bool SetText(Settings s, FieldInfo field, string v)
+        {
+            try
+            {
+                int n;
+                long l;
+                if (field.FieldType == typeof(bool)) field.SetValue(s, v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase));
+                else if (field.FieldType == typeof(int)) { if (!int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) return false; field.SetValue(s, n); }
+                else if (field.FieldType == typeof(long)) { if (!long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out l) || l <= 0) return false; field.SetValue(s, l); }
+                else if (field.FieldType == typeof(string)) field.SetValue(s, v);
+                else if (field.FieldType.IsEnum)
+                {
+                    object e = Enum.Parse(field.FieldType, v);
+                    if (!Enum.IsDefined(field.FieldType, e)) return false;
+                    field.SetValue(s, e);
+                }
+                else return false;
+                return true;
+            }
+            catch (Exception) { return false; }
         }
 
         static readonly object SaveLock = new object();

@@ -184,6 +184,14 @@
         <TextBlock x:Name="PageTitle" Visibility="Collapsed"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,10,0,0">
 
+          <Button x:Name="BtnPresets" Style="{StaticResource Btn}" Padding="14,10" Margin="0,4,10,0" VerticalAlignment="Top"
+                  shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Save your switches as a preset, switch between presets, share one">
+            <StackPanel Orientation="Horizontal">
+              <Path Style="{StaticResource Icon}" Data="{StaticResource IcoSliders}" Width="16" Height="16" VerticalAlignment="Center"/>
+              <TextBlock x:Name="PresetNow" Text="Presets" Margin="8,0,0,0" FontWeight="SemiBold" FontSize="13.5" VerticalAlignment="Center" MaxWidth="170" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Button>
+
           <Button x:Name="BtnDiscordTop" Style="{StaticResource PrimaryBtn}" Background="#5865F2" Padding="14,10" Margin="0,4,10,0"
                   VerticalAlignment="Top" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Questions, problems or ideas? Ask in the Discord">
             <StackPanel Orientation="Horizontal">
@@ -675,7 +683,7 @@
                 <UniformGrid Columns="4" Rows="1" VerticalAlignment="Top">
                   <CheckBox x:Name="sw_WaitWhileBusy" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoHourglass}" Content="Wait while I use the PC" ToolTip="It only takes the mouse once you've left the PC alone for 15 seconds."/>
                   <CheckBox x:Name="sw_GiveFocusBack" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoMonitor}" Content="Give my window back" ToolTip="After each round."/>
-                  <CheckBox x:Name="sw_Rejoin" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoPlug}" Content="Rejoin after a disconnect" ToolTip="Presses Reconnect or starts the game again."/>
+                  <CheckBox x:Name="sw_Rejoin" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoPlug}" Uid="1" Content="Rejoin after a disconnect" ToolTip="Presses Reconnect or starts the game again."/>
                   <CheckBox x:Name="sw_KeepAlive" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoClock}" Content="Stay in the game" ToolTip="A click after 15 quiet minutes, so Roblox doesn't kick you at 20."/>
                 </UniformGrid>
               </HeaderedContentControl>
@@ -816,6 +824,15 @@
                   </StackPanel>
                 </Grid>
                 <TextBlock x:Name="StatsStatus" Style="{StaticResource Hint}" Margin="0,8,0,0" Text=""/>
+
+                <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,14,0,12"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <CheckBox x:Name="sw_RemoteControl" Style="{StaticResource TaskTile}" Tag="{StaticResource IcoPlay}" Content="Remote control from Discord"
+                            ToolTip="/remote in our Discord: start, stop, status, a preset or a problem report. Nothing else."/>
+                  <TextBlock x:Name="RemoteHint" Grid.Column="1" Style="{StaticResource Hint}" Margin="14,0,0,0" VerticalAlignment="Center"
+                             Text="Off. Switch it on to use /remote in our Discord: start, stop, status, a preset or a problem report."/>
+                </Grid>
                 <Border x:Name="StatsPreviewBox" Visibility="Collapsed" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}"
                         BorderThickness="1.5" CornerRadius="10" Margin="0,12,0,0" Padding="12,10">
                   <StackPanel>
@@ -864,7 +881,8 @@
               </HeaderedContentControl>
               <HeaderedContentControl Grid.Column="1" Style="{StaticResource TaskGroup}" Header="Help" VerticalAlignment="Top">
                 <Border Margin="2,0,10,12">
-                  <Grid>
+
+                  <Grid MinHeight="{Binding ActualHeight, ElementName=BtnNeverList}">
                     <WrapPanel Margin="-8,0,0,0" VerticalAlignment="Center">
                       <Button x:Name="BtnDiscord" Style="{StaticResource GhostBtn}" Padding="8,6" ToolTip="Questions, problems or ideas? Ask in the Discord">
                         <StackPanel Orientation="Horizontal">
@@ -916,6 +934,62 @@
           </Grid>
           <ScrollViewer x:Name="OptionsScroll" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="OptionsBody" Margin="24,8,24,20">
+
+              <StackPanel x:Name="Opt_Presets" Visibility="Collapsed">
+                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="2,0,0,12"
+                           Text="A preset keeps every task switch and its options. Pick one to switch them all at once. Your Discord links, your account and your PC's settings are never in a preset."/>
+                <TextBlock Text="Your presets" Style="{StaticResource OptHead}" Margin="0,4,0,10"/>
+                <StackPanel x:Name="PresetList"/>
+                <TextBlock x:Name="PresetEmpty" Style="{StaticResource Hint}" Margin="2,0,0,10" Text="None yet. Save what's on now below."/>
+                <TextBlock Text="Save what's on now" Style="{StaticResource OptHead}"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="40">
+                    <Grid>
+                      <TextBox x:Name="PresetNameBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}" MaxLength="30"
+                               CaretBrush="{StaticResource Gold}" FontSize="14" VerticalContentAlignment="Center" Padding="10,0"/>
+                      <TextBlock x:Name="PresetNameHint" Text="A name, like Reroll night" Foreground="{StaticResource Text3}"
+                                 VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                    </Grid>
+                  </Border>
+                  <Button x:Name="BtnPresetSave" Grid.Column="1" Style="{StaticResource PrimaryBtn}" Margin="10,0,0,0" Content="Save"/>
+                </Grid>
+                <TextBlock Text="Add a shared code" Style="{StaticResource OptHead}"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="40">
+                    <Grid>
+                      <TextBox x:Name="PresetCodeBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
+                               CaretBrush="{StaticResource Gold}" FontSize="13" VerticalContentAlignment="Center" Padding="10,0"/>
+                      <TextBlock x:Name="PresetCodeHint" Text="Paste a code from Discord (IMB-PRESET-1:...)" Foreground="{StaticResource Text3}"
+                                 VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                    </Grid>
+                  </Border>
+                  <Button x:Name="BtnPresetPaste" Grid.Column="1" Style="{StaticResource Btn}" Margin="10,0,0,0" Content="Paste"/>
+                </Grid>
+                <Border x:Name="PresetPreview" Style="{StaticResource OptLine}" Margin="0,10,0,0" Visibility="Collapsed">
+                  <StackPanel>
+                    <TextBlock x:Name="PresetPreviewTitle" FontSize="14.5" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="PresetPreviewOn" FontSize="13" Foreground="{StaticResource Gold}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <TextBlock x:Name="PresetPreviewOff" FontSize="13" Foreground="{StaticResource Text3}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                      <Button x:Name="BtnPresetAddUse" Style="{StaticResource PrimaryBtn}" Content="Add and use it"/>
+                      <Button x:Name="BtnPresetAdd" Style="{StaticResource Btn}" Margin="8,0,0,0" Content="Add"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+                <TextBlock x:Name="PresetStatus" Style="{StaticResource Hint}" Margin="2,10,0,0" Text="" TextWrapping="Wrap"/>
+              </StackPanel>
+              <StackPanel x:Name="Opt_Rejoin" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Played on another device" FontSize="14"/>
+                      <TextBlock Text="When you join the game somewhere else, the bot waits this long, then joins again. That throws the other device out, so pick a time longer than you usually play there." Style="{StaticResource Hint}" FontSize="12.5" TextWrapping="Wrap"/></StackPanel>
+                    <Border Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="seg_OtherDeviceRejoin_Off" GroupName="otherdevice" Style="{StaticResource Segment}" Content="Off"/><RadioButton x:Name="seg_OtherDeviceRejoin_M15" GroupName="otherdevice" Style="{StaticResource Segment}" Content="15 min"/><RadioButton x:Name="seg_OtherDeviceRejoin_M30" GroupName="otherdevice" Style="{StaticResource Segment}" Content="30 min"/><RadioButton x:Name="seg_OtherDeviceRejoin_H1" GroupName="otherdevice" Style="{StaticResource Segment}" Content="1 h"/><RadioButton x:Name="seg_OtherDeviceRejoin_H2" GroupName="otherdevice" Style="{StaticResource Segment}" Content="2 h"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+              </StackPanel>
               <StackPanel x:Name="Opt_Jobs" Visibility="Collapsed">
                 <Border Style="{StaticResource OptLine}">
                   <StackPanel>
@@ -1064,9 +1138,37 @@
               <StackPanel x:Name="Opt_Fights" Visibility="Collapsed">
                 <UniformGrid Columns="3" Margin="0,0,-10,0">
                   <CheckBox x:Name="sw_WarTargetsOnly" Style="{StaticResource OptTile}" Content="Only war targets" ToolTip="During a war, only the war targets."/>
-                  <CheckBox x:Name="sw_ScoutFights" Style="{StaticResource OptTile}" Content="Scout players first" ToolTip="Skips anyone stronger than you (1 stamina)."/>
+                  <CheckBox x:Name="sw_ScoutFights" Style="{StaticResource OptTile}" Content="Scout players first" ToolTip="Reads a player's attack and defense first (1 stamina). Attacks only at the odds below."/>
                   <CheckBox x:Name="sw_RememberPlayers" Style="{StaticResource OptTile}" Content="Remember players" ToolTip="Big payers first, skips who beat you twice for 2 days."/>
                 </UniformGrid>
+                <Border Style="{StaticResource OptLine}" Margin="0,8,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Fighting players" FontSize="14"/></StackPanel>
+                    <Border Style="{StaticResource SegmentBar}" Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><RadioButton x:Name="FightMode_Off" GroupName="fightmode" Style="{StaticResource Segment}" Content="Off"/><RadioButton x:Name="FightMode_On" GroupName="fightmode" Style="{StaticResource Segment}" Content="On"/><RadioButton x:Name="FightMode_Only" GroupName="fightmode" Style="{StaticResource Segment}" Content="Only"/></StackPanel></Border>
+                  </Grid>
+                </Border>
+                <TextBlock x:Name="FightModeHint" Style="{StaticResource Hint}" Margin="2,0,0,4"/>
+                <UniformGrid Columns="3" Margin="0,4,-10,0">
+                  <CheckBox x:Name="sw_OnlyFightsSpendAll" Style="{StaticResource OptTile}" Content="Spend it all in Only" ToolTip="In Only the bosses don't run, so no stamina is kept for them."/>
+                </UniformGrid>
+                <Border Style="{StaticResource OptLine}" Margin="0,8,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Don't fight below" FontSize="14"/>
+                      <TextBlock Text="Player fights wait while health is under this, like bosses and the Takedown. 0 turns it off." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ContentControl x:Name="num_FightLowHealth" Grid.Column="1" Tag="0,90,1,%" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Attack only at" FontSize="14"/>
+                      <TextBlock Text="With Scout players first: your chance to win a scouted player. 85 is about 20% more attack than their defense." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ContentControl x:Name="num_FightWinChance" Grid.Column="1" Tag="50,99,1,%" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <TextBlock x:Name="FightRespect" Style="{StaticResource Hint}" Margin="2,6,0,0" Text=""/>
 
                 <Border Style="{StaticResource OptLine}" Margin="0,8,0,0">
                   <StackPanel>
@@ -1400,6 +1502,14 @@
                 </ItemsControl>
               </StackPanel>
               <StackPanel x:Name="Opt_Properties" Visibility="Collapsed">
+                <Border Style="{StaticResource OptLine}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Which property to build" FontSize="14"/>
+                      <TextBlock Text="Pick one and the bot only builds that one, also in place of lots that earn less. Best one: the bot picks." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                    <ComboBox x:Name="cmb_PropertyOnly" Grid.Column="1" Width="260" Height="36" VerticalAlignment="Center" MaxDropDownHeight="420" ToolTip="Which property the bot builds"/>
+                  </Grid>
+                </Border>
                 <Border Style="{StaticResource OptLine}">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

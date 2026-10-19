@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 
@@ -13,7 +14,7 @@ namespace IdleMafiaBot
 
         internal Point TerritoryToastX(Frame f, out string text, out Rectangle box) { return TerritoryToastX(f, out text, out box, IsAttackWords); }
 
-        static bool IsAttackWords(string key) { return key.Contains("ATTACKED") || key.Contains("GARRISON"); }
+        static bool IsAttackWords(string key) { return key.Contains("TTACKED") || key.Contains("GARRISON"); }
 
         internal string ShipmentToast(Frame f, out Point x)
         {
@@ -46,10 +47,24 @@ namespace IdleMafiaBot
         {
             text = null; box = Rectangle.Empty;
             var v = ViewOf(f);
-            if (v.Problem != null) return Point.Empty;
-            double row = 34.5 * v.HeaderScale;
-            int y = v.Energy.CenterY, right = -1;
-            for (int x = f.Width - 1; x > v.ProbeX; x--) if (IsToastGold(f.Pixel(x, y))) { right = x; break; }
+            if (v.Problem == null) return TerritoryToastAt(f, v.Energy.CenterY, 34.5 * v.HeaderScale, v.ProbeX, out text, out box, accept);
+
+            double hs = Math.Max(0.6, f.Height / 1009.0), rowH = 34.5 * hs;
+            var tried = new List<Rectangle>();
+            for (int y = (int)(8 * hs); y < Math.Min(f.Height, (int)(230 * hs)); y += Math.Max(2, (int)(6 * hs)))
+            {
+                var x = TerritoryToastAt(f, y, rowH, f.Width / 2, out text, out box, accept, tried);
+                if (!x.IsEmpty) return x;
+            }
+            text = null; box = Rectangle.Empty;
+            return Point.Empty;
+        }
+
+        Point TerritoryToastAt(Frame f, int y, double row, int probeX, out string text, out Rectangle box, Func<string, bool> accept, List<Rectangle> tried = null)
+        {
+            text = null; box = Rectangle.Empty;
+            int right = -1;
+            for (int x = f.Width - 1; x > probeX; x--) if (IsToastGold(f.Pixel(x, y))) { right = x; break; }
 
             if (right < 0 || f.Width - right > 2 * row) return Point.Empty;
 
@@ -67,8 +82,9 @@ namespace IdleMafiaBot
             }
             if (right - left < 6 * row) return Point.Empty;
             var inside = Rectangle.FromLTRB(left + 3, top + 3, right - 2, bottom - 2);
-            string words = Ocr.ReadText(f, inside, View.ScaleFor(20 * v.HeaderScale), Prep.None), k = Parse.Key(words);
-            if (!accept(k)) return Point.Empty;
+            if (tried != null && tried.Contains(inside)) return Point.Empty;
+            string words = Ocr.ReadText(f, inside, View.ScaleFor(20 * row / 34.5), Prep.None), k = Parse.Key(words);
+            if (!accept(k)) { if (tried != null) tried.Add(inside); return Point.Empty; }
 
             int x0 = int.MaxValue, x1 = -1, y0 = int.MaxValue, y1 = -1;
             for (int yy = top + 3; yy < Math.Min(bottom - 2, top + (int)(1.2 * row)); yy++)
@@ -171,6 +187,21 @@ namespace IdleMafiaBot
             log("Closing the game's territory notification with its x - it covered the bars");
             Click(x.X, x.Y, 500);
             return true;
+        }
+
+        public bool CloseTerritoryToasts()
+        {
+            bool any = false;
+            for (int i = 0; i < 3; i++)
+            {
+                Point x;
+                using (var f = Capture()) x = TerritoryToastX(f);
+                if (x.IsEmpty) break;
+                log("Closing the game's territory notification with its x - it covered the page");
+                Click(x.X, x.Y, 500);
+                any = true;
+            }
+            return any;
         }
     }
 }

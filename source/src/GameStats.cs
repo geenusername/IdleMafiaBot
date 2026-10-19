@@ -56,7 +56,8 @@ namespace IdleMafiaBot
                     if (StatsTitle(f) != null) break;
                     if (DropdownLines(f) != null) { CloseMenu(f); continue; }
                     var at = FindMenuButton(f);
-                    if (at.IsEmpty) { Wait(1500); continue; }
+
+                    if (at.IsEmpty) { CloseTerritoryToasts(); Wait(1500); continue; }
                     Click(at.X, at.Y, 900);
                 }
                 using (var f = Capture())
@@ -79,7 +80,7 @@ namespace IdleMafiaBot
             {
                 Check();
                 int before = s.Found;
-                using (var f = Capture()) ReadStatsRows(f, s, seen);
+                using (var f = Capture()) ReadStatsRows(f, s, seen, title);
                 if (s.Found == before) break;
                 using (var f = Capture())
                 {
@@ -136,11 +137,15 @@ namespace IdleMafiaBot
         static OcrLine StatsTitle(Frame f)
         {
             int scale = Math.Max(2, Math.Min(4, (int)Math.Ceiling(1000.0 / Math.Max(300, f.Height / 3))));
-            return Ocr.Read(f, new Rectangle(0, 0, f.Width, f.Height), scale, Prep.None)
-                .FirstOrDefault(l => Parse.Has(l.Text, "YOUR STATS"));
+            var lines = Ocr.Read(f, new Rectangle(0, 0, f.Width, f.Height), scale, Prep.None);
+
+            var upgrades = lines.Where(l => Parse.Has(l.Text, "YOUR UPGRADES")).ToList();
+
+            return lines.OrderByDescending(l => l.Box.Height).FirstOrDefault(l => Parse.Has(l.Text, "YOUR STATS")
+                                             && !upgrades.Any(u => Math.Abs(u.CenterY - l.CenterY) <= Math.Max(8, l.Box.Height) && u.Box.X > l.Box.Right));
         }
 
-        Point FindMenuButton(Frame f)
+        internal Point FindMenuButton(Frame f)
         {
             var v = ViewOf(f);
             double hs = v != null && v.Problem == null ? v.HeaderScale : Math.Max(0.6, f.Height / 1009.0);
@@ -154,42 +159,81 @@ namespace IdleMafiaBot
 
         static Point MenuGlyph(Frame f, int top, int bottom, double hs)
         {
-            int step = Math.Max(2, (int)(6 * hs));
-            for (int y = top + step; y < bottom - step; y += 2)
+            int x0 = Math.Max(0, f.Width - (int)(110 * hs)), x1 = f.Width - 2;
+            int minRun = Math.Max(6, (int)(14 * hs)), maxRun = Math.Max(minRun + 4, (int)(40 * hs));
+            var bands = new List<int[]>();
+            for (int y = Math.Max(0, top); y < Math.Min(bottom, f.Height); y++)
             {
-                int rows = 0, cy = y;
-                for (int r = 0; r < 3; r++)
+                int best = 0, bestAt = -1, run = 0;
+                for (int x = x0; x <= x1; x++)
                 {
-                    int ry = y + r * step;
-                    if (ry >= bottom) break;
-                    int runAt = 0;
-                    for (int x = Math.Max(0, f.Width - (int)(70 * hs)); x < f.Width - 2; x++)
-                    {
-                        var c = f.Pixel(x, ry);
-                        bool light = c.R >= 120 && c.G >= 120 && c.B >= 120
-                            && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) <= 40;
-                        if (light) { if (++runAt >= (int)(22 * hs)) break; }
-                        else if (runAt > 0 && x > f.Width - (int)(30 * hs)) break;
-                    }
-                    if (runAt >= (int)(22 * hs)) { rows++; cy = ry; }
+                    var c = f.Pixel(x, y);
+                    bool grey = c.R >= 150 && c.G >= 150 && c.B >= 150
+                        && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) <= 40;
+                    bool gold = c.R >= 160 && c.G >= 120 && c.B <= 130 && c.R - c.B >= 70 && c.R >= c.G;
+                    if (grey || gold) { if (++run > best) { best = run; bestAt = x; } }
+                    else run = 0;
                 }
-                if (rows >= 3) return new Point(f.Width - (int)(32 * hs), cy - step);
+                bool bar = best >= minRun && best <= maxRun;
+                var last = bands.Count > 0 ? bands[bands.Count - 1] : null;
+                if (bar && last != null && last[1] == y - 1 && Math.Abs(last[3] - bestAt) <= 3) last[1] = y;
+                else if (bar) bands.Add(new[] { y, y, bestAt - best + 1, bestAt });
+            }
+            int maxThick = Math.Max(3, (int)(9 * hs));
+            var bars = bands.Where(b => b[1] - b[0] + 1 <= maxThick).ToList();
+
+            for (int i = 0; i + 2 < bars.Count; i++)
+            {
+                var a = bars[i];
+                var row = bars.Skip(i).Where(b => Math.Abs(b[2] - a[2]) <= 3 && Math.Abs(b[3] - a[3]) <= 3).ToList();
+                if (row.Count < 3) continue;
+                var m = row[1]; var z = row[2];
+                int g1 = (m[0] + m[1]) / 2 - (a[0] + a[1]) / 2, g2 = (z[0] + z[1]) / 2 - (m[0] + m[1]) / 2;
+
+                if (g1 < Math.Max(4, (int)(6 * hs)) || g1 > (int)(15 * hs) + 2 || Math.Abs(g1 - g2) > 2) continue;
+                int t1 = a[1] - a[0], t2 = m[1] - m[0], t3 = z[1] - z[0];
+                if (Math.Max(t1, Math.Max(t2, t3)) - Math.Min(t1, Math.Min(t2, t3)) > Math.Max(2, (int)hs)) continue;
+
+                if (!DarkBetween(f, a, m) || !DarkBetween(f, m, z)) continue;
+                if (Math.Abs(a[2] - m[2]) > 3 || Math.Abs(m[2] - z[2]) > 3 || Math.Abs(a[3] - z[3]) > 3) continue;
+                return new Point((m[2] + m[3]) / 2, (m[0] + m[1]) / 2);
             }
             return Point.Empty;
+        }
+
+        static bool DarkBetween(Frame f, int[] upper, int[] lower)
+        {
+            int dark = 0, all = 0;
+            for (int y = upper[1] + 1; y < lower[0]; y++)
+                for (int x = upper[2]; x <= upper[3]; x++)
+                {
+                    var c = f.Pixel(x, y);
+                    all++;
+                    bool grey = c.R >= 150 && c.G >= 150 && c.B >= 150 && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) <= 40;
+                    bool gold = c.R >= 160 && c.G >= 120 && c.B <= 130 && c.R - c.B >= 70 && c.R >= c.G;
+                    if (!grey && !gold) dark++;
+                }
+            return all > 0 && dark * 4 >= all * 3;
         }
 
         static Point StatsClose(Frame f, OcrLine title)
         {
             int th = Math.Max(8, title.Box.Height);
             int x0 = title.Box.Right + 2 * th, y0 = Math.Max(0, title.Box.Y - th), y1 = Math.Min(f.Height, title.Box.Bottom + th);
-            Func<Color, bool> light = c => c.R >= 150 && c.G >= 150 && c.B >= 150 && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) <= 25;
+
+            Func<Color, bool> light = c => c.R >= 130 && c.G >= 130 && c.B >= 130 && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) <= 30;
             int minX = -1, maxX = -1;
             for (int x = Math.Max(x0, f.Width / 2); x < f.Width; x++)
             {
                 bool any = false;
                 for (int y = y0; y < y1 && !any; y++) any = light(f.Pixel(x, y));
                 if (any) { if (minX < 0) minX = x; maxX = x; }
-                else if (minX >= 0 && x - maxX > th / 2) break;
+                else if (minX >= 0 && x - maxX > th / 2)
+                {
+
+                    if (maxX - minX < th / 3) { minX = maxX = -1; continue; }
+                    break;
+                }
             }
             if (maxX < 0 || maxX - minX > 4 * th || maxX - minX < th / 3) return Point.Empty;
             int minY = int.MaxValue, maxY = -1;
@@ -210,9 +254,13 @@ namespace IdleMafiaBot
             Tuple.Create("Upgrade attempts", "int"), Tuple.Create("Successful upgrades", "int"),
         };
 
-        void ReadStatsRows(Frame f, PlayerStats s, HashSet<string> seen)
+        void ReadStatsRows(Frame f, PlayerStats s, HashSet<string> seen, OcrLine title)
         {
-            var area = new Rectangle(0, 0, f.Width, f.Height);
+
+            int th = Math.Max(8, title.Box.Height);
+            var close = StatsClose(f, title);
+            int left = Math.Max(0, title.Box.X - 2 * th), edge = close.IsEmpty ? f.Width : Math.Min(f.Width, close.X + th);
+            var area = new Rectangle(left, title.Box.Y, edge - left, f.Height - title.Box.Y);
             var lines = new List<OcrLine>();
             foreach (var t in new[] { Tuple.Create(2, Prep.None), Tuple.Create(3, Prep.None), Tuple.Create(2, Prep.WhiteText) })
                 lines.AddRange(Ocr.Read(f, area, t.Item1, t.Item2));
@@ -220,7 +268,7 @@ namespace IdleMafiaBot
             {
                 string key = Parse.Key(kv.Item1);
                 if (!seen.Add(key)) continue;
-                var label = lines.Where(l => l.Box.X < f.Width * 62 / 100)
+                var label = lines.Where(l => l.Box.X < left + (edge - left) * 62 / 100)
                     .OrderBy(l => l.Box.Y)
                     .FirstOrDefault(l => Parse.Key(l.Text) == key || Parse.Key(l.Text).StartsWith(key) || (key.Length > 8 && Parse.Key(l.Text).Contains(key)));
                 if (label == null) { seen.Remove(key); continue; }

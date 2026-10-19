@@ -57,6 +57,7 @@ namespace IdleMafiaBot
         {
             city = name = null; number = -1;
 
+            read = Regex.Replace(read ?? "", @"^\W*\d{1,2}[.):]?\s+(?=[A-Za-z])", "");
             string k = Parse.Key((read ?? "").Replace("æ", "as").Replace("Æ", "As"));
             if (k.Length < 4) return false;
             var hits = new List<Tuple<int, string, int, string>>();
@@ -74,13 +75,30 @@ namespace IdleMafiaBot
             return true;
         }
 
+        internal static string CleanHolder(string read)
+        {
+            var words = (read ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            if (words.Count > 1 && Regex.IsMatch(words[words.Count - 1], @"^(TURF|FORT|STRONGHOLD|CAPITAL|HQ)$", RegexOptions.IgnoreCase)) words.RemoveAt(words.Count - 1);
+            return string.Join(" ", words).Trim();
+        }
+
+        internal static bool HeldByUs(string heldBy, string ours)
+        {
+            string h = Parse.Key(heldBy), o = Parse.Key(ours);
+            if (o.Length == 0 || h.Length <= 2) return true;
+            if (View.Distance(h, o) <= 2 || h.Contains(o)) return true;
+            if (h.Length >= o.Length && o.Length >= 3 && View.Distance(h.Substring(0, o.Length), o) <= 1) return true;
+
+            return o.Length >= 3 && h.Length > o.Length && Enumerable.Range(0, h.Length - o.Length + 1).Any(i => View.Distance(h.Substring(i, o.Length), o) <= 1) && h.Length <= o.Length + 4;
+        }
+
         internal bool TerritoryBar(Frame f, out OcrLine cityBox, out OcrLine districtBox)
         {
             cityBox = districtBox = null;
             var area = PageArea(f);
             var lines = Ocr.Read(f, area, PageScale(f), Prep.None);
             var search = lines.FirstOrDefault(l => Parse.Has(l.Text, "Search districts"));
-            if (search == null) return false;
+            if (search == null) return TerritoryBarTyped(lines, area, out cityBox, out districtBox);
             int h = Math.Max(8, search.Box.Height);
             var row = lines.Where(l => Math.Abs(l.CenterY - search.CenterY) < 2 * h).ToList();
             cityBox = row.Where(l => l.Box.Right < search.Box.X && Districts.Cities.Any(c => Parse.Key(l.Text).StartsWith(Parse.Key(c))))
@@ -93,6 +111,24 @@ namespace IdleMafiaBot
             if (districtBox != null) districtBox = Stacked(row, districtBox, h);
             if (cityBox != null) cityBox = Stacked(row, cityBox, h);
             return cityBox != null && districtBox != null;
+        }
+
+        static bool TerritoryBarTyped(List<OcrLine> lines, Rectangle area, out OcrLine cityBox, out OcrLine districtBox)
+        {
+            cityBox = districtBox = null;
+            var mine = lines.FirstOrDefault(l => Parse.Key(l.Text) == "MYFAMIIY");
+            if (mine == null) return false;
+            int h = Math.Max(8, mine.Box.Height);
+            var row = lines.Where(l => Math.Abs(l.CenterY - mine.CenterY) < 2 * h).ToList();
+            cityBox = row.Where(l => l.Box.Right < mine.Box.X && Districts.Cities.Any(c => Parse.Key(l.Text).StartsWith(Parse.Key(c))))
+                         .OrderBy(l => l.Box.X).FirstOrDefault();
+            if (cityBox == null) return false;
+            var city = cityBox;
+            var last = row.Where(l => l.Box.X > city.Box.Right + 4 * h && l.Box.Right < mine.Box.X).OrderByDescending(l => l.Box.X).FirstOrDefault();
+            if (last == null) return false;
+            districtBox = Stacked(row, last, h);
+            cityBox = Stacked(row, cityBox, h);
+            return true;
         }
 
         static OcrLine Stacked(List<OcrLine> row, OcrLine first, int h)
@@ -120,6 +156,21 @@ namespace IdleMafiaBot
             using (var f = Capture()) return TerritoryBar(f, out cityBox, out districtBox) && Parse.Key(cityBox.Text).StartsWith(Parse.Key(city));
         }
 
+        bool MyFamilyOn()
+        {
+            for (int tries = 0; tries < 2; tries++)
+            {
+                List<OcrLine> lines;
+                using (var f = Capture()) lines = Ocr.Read(f, PageArea(f), PageScale(f), Prep.None);
+                if (lines.Any(l => Parse.Has(l.Text, "MATCHING"))) return true;
+                var mine = lines.FirstOrDefault(l => Parse.Key(l.Text) == "MYFAMIIY");
+                if (mine == null) break;
+                Click(mine.CenterX, mine.CenterY, 1500);
+            }
+            log("Territory: the MY FAMILY filter didn't turn on - no district opened");
+            return false;
+        }
+
         static readonly Regex HoldsRx = new Regex(@"HOLDS\s*([0-9OoIl]{1,3})\s*OF\s*([0-9OoIl]{1,3})", RegexOptions.IgnoreCase);
 
         public List<Tuple<string, int, string>> ReadFamilyDistricts()
@@ -128,16 +179,13 @@ namespace IdleMafiaBot
             var held = new List<Tuple<string, int, string>>();
             List<OcrLine> lines;
             using (var f = Capture()) lines = Ocr.Read(f, PageArea(f), PageScale(f), Prep.None);
-            if (!lines.Any(l => Parse.Has(l.Text, "MATCHING")))
-            {
-                var mine = lines.FirstOrDefault(l => Parse.Key(l.Text) == "MYFAMIIY");
-                if (mine == null) return null;
-                Click(mine.CenterX, mine.CenterY, 1500);
-            }
+            if (!MyFamilyOn()) return null;
             foreach (var city in Districts.Cities)
             {
                 OcrLine cityBox, districtBox;
                 if (!SelectCity(city, out cityBox, out districtBox)) continue;
+
+                if (!MyFamilyOn()) continue;
                 int holds = -1;
                 using (var f = Capture())
                     foreach (var l in Ocr.Read(f, PageArea(f), PageScale(f), Prep.None))
@@ -182,6 +230,7 @@ namespace IdleMafiaBot
             if (!OpenTab(Tab.Territory)) return false;
             OcrLine cityBox, districtBox;
             if (!SelectCity(city, out cityBox, out districtBox)) return false;
+            if (!MyFamilyOn()) return false;
             int h = Math.Max(8, cityBox.Box.Height);
 
             Click(districtBox.CenterX, districtBox.CenterY, 900);
@@ -193,8 +242,9 @@ namespace IdleMafiaBot
                     rows = Ocr.Read(f, PageArea(f), PageScale(f) + 1, Prep.None).Where(l => l.Box.Y > districtBox.Box.Bottom)
                               .Select(l => { var m = DistrictRow.Match(l.Text); return m.Success ? Tuple.Create(int.Parse(m.Groups[1].Value), l) : null; })
                               .Where(t => t != null).ToList();
-                pick = rows.Where(t => t.Item1 == number || View.Distance(Parse.Key(DistrictRow.Match(t.Item2.Text).Groups[2].Value), Parse.Key(name)) <= 1)
-                           .Select(t => t.Item2).FirstOrDefault();
+
+                Func<Tuple<int, OcrLine>, int> off = t => View.Distance(Parse.Key(DistrictRow.Match(t.Item2.Text).Groups[2].Value), Parse.Key(name));
+                pick = rows.Where(t => off(t) <= 2 || (t.Item1 == number && off(t) <= 4)).OrderBy(off).Select(t => t.Item2).FirstOrDefault();
                 if (pick != null || rows.Count == 0) break;
                 int notches = number < rows.Min(t => t.Item1) ? 3 : -3;
                 Scroll(rows[0].Item2.CenterX, rows[rows.Count / 2].Item2.CenterY, notches);
@@ -268,6 +318,14 @@ namespace IdleMafiaBot
                 var title = lines.Where(l => l.Box.Bottom < held.Box.Y && held.Box.Y - l.Box.Bottom < reach && Regex.IsMatch(l.Text, "[A-Za-z]{3}")).OrderByDescending(l => l.Box.Height).FirstOrDefault();
                 if (title != null)
                 {
+
+                    var row = lines.Where(l => Math.Abs(l.CenterY - title.CenterY) < title.Box.Height / 2 && l.Box.Height * 3 >= title.Box.Height * 2
+                                               && Regex.IsMatch(l.Text, "[A-Za-z]{2}")).OrderBy(l => l.Box.X).ToList();
+                    if (row.Count > 1)
+                    {
+                        var u = row.Aggregate(title.Box, (r, l) => Rectangle.Union(r, l.Box));
+                        title = new OcrLine { Text = string.Join(" ", row.Select(l => l.Text.Trim())), Box = u };
+                    }
                     w.Title = title.Text.Trim();
                     w.Close = CloseMark(f, title);
 
@@ -279,7 +337,7 @@ namespace IdleMafiaBot
                 }
                 string after = Regex.Replace(held.Text, @"^.*HELD\s*BY\s*", "", RegexOptions.IgnoreCase).Trim();
                 if (after.Length < 2) after = string.Join(" ", lines.Where(l => Math.Abs(l.CenterY - held.CenterY) < h && l.Box.X > held.Box.Right).OrderBy(l => l.Box.X).Select(l => l.Text.Trim()));
-                w.HeldBy = after;
+                w.HeldBy = CleanHolder(after);
             }
             if (gar != null)
             {

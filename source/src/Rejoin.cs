@@ -23,6 +23,7 @@ namespace IdleMafiaBot
 
         Phase phase;
         DateTime at, next = DateTime.MinValue, since = DateTime.MinValue, lastGood = DateTime.MinValue;
+        DateTime otherSince = DateTime.MinValue;
         int tries;
         bool windowUp;
         bool mayRelaunch;
@@ -60,7 +61,7 @@ namespace IdleMafiaBot
             Reset();
         }
 
-        public Step OnDialog(DateTime now, Game.Disconnect d, bool rejoinOn, bool robloxUsed = false)
+        public Step OnDialog(DateTime now, Game.Disconnect d, bool rejoinOn, bool robloxUsed = false, TimeSpan otherWait = default(TimeSpan))
         {
             windowUp = true;
             if (phase == Phase.HandsOff) { Status = offStatus; return Step.Wait; }
@@ -74,8 +75,29 @@ namespace IdleMafiaBot
                                              "The Disconnected window wasn't the bot's (up before it started, or in another game) - leaving it to you");
                 phase = Phase.Pending;
             }
-            if (d.OtherDevice) return Off("Your account joined the game on another device - leaving Roblox alone",
-                                          "Not rejoining: your account joined the game on another device");
+            if (d.OtherDevice && (otherWait <= TimeSpan.Zero || !rejoinOn))
+                return Off("Your account joined the game on another device - leaving Roblox alone",
+                           "Not rejoining: your account joined the game on another device");
+            if (d.OtherDevice)
+            {
+
+                bool tried = phase == Phase.Reconnected || phase == Phase.Left || phase == Phase.Launched || phase == Phase.Retry;
+                if (tried && now - at < Settle) return Hold("Roblox disconnected the game - getting back in...", null);
+                if (otherSince == DateTime.MinValue || tried)
+                {
+                    otherSince = now;
+                    tries = 0;
+                    next = since = DateTime.MinValue;
+                    phase = Phase.Pending;
+                }
+                var back = otherSince + otherWait;
+                if (now < back)
+                {
+                    string when = back.ToLocalTime().ToString("HH:mm");
+                    return Hold("Your account joined the game on another device - the bot rejoins at " + when,
+                                "Your account joined the game on another device - the bot waits " + Minutes(otherWait) + " and rejoins at " + when + " (Settings)");
+                }
+            }
             if (d.Kicked) return Off("Roblox says you were kicked - press Leave, then start the game yourself",
                                      "Not rejoining after a kick - leaving it to you");
             if (SwitchedOff(rejoinOn)) return Hold("Roblox disconnected the game - rejoining is switched off (Settings)", "Rejoining is switched off - leaving it to you");
@@ -202,7 +224,7 @@ namespace IdleMafiaBot
         {
             phase = Phase.None;
             tries = 0;
-            next = since = DateTime.MinValue;
+            next = since = otherSince = DateTime.MinValue;
             Status = null;
             held = null;
         }

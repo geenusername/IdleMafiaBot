@@ -331,6 +331,19 @@ namespace IdleMafiaBot
 
         string StateNow() { return !bot.Running ? "stopped" : bot.OutOfGame ? "offline" : "playing"; }
 
+        internal string NumbersLine()
+        {
+            var parts = new List<string>();
+            lock (gate)
+            {
+                if (level > 0) parts.Add("level " + level);
+                double cash = Middle(cashReads), bank = Middle(bankReads);
+                if (cash >= 0) parts.Add(SafehouseInfo.Money(cash) + " cash");
+                if (bank >= 0) parts.Add(SafehouseInfo.Money(bank) + " in the bank");
+            }
+            return string.Join(", ", parts);
+        }
+
         internal string Json(string state, bool session) { return Json(state, session, Fingerprint(s.Account)); }
 
         string Json(string state, bool session, string acct)
@@ -398,7 +411,7 @@ namespace IdleMafiaBot
 
         static string N(double v) { return Math.Round(Math.Min(v, 1e21)).ToString("0", CultureInfo.InvariantCulture); }
 
-        static string Q(string t)
+        internal static string Q(string t)
         {
             var sb = new StringBuilder("\"");
             foreach (char c in t ?? "")
@@ -546,7 +559,7 @@ namespace IdleMafiaBot
             if (h != null) h();
         }
 
-        static string Why(int code, string answer, string link)
+        internal static string Why(int code, string answer, string link)
         {
             if (code < 0) return "couldn't reach Discord (" + (answer ?? "").Replace(link, "the link").Trim().TrimEnd('.') + ")";
             if (code == 429) return "Discord asked to slow down";
@@ -556,7 +569,7 @@ namespace IdleMafiaBot
             return "Discord had a problem (" + code + ")";
         }
 
-        static string WebhookOf(string link)
+        internal static string WebhookOf(string link)
         {
             var m = Regex.Match(link ?? "", @"/webhooks/(\d+)/");
             return m.Success ? m.Groups[1].Value : "";
@@ -571,11 +584,11 @@ namespace IdleMafiaBot
             return Regex.IsMatch(mid, @"^\d{5,30}$") ? mid : null;
         }
 
-        static string Base(string link) { string b = link.Trim().TrimEnd('/'); return Rebase != null ? Rebase(b) : b; }
+        internal static string Base(string link) { string b = link.Trim().TrimEnd('/'); return Rebase != null ? Rebase(b) : b; }
 
         internal static Func<string, string> Rebase = null;
 
-        static int Call(string method, string url, string json, int timeoutMs, out string answer, out string retryAfter)
+        internal static int Call(string method, string url, string json, int timeoutMs, out string answer, out string retryAfter)
         {
             answer = ""; retryAfter = null;
             try
@@ -621,7 +634,7 @@ namespace IdleMafiaBot
             catch (Exception) { return ""; }
         }
 
-        static int ErrorCode(string answer)
+        internal static int ErrorCode(string answer)
         {
             int n;
             return int.TryParse(TopLevel(answer, "code"), NumberStyles.Integer, CultureInfo.InvariantCulture, out n) ? n : -1;

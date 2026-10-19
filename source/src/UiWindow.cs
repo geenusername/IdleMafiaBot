@@ -199,6 +199,7 @@ namespace IdleMafiaBot
             WireSettings();
             WireButtons();
             WireTiles();
+            WirePresets();
             El<ItemsControl>("Feed").ItemsSource = feed;
             WireHome();
             El<ItemsControl>("OpsList").ItemsSource = ops;
@@ -228,6 +229,7 @@ namespace IdleMafiaBot
             {
                 if (accountShown != null && !string.Equals(Profile.Key(accountShown), Profile.Key(name), StringComparison.OrdinalIgnoreCase)) ForgetAccount();
                 accountShown = name;
+                UsePayers(bot.Memory);
                 RefreshControls(); UpdateDerived(); jobsDirty = true; RefreshJobs(); AccountSeen(name); ShowCrew(null);
             });
             bot.InfoChanged += (k, v) => { if (k == "ocr") Ui(() => ShowOcr(v)); };
@@ -272,6 +274,7 @@ namespace IdleMafiaBot
 
             bool scan = args.Contains("--scan"), check = args.Contains("--check"), start = args.Contains("--start"), exit = args.Contains("--exit");
             if (args.Contains("--once")) { bot.Once = true; start = true; }
+            if (args.Contains("--fightshots")) { bot.CollectFights = true; bot.Log("Fights: a picture of every fight window is kept (problems\\fights)"); }
             var page = args.FirstOrDefault(a => a.StartsWith("--page="));
             if (page != null) { var rail = Window.FindName("Rail" + page.Substring(7)) as RadioButton; if (rail != null) rail.IsChecked = true; }
             bool demo = args.Contains("--demo");
@@ -318,7 +321,12 @@ namespace IdleMafiaBot
 
             Window.Activated += (a, b) => UpdateProblems();
             if (demo) Demo();
-            else bot.Stats.Begin();
+            else
+            {
+                bot.Stats.Begin();
+                WireRemote();
+                bot.Remote.Begin();
+            }
         }
 
         public static object LoadXaml(string name)
@@ -493,8 +501,6 @@ namespace IdleMafiaBot
         Line webLine;
         TranslateTransform spiderDrag;
         ScaleTransform spiderStretch;
-        bool spiderHeld;
-        Point spiderGrabAt;
         System.Windows.Threading.DispatcherTimer spiderCycle;
 
         void StartSpiderCycle()
@@ -585,87 +591,7 @@ namespace IdleMafiaBot
                 }
                 catch (Exception) { }
             };
-            Window.PreviewMouseLeftButtonDown += (a, e) =>
-            {
-                try
-                {
-                    if (spiderEl.Visibility != Visibility.Visible) return;
-                    var at = e.GetPosition(Window);
-                    var c = spiderEl.TransformToAncestor(Window).Transform(new Point(13, 13));
-                    if ((at - c).Length > 30) return;
 
-                    for (var d = e.OriginalSource as DependencyObject; d != null; d = d is Visual ? VisualTreeHelper.GetParent(d) : null)
-                        if (d is System.Windows.Controls.Primitives.ButtonBase || d is TextBox || d is ComboBox) return;
-                    spiderHeld = true;
-                    spiderGrabAt = at;
-                    Window.CaptureMouse();
-                    e.Handled = true;
-                }
-                catch (Exception) { }
-            };
-            Window.PreviewMouseMove += (a, e) =>
-            {
-                try
-                {
-                    if (spiderEl.Visibility != Visibility.Visible)
-                    {
-                        if (!spiderHeld) System.Windows.Input.Mouse.OverrideCursor = null;
-                        return;
-                    }
-                    var at = e.GetPosition(Window);
-                    if (spiderHeld)
-                    {
-                        double dx = Math.Max(-140, Math.Min(140, at.X - spiderGrabAt.X));
-                        double dy = Math.Max(-140, Math.Min(140, at.Y - spiderGrabAt.Y));
-                        spiderDrag.X = dx;
-                        spiderDrag.Y = dy;
-                        double k = Math.Min(0.4, (at - spiderGrabAt).Length / 350.0);
-                        spiderStretch.ScaleY = 1 + k;
-                        spiderStretch.ScaleX = 1 - k * 0.4;
-                        System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Hand;
-                    }
-                    else
-                    {
-                        var c = spiderEl.TransformToAncestor(Window).Transform(new Point(13, 13));
-                        System.Windows.Input.Mouse.OverrideCursor = (at - c).Length <= 30 ? System.Windows.Input.Cursors.Hand : null;
-                    }
-                }
-                catch (Exception) { }
-            };
-            Window.PreviewMouseUp += (a, e) =>
-            {
-                if (!spiderHeld) return;
-                spiderHeld = false;
-                try { Window.ReleaseMouseCapture(); }
-                catch (Exception) { }
-                System.Windows.Input.Mouse.OverrideCursor = null;
-                try
-                {
-                    var sb = new Storyboard();
-                    foreach (var p in new[] { "X", "Y" })
-                    {
-                        var an = new DoubleAnimation(0, new Duration(TimeSpan.FromSeconds(0.7)));
-                        an.EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 4 };
-                        Storyboard.SetTarget(an, spiderDrag);
-                        Storyboard.SetTargetProperty(an, new PropertyPath(p));
-                        sb.Children.Add(an);
-                    }
-                    foreach (var p in new[] { "ScaleX", "ScaleY" })
-                    {
-                        var an = new DoubleAnimation(1, new Duration(TimeSpan.FromSeconds(0.7)));
-                        an.EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 4 };
-                        Storyboard.SetTarget(an, spiderStretch);
-                        Storyboard.SetTargetProperty(an, new PropertyPath(p));
-                        sb.Children.Add(an);
-                    }
-                    sb.Begin();
-                }
-                catch (Exception)
-                {
-                    try { spiderDrag.X = spiderDrag.Y = 0; spiderStretch.ScaleX = spiderStretch.ScaleY = 1; }
-                    catch (Exception) { }
-                }
-            };
         }
 
         FrameworkElement hauntFlash;
@@ -1096,6 +1022,7 @@ namespace IdleMafiaBot
                 if (count.Text != text) count.Text = text;
             }
             GlowTiles();
+            ShowPresetNow();
         }
 
         string TileLine(string key)
@@ -1129,7 +1056,7 @@ namespace IdleMafiaBot
         static readonly Dictionary<string, string[]> TaskTiles = new Dictionary<string, string[]>
         {
             { "jobs", new[] { "sw_Jobs" } }, { "learn jobs", new[] { "sw_Jobs" } }, { "heists", new[] { "sw_Heists" } },
-            { "bosses", new[] { "sw_Bosses" } }, { "fights", new[] { "sw_Fights" } },
+            { "bosses", new[] { "sw_Bosses" } }, { "fights", new[] { "sw_Fights" } }, { "only fighting players", new[] { "sw_Fights" } },
             { "crew", new[] { "sw_CrewFill", "tile_Reroll", "sw_TrainCrew" } }, { "rerolls", new[] { "tile_Reroll" } },
             { "family", new[] { "sw_FamilyWatch" } }, { "game stats", new[] { "sw_GameStats" } }, { "takedown", new[] { "sw_Takedown" } }, { "give stamina", new[] { "sw_GiveStamina" } },
             { "properties", new[] { "sw_Properties" } }, { "bank", new[] { "sw_Bank" } }, { "safehouse upgrade", new[] { "sw_SafehouseUpgrade" } },
@@ -1159,6 +1086,7 @@ namespace IdleMafiaBot
         {
             foreach (var p in El<StackPanel>("OptionsBody").Children.OfType<FrameworkElement>())
                 p.Visibility = p.Name == "Opt_" + key ? Visibility.Visible : Visibility.Collapsed;
+            if (key == "Properties") PropertyChoices();
             El<TextBlock>("OptionsTitle").Text = title;
             El<Path>("OptionsIcon").Data = icon;
             El<ScrollViewer>("OptionsScroll").ScrollToTop();
@@ -1184,6 +1112,167 @@ namespace IdleMafiaBot
             var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130));
             fade.Completed += (a, b) => { if (optionsOpen == null) layer.Visibility = Visibility.Collapsed; };
             layer.BeginAnimation(UIElement.OpacityProperty, fade);
+        }
+
+        List<Preset> presets;
+        Preset pasted;
+        string deleteAsked;
+
+        void WirePresets()
+        {
+            presets = Preset.Load(dir);
+            El<Button>("BtnPresets").Click += (a, b) => { ShowPresets(); OpenOptions("Presets", "Presets", (Geometry)Window.FindResource("IcoSliders")); };
+            var name = El<TextBox>("PresetNameBox");
+            name.TextChanged += (a, b) => El<TextBlock>("PresetNameHint").Visibility = name.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            name.KeyDown += (a, b) => { if (b.Key == Key.Enter) SavePreset(); };
+            El<Button>("BtnPresetSave").Click += (a, b) => SavePreset();
+            var code = El<TextBox>("PresetCodeBox");
+            code.TextChanged += (a, b) => { El<TextBlock>("PresetCodeHint").Visibility = code.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed; CheckPastedCode(); };
+            El<Button>("BtnPresetPaste").Click += (a, b) =>
+            {
+                try { if (Clipboard.ContainsText()) code.Text = Clipboard.GetText(); } catch (Exception) { }
+            };
+            El<Button>("BtnPresetAdd").Click += (a, b) => AddPasted(false);
+            El<Button>("BtnPresetAddUse").Click += (a, b) => AddPasted(true);
+        }
+
+        void ShowPresetNow()
+        {
+            if (presets == null) return;
+            var now = presets.FirstOrDefault(p => p.Matches(s));
+            string text = now == null ? "Presets" : now.Name;
+            var t = El<TextBlock>("PresetNow");
+            if (t.Text != text) t.Text = text;
+        }
+
+        void PresetSays(string text) { El<TextBlock>("PresetStatus").Text = text; }
+
+        void ShowPresets()
+        {
+            var list = El<StackPanel>("PresetList");
+            list.Children.Clear();
+            El<TextBlock>("PresetEmpty").Visibility = presets.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var p in presets)
+            {
+                var preset = p;
+                bool on = p.Matches(s);
+                var row = new Grid();
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                words.Children.Add(new TextBlock { Text = p.Name, FontSize = 14.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+                words.Children.Add(new TextBlock { Text = on ? "On now" : PresetTasks(p, true).Count + " tasks on", FontSize = 12.5,
+                                                   Foreground = on ? Res("Gold") : Res("Text3"), Margin = new Thickness(0, 2, 0, 0) });
+                row.Children.Add(words);
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(buttons, 1);
+                var use = new Button { Style = (Style)Window.FindResource(on ? "Btn" : "PrimaryBtn"), Content = "Use", Padding = new Thickness(16, 8, 16, 8), IsEnabled = !on };
+                use.Click += (a, b) => UsePreset(preset);
+                var copy = new Button { Style = (Style)Window.FindResource("Btn"), Content = "Copy code", Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(8, 0, 0, 0),
+                                        ToolTip = "Copies this preset as one line of text, to paste in Discord" };
+                copy.Click += (a, b) =>
+                {
+                    try { Clipboard.SetText(preset.Code()); PresetSays("\"" + preset.Name + "\" copied. Paste it in Discord, others add it with \"Add a shared code\"."); }
+                    catch (Exception) { PresetSays("Couldn't copy it. Try again."); }
+                };
+                bool asked = deleteAsked == p.Name;
+                var del = new Button { Style = (Style)Window.FindResource("GhostBtn"), Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(6, 0, 0, 0),
+                                       Content = new TextBlock { Text = asked ? "Sure? Delete" : "Delete", FontWeight = FontWeights.SemiBold, Foreground = asked ? Res("BloodRed") : Res("Text2") } };
+                del.Click += (a, b) =>
+                {
+                    if (deleteAsked != preset.Name) { deleteAsked = preset.Name; ShowPresets(); return; }
+                    deleteAsked = null;
+                    presets.Remove(preset);
+                    if (SavePresets()) PresetSays("\"" + preset.Name + "\" deleted.");
+                    ShowPresets();
+                };
+                buttons.Children.Add(use);
+                buttons.Children.Add(copy);
+                buttons.Children.Add(del);
+                row.Children.Add(buttons);
+                list.Children.Add(new Border { Style = (Style)Window.FindResource("OptLine"), Child = row });
+            }
+            ShowPresetNow();
+        }
+
+        bool SavePresets()
+        {
+            try { Preset.Save(dir, presets); bot.Remote.Wake(); return true; }
+            catch (Exception e) { PresetSays("Couldn't save the presets: " + e.Message); bot.Log("Couldn't save the presets: " + e.Message); return false; }
+        }
+
+        void SavePreset()
+        {
+            var box = El<TextBox>("PresetNameBox");
+            string name = Preset.CleanName(box.Text);
+            if (name.Length == 0) { PresetSays("Type a name first."); box.Focus(); return; }
+            var p = Preset.From(name, s);
+            int old = presets.FindIndex(o => Preset.SameName(o.Name, name));
+            if (old >= 0) presets[old] = p; else presets.Add(p);
+            deleteAsked = null;
+            if (!SavePresets()) return;
+            box.Text = "";
+            PresetSays(old >= 0 ? "\"" + name + "\" now holds what's on." : "Saved \"" + name + "\".");
+            bot.Log("Preset saved: " + name);
+            ShowPresets();
+        }
+
+        void UsePreset(Preset p)
+        {
+            int skipped = p.ApplyTo(s);
+            Save();
+            RefreshControls();
+            deleteAsked = null;
+            PresetSays("Using \"" + p.Name + "\"." + (skipped > 0 ? " " + skipped + " of its settings didn't fit this version and stay as they were." : ""));
+            bot.Log("Preset: using " + p.Name + (skipped > 0 ? " (" + skipped + " settings left as they were)" : ""));
+            ShowPresets();
+        }
+
+        List<string> PresetTasks(Preset p, bool on)
+        {
+            var names = new List<string>();
+            foreach (var t in tiles)
+            {
+                string field = t.Name == "tile_Reroll" ? "CrewReroll" : TileKey(t);
+                string v = p.Value(field);
+                if (v == null) continue;
+                bool isOn = v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase);
+                if (isOn == on) names.Add(Convert.ToString(t.Content));
+            }
+            return names;
+        }
+
+        void CheckPastedCode()
+        {
+            string text = El<TextBox>("PresetCodeBox").Text;
+            var preview = El<Border>("PresetPreview");
+            pasted = null;
+            if (text.Trim().Length == 0) { preview.Visibility = Visibility.Collapsed; PresetSays(""); return; }
+            string why;
+            var p = Preset.Parse(text, out why);
+            if (p == null) { preview.Visibility = Visibility.Collapsed; PresetSays(why); return; }
+            pasted = p;
+            bool taken = presets.Any(o => Preset.SameName(o.Name, p.Name));
+            El<TextBlock>("PresetPreviewTitle").Text = "Add \"" + p.Name + "\"?" + (taken ? " It replaces your preset of that name." : "");
+            var on = PresetTasks(p, true);
+            var off = PresetTasks(p, false);
+            El<TextBlock>("PresetPreviewOn").Text = "On: " + (on.Count == 0 ? "nothing" : string.Join(", ", on));
+            El<TextBlock>("PresetPreviewOff").Text = "Off: " + (off.Count == 0 ? "nothing" : string.Join(", ", off));
+            preview.Visibility = Visibility.Visible;
+            PresetSays("Your Discord links and your account stay as they are.");
+        }
+
+        void AddPasted(bool use)
+        {
+            if (pasted == null) return;
+            var p = pasted;
+            int old = presets.FindIndex(o => Preset.SameName(o.Name, p.Name));
+            if (old >= 0) presets[old] = p; else presets.Add(p);
+            if (!SavePresets()) return;
+            El<TextBox>("PresetCodeBox").Text = "";
+            bot.Log("Preset added from a code: " + p.Name);
+            if (use) UsePreset(p);
+            else { PresetSays("Added \"" + p.Name + "\"."); ShowPresets(); }
         }
 
         void WireSettings()
@@ -1241,6 +1330,9 @@ namespace IdleMafiaBot
             Combo("cmb_StartHeist", new[] { "Off" }.Concat(Game.HeistNames).ToList(), HeistChoice(),
                   i => { s.StartHeists = i > 0; if (i > 0) s.StartHeist = Game.HeistNames[i - 1]; });
 
+            Combo("cmb_PropertyOnly", new List<string>(), 0, i => { if (!fillingProperties && i >= 0 && i < propertyChoices.Count && propertyChoices[i] != null) s.PropertyOnly = i == 0 ? "" : propertyChoices[i]; });
+            PropertyChoices();
+
             El<HeaderedContentControl>("MarketCard").Visibility = Settings.MarketRelistShown ? Visibility.Visible : Visibility.Collapsed;
 
             var whens = new[] { "Problems", "Rarity", "Property", "Summary", "Level", "Boss" }.Select(n => El<CheckBox>("sw_Discord" + n)).ToList();
@@ -1248,6 +1340,96 @@ namespace IdleMafiaBot
             foreach (var c in whens) { c.Checked += (a, b) => count(); c.Unchecked += (a, b) => count(); }
             count();
             UpdateDerived();
+        }
+
+        const string BestProperty = "Best one (automatic)";
+        List<string> propertyChoices = new List<string> { BestProperty };
+        bool fillingProperties;
+
+        static DataTemplate PropertyTag(bool gold)
+        {
+            var row = new FrameworkElementFactory(typeof(StackPanel));
+            row.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
+            var name = new FrameworkElementFactory(typeof(TextBlock));
+            name.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding());
+            name.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            row.AppendChild(name);
+            var chip = new FrameworkElementFactory(typeof(Border));
+            var ink = gold ? Color.FromRgb(0xE0, 0xB8, 0x4A) : Color.FromRgb(0x7C, 0xC4, 0x6A);
+            chip.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x33, ink.R, ink.G, ink.B)));
+            chip.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+            chip.SetValue(Border.PaddingProperty, new Thickness(5, 0, 5, 1));
+            chip.SetValue(FrameworkElement.MarginProperty, new Thickness(8, 0, 0, 0));
+            chip.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            var word = new FrameworkElementFactory(typeof(TextBlock));
+            word.SetValue(TextBlock.TextProperty, gold ? "GOLD" : "CASH");
+            word.SetValue(TextBlock.FontSizeProperty, 9.5);
+            word.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
+            word.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(ink));
+            chip.AppendChild(word);
+            row.AppendChild(chip);
+            return new DataTemplate { VisualTree = row };
+        }
+
+        DataTemplate cashTag, goldTag;
+
+        void PropertyChoices()
+        {
+            var c = El<ComboBox>("cmb_PropertyOnly");
+            if (cashTag == null) { cashTag = PropertyTag(false); goldTag = PropertyTag(true); }
+            var names = new List<string> { BestProperty };
+            var gold = new HashSet<string>(GameData.GoldProperties);
+            Func<string, bool> listed = n => names.Any(m => m != null && m != BestProperty && Bot.SameProperty(m, n));
+            foreach (var city in GameData.Properties)
+            {
+                names.Add(null);
+                names.Add(city.Key);
+                foreach (var n in city.Value) names.Add(n);
+            }
+            var extra = new List<string>();
+            foreach (var t in (s.PropertySeen ?? "").Split('|').Select(t => t.Trim()))
+            {
+                bool g = t.StartsWith("g:");
+                string n = g ? t.Substring(2).Trim() : t;
+                if (n.Length == 0 || listed(n) || extra.Any(m => Bot.SameProperty(m, n))) continue;
+                extra.Add(n);
+                if (g) gold.Add(n);
+            }
+            string only = (s.PropertyOnly ?? "").Trim();
+            if (only.Length > 0 && !listed(only) && !extra.Any(n => Bot.SameProperty(n, only))) extra.Add(only);
+            if (extra.Count > 0)
+            {
+                names.Add(null);
+                names.Add("Read in your game");
+                names.AddRange(extra);
+            }
+
+            fillingProperties = true;
+            try
+            {
+                var choices = new List<string>();
+                int at = 0;
+                c.Items.Clear();
+                for (int i = 0; i < names.Count; i++)
+                {
+                    if (names[i] == null)
+                    {
+
+                        c.Items.Add(new ComboBoxItem { Content = names[++i].ToUpperInvariant(), IsEnabled = false, FontSize = 11.5, FontWeight = FontWeights.Bold,
+                                                       Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xA2, 0x4A)), Margin = new Thickness(0, 6, 0, 0) });
+                        choices.Add(null);
+                        continue;
+                    }
+                    if (at == 0 && i > 0 && only.Length > 0 && Bot.SameProperty(names[i], only)) at = c.Items.Count;
+                    var item = new ComboBoxItem { Content = names[i], Padding = new Thickness(i == 0 ? 4 : 16, 3, 4, 3) };
+                    if (i > 0) item.ContentTemplate = gold.Contains(names[i]) || gold.Any(g => Bot.SameProperty(g, names[i])) ? goldTag : cashTag;
+                    c.Items.Add(item);
+                    choices.Add(names[i]);
+                }
+                propertyChoices = choices;
+                c.SelectedIndex = at;
+            }
+            finally { fillingProperties = false; }
         }
 
         List<int> goalValues;
@@ -1275,6 +1457,7 @@ namespace IdleMafiaBot
         void RefreshBigPayers()
         {
             if (payers == null) return;
+            El<TextBlock>("FightRespect").Text = "Player fights written down: " + payers.RespectSummary(DateTime.UtcNow);
             var now = DateTime.UtcNow;
             var list = payers.BigPayers(s.BigPayerCash, now);
             payerRows.Clear();
@@ -1415,6 +1598,7 @@ namespace IdleMafiaBot
             SyncRoll();
             ShowCrewOdds();
             SyncRollMode();
+            SyncFightMode();
 
             var names = new[] { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Forbidden" };
             var off = names.Where((n, i) => !s.ShopWants(i)).ToList();
@@ -1507,6 +1691,55 @@ namespace IdleMafiaBot
                 : m == "On" ? "In between the other tasks."
                 : m == "First" ? "Before the other tasks. Full bars, the bank and the shop still get their turn. Back to On once the crew is done."
                 : "Nothing else: rerolls with the cash on hand until the crew is done" + then + ", then the bot stops.";
+        }
+
+        bool syncingFight;
+
+        void WireFightMode()
+        {
+            foreach (var mode in new[] { "Off", "On", "Only" })
+            {
+                string m = mode;
+                El<RadioButton>("FightMode_" + m).Checked += (a, b) => FightModePicked(m);
+            }
+            var tile = El<CheckBox>("sw_Fights");
+            tile.Checked += (a, b) => { if (!syncingFight && FightMode() == "Off") El<RadioButton>("FightMode_On").IsChecked = true; };
+            tile.Unchecked += (a, b) => { if (!syncingFight) El<RadioButton>("FightMode_Off").IsChecked = true; };
+        }
+
+        void FightModePicked(string m)
+        {
+            if (syncingFight) return;
+            if (m == "Only")
+            {
+                if (Covered) { SyncFightMode(); return; }
+                bot.StartFightOnly();
+                ShowState("Working: only fighting players");
+                return;
+            }
+            if (bot.FightOnly) { bot.StopFightOnly(); ShowState("Stopping"); }
+            s.Fights = m != "Off";
+            Save();
+            UpdateDerived();
+        }
+
+        string FightMode() { return bot.FightOnly ? "Only" : !s.Fights ? "Off" : "On"; }
+
+        void SyncFightMode()
+        {
+            string m = FightMode();
+            var rb = El<RadioButton>("FightMode_" + m);
+            var tile = El<CheckBox>("sw_Fights");
+            if (rb.IsChecked != true || tile.IsChecked != (m != "Off"))
+            {
+                syncingFight = true;
+                try { rb.IsChecked = true; tile.IsChecked = m != "Off"; } finally { syncingFight = false; }
+            }
+            El<TextBlock>("FightModeHint").Text =
+                  m == "Off" ? "No player fights."
+                : m == "On" ? "In between the other tasks, with the stamina the bosses leave."
+                : s.OnlyFightsSpendAll ? "Nothing else: attacks until the stamina bar is empty, then waits for it. Stops when nobody is worth attacking."
+                : "Nothing else: attacks with the stamina above the bosses' reserve, then waits for it. Stops when nobody is worth attacking.";
         }
 
         CrewInfo crewSeen;
@@ -1647,6 +1880,7 @@ namespace IdleMafiaBot
                     if (old.Length > 0) bot.Stats.Removed(old);
                     Save();
                     if (t.Length > 0) bot.Stats.Wake();
+                    bot.Remote.Wake();
                 }
                 show();
             };
@@ -1661,6 +1895,81 @@ namespace IdleMafiaBot
             };
         }
 
+        void WireRemote()
+        {
+            var sw = El<CheckBox>("sw_RemoteControl");
+            RoutedEventHandler changed = (a, b) => { bot.Remote.Wake(); ShowRemote(); };
+            sw.Checked += changed;
+            sw.Unchecked += changed;
+            ShowRemote();
+            bot.Remote.PresetNames = () =>
+            {
+                List<string> names = new List<string>();
+                try { Window.Dispatcher.Invoke(new Action(() => { if (presets != null) names = presets.Select(p => p.Name).ToList(); })); } catch (Exception) { }
+                return names;
+            };
+            bot.Remote.Handler = (what, arg, reply) => Ui(() =>
+            {
+                try { RemoteDo(what, arg, reply); }
+                catch (Exception e) { reply(false, "Something went wrong: " + e.Message); }
+            });
+        }
+
+        void ShowRemote()
+        {
+            El<TextBlock>("RemoteHint").Text = !s.RemoteControl ? "Off. Switch it on to use /remote in our Discord: start, stop, status, a preset or a problem report."
+                : StatsCard.IsLink((s.StatsLink ?? "").Trim()) ? "On. Type /remote in our Discord. It takes up to 15 seconds."
+                : "On, but it needs the stats link above first.";
+        }
+
+        void RemoteDo(string what, string arg, Action<bool, string> reply)
+        {
+            switch (what)
+            {
+                case "start":
+                    if (bot.Running) { reply(true, "It's already playing."); return; }
+                    if (Covered) { reply(false, "The bot's window is waiting for you on the PC (the guidelines or the welcome). Press the button there first."); return; }
+                    bot.Start(); ShowState("Starting");
+                    reply(true, "Started. It plays now.");
+                    return;
+                case "stop":
+                    if (!bot.Running) { reply(true, "It's already stopped."); return; }
+                    bot.Stop(); ShowState("Stopping");
+                    reply(true, "Stopped.");
+                    return;
+                case "status":
+                {
+                    string state = !bot.Running ? "Stopped" : bot.OutOfGame ? "Running, but the game is out of reach (disconnected or Roblox closed)" : "Playing";
+                    var p = System.IO.Path.Combine(dir, "problems", "active");
+                    int n = System.IO.Directory.Exists(p) ? System.IO.Directory.GetFiles(p, "*.png").Length : 0;
+                    var now = presets == null ? null : presets.FirstOrDefault(x => x.Matches(s));
+                    string numbers = bot.Stats.NumbersLine();
+                    reply(true, state + "." + (numbers.Length > 0 ? "\n" + char.ToUpper(numbers[0]) + numbers.Substring(1) + "." : "")
+                                + "\nPreset: " + (now != null ? now.Name : "none of yours") + "."
+                                + "\nProblems: " + (n == 0 ? "none" : n.ToString(CultureInfo.InvariantCulture)) + "."
+                                + "\nVersion " + Program.Version + ".");
+                    return;
+                }
+                case "preset":
+                {
+                    var p = presets == null ? null : presets.FirstOrDefault(x => Preset.SameName(x.Name, arg ?? ""));
+                    if (p == null)
+                    {
+                        reply(false, "No preset called \"" + arg + "\"." + (presets != null && presets.Count > 0 ? " Yours: " + string.Join(", ", presets.Select(x => x.Name)) + "." : " You have none yet: save one in the bot (Presets, top bar)."));
+                        return;
+                    }
+                    if (p.Matches(s)) { reply(true, "\"" + p.Name + "\" is already on."); return; }
+                    UsePreset(p);
+                    reply(true, "Using \"" + p.Name + "\" now.");
+                    return;
+                }
+                case "report":
+                    MakeReport(reply);
+                    return;
+            }
+            reply(false, "The bot doesn't know that command.");
+        }
+
         void StatsSays(string text, string brush)
         {
             var t = El<TextBlock>("StatsStatus");
@@ -1672,6 +1981,7 @@ namespace IdleMafiaBot
         {
             El<Button>("BtnStart").Click += (a, b) => Toggle();
             WireRollMode();
+            WireFightMode();
 
             El<Button>("BtnNeverList").Click += (a, b) =>
             {
@@ -1883,8 +2193,10 @@ namespace IdleMafiaBot
             El<Ellipse>("RunGlow").Fill = running ? Res("Green") : Res("Text3");
 
             SyncRollMode();
+            SyncFightMode();
             string shortText = !running ? (st == "Scanning" || st == "Checking" ? st : "Stopped")
                              : bot.RerollOnly && !lower.Contains("using the mouse") ? "Rerolling"
+                             : bot.FightOnly && !lower.Contains("using the mouse") ? "Fighting"
                              : lower.StartsWith("working") ? "Working"
                              : lower.StartsWith("checking") ? "Checking"
                              : lower.Contains("using the mouse") ? "Waiting for you"
@@ -2425,7 +2737,7 @@ namespace IdleMafiaBot
                 Tuple.Create("LuckyPaulie", 42, true, 312e6),
                 Tuple.Create("TinCanTony", 3600, true, 180e6), Tuple.Create("TinCanTony", 3500, true, 205e6),
                 Tuple.Create("QuietHarbor", 600, true, 12e6),
-            }) m.Add(f.Item1, f.Item3, f.Item4, now.AddMinutes(-f.Item2));
+            }) m.Add(f.Item1, f.Item3, f.Item4, f.Item3 ? 12 + f.Item1.Length : -14, -1, now.AddMinutes(-f.Item2));
             UsePayers(m);
         }
 
@@ -2703,6 +3015,7 @@ namespace IdleMafiaBot
             }
 
             El<ComboBox>("cmb_StartHeist").SelectedIndex = HeistChoice();
+            PropertyChoices();
             UpdateDerived();
         }
 
@@ -2796,7 +3109,7 @@ namespace IdleMafiaBot
             El<Button>("BtnOcrSettings").Visibility = ocrProblem != null || warnings.Any(w => w[2] == "lang") ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        void MakeReport()
+        void MakeReport(Action<bool, string> remote = null)
         {
             var btn = El<Button>("BtnReport");
             btn.IsEnabled = false;
@@ -2819,7 +3132,7 @@ namespace IdleMafiaBot
                     btn.IsEnabled = true;
                     El<Button>("BtnReportHome").IsEnabled = true;
                     El<TextBlock>("ReportText").Text = El<TextBlock>("ReportHomeText").Text = "Report a problem";
-                    if (zip == null) { bot.Log("Couldn't make the report: " + error); return; }
+                    if (zip == null) { bot.Log("Couldn't make the report: " + error); if (remote != null) remote(false, "Couldn't make the report: " + error); return; }
                     UpdateProblems();
                     long size = new System.IO.FileInfo(zip).Length;
 
@@ -2830,6 +3143,8 @@ namespace IdleMafiaBot
                         big ? "That's too big for Discord, so open an issue on the bot's GitHub page (Settings, Help) and add it there, with a few words about what went wrong."
                             : "Post it in the Discord (Settings, Help) with a few words about what went wrong.",
                         moved > 0 ? " Its " + moved + " problem picture" + (moved == 1 ? "" : "s") + " moved to problems\\reported, so the red number starts from 0 again." : ""));
+
+                    if (remote != null) { remote(true, "Report saved " + (onDesktop ? "on your Desktop" : "next to the bot") + ": " + System.IO.Path.GetFileName(zip) + ". Post it in #bug-report when you're at your PC."); return; }
                     try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + zip + "\""); } catch (Exception) { }
                 });
             });

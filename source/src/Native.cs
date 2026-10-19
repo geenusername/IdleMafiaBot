@@ -196,14 +196,32 @@ namespace IdleMafiaBot
 
         public static int EmptyPictures, ScreenCopies, Asked;
 
+        public static int HalfDrawn;
+
         static int emptyAt = Environment.TickCount - 60000;
 
         internal static bool TestWhite = false;
 
+        int barDrawnAt = Environment.TickCount - 60000;
+
         Frame ScreenFirstCapture()
         {
             Frame s;
-            if (InSight() && (s = FromScreen()) != null) return s;
+            if (InSight() && (s = FromScreen()) != null)
+            {
+
+                for (int again = 0; again < 4 && !s.TopBarDrawn() && unchecked(Environment.TickCount - barDrawnAt) < 20000; again++)
+                {
+                    Thread.Sleep(250);
+                    var next = InSight() ? FromScreen() : null;
+                    if (next == null) break;
+                    s.Dispose();
+                    s = next;
+                    HalfDrawn++;
+                }
+                if (s.TopBarDrawn()) barDrawnAt = Environment.TickCount;
+                return s;
+            }
 
             if (ScreenOnly || unchecked(Environment.TickCount - emptyAt) < 60000) return White();
             bool ok;
