@@ -918,7 +918,17 @@ namespace IdleMafiaBot
                 if (Window.FindName("Opt_" + key) == null) continue;
                 t.ApplyTemplate();
                 var more = t.Template == null ? null : t.Template.FindName("MoreBtn", t) as Button;
-                if (more != null) { more.Visibility = Visibility.Visible; more.Click += (a, b) => { OpenOptions(key, (string)t.Content, t.Tag as Geometry); b.Handled = true; }; }
+                if (more != null)
+                {
+                    // The dots pile up next to the ••• (the green one lights on check), and the Uid=1
+                    // tiles hide both for the same reason - so the panel-bearing tiles do too.
+                    var dot = t.Template.FindName("Dot", t) as System.Windows.Shapes.Ellipse;
+                    var onDot = t.Template.FindName("OnDot", t) as System.Windows.Shapes.Ellipse;
+                    if (dot != null) dot.Visibility = Visibility.Collapsed;
+                    if (onDot != null) onDot.Visibility = Visibility.Collapsed;
+                    more.Visibility = Visibility.Visible;
+                    more.Click += (a, b) => { OpenOptions(key, (string)t.Content, t.Tag as Geometry); b.Handled = true; };
+                }
             }
             var layer = El<Grid>("OptionsLayer");
             El<Button>("BtnOptionsClose").Click += (a, b) => CloseOptions();
