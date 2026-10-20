@@ -1335,18 +1335,27 @@ namespace IdleMafiaBot
             if (!payerValues.Contains(s.BigPayerCash)) { payerValues.Add(s.BigPayerCash); payerValues.Sort(); }
             Combo("cmb_BigPayerCash", payerValues.Select(PayerName).ToList(), payerValues.IndexOf(s.BigPayerCash), i => s.BigPayerCash = payerValues[i]);
 
+            // The Bank panel carries both ways in two controls: a segmented pick for the mode (after
+            // every round, like always, or at an amount), and under it the amount itself (presets or
+            // typed), which only shows in the amount mode.
             bankAtValues = Settings.BankAts.Where(v => v > 0).OrderBy(v => v).ToList();
-            bankAtValues.Insert(0, 0);
             if (s.BankAt > 0 && !bankAtValues.Contains(s.BankAt))
             {
-                int pos = bankAtValues.Count(v => v > 0 && v < s.BankAt) + 1;
+                int pos = bankAtValues.Count(v => v > 0 && v < s.BankAt);
                 bankAtValues.Insert(pos, s.BankAt);
             }
             bankAtValues.Add(BankAtCustom);
-            Combo("cmb_BankAt", bankAtValues.Select(BankAtName).ToList(), bankAtValues.IndexOf(s.BankAt >= 0 ? s.BankAt : BankAtCustom), i => BankAtPick(bankAtValues[i]));
+            Combo("cmb_BankAt", bankAtValues.Select(BankAtName).ToList(), bankAtValues.IndexOf(s.BankAt > 0 ? s.BankAt : BankAtCustom), i => BankAtPick(bankAtValues[i]));
             var txt = El<TextBox>("txt_BankAt");
             txt.LostKeyboardFocus += (a, b) => CommitBankAt(txt.Text);
             txt.KeyDown += (a, b) => { if (b.Key == Key.Enter) { b.Handled = true; CommitBankAt(txt.Text); } };
+            El<RadioButton>("seg_BankMode_Round").Checked += (a, b) => { if (!bankingSync) { s.BankAt = 0; ShowBankMode(); Save(); UpdateDerived(); } };
+            El<RadioButton>("seg_BankMode_Amount").Checked += (a, b) =>
+            {
+                if (bankingSync) return;
+                if (s.BankAt <= 0) s.BankAt = bankAtValues.FirstOrDefault(v => v > 0);
+                ShowBankMode(); Save(); UpdateDerived();
+            };
 
             rollValues = Settings.AutoRollLimits.ToList();
             if (!rollValues.Contains(s.AutoRollLimit)) { rollValues.Add(s.AutoRollLimit); rollValues.Sort(); }
@@ -1469,13 +1478,35 @@ namespace IdleMafiaBot
 
         static string PayerName(long v) { return "Paid " + SafehouseInfo.Money(v) + " or more in a win"; }
 
-        static string BankAtName(long v) { return v < 0 ? "My own amount…" : v == 0 ? "After every round" : SafehouseInfo.Money(v); }
+        static string BankAtName(long v) { return v < 0 ? "My own amount…" : SafehouseInfo.Money(v); }
 
         const long BankAtCustom = -1;
+        bool bankingSync;
+
+        void ShowBankMode()
+        {
+            bankingSync = true;
+            El<RadioButton>("seg_BankMode_Round").IsChecked = s.BankAt <= 0;
+            El<RadioButton>("seg_BankMode_Amount").IsChecked = s.BankAt > 0;
+            bankingSync = false;
+            El<Border>("BankAtRow").Visibility = s.BankAt > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (s.BankAt > 0)
+            {
+                if (!bankAtValues.Contains(s.BankAt)) InsertBankAtValue(s.BankAt);
+                El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(s.BankAt);
+            }
+        }
+
+        void InsertBankAtValue(long v)
+        {
+            int pos = bankAtValues.Count(x => x > 0 && x < v);
+            bankAtValues.Insert(pos, v);
+            El<ComboBox>("cmb_BankAt").Items.Insert(pos, BankAtName(v));
+        }
 
         void BankAtPick(long v)
         {
-            if (v >= 0) s.BankAt = v;
+            if (v > 0) s.BankAt = v;
             bool custom = v < 0;
             El<Border>("txt_BankAtBox").Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
             El<TextBlock>("BankAtHint").Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
@@ -1506,12 +1537,7 @@ namespace IdleMafiaBot
             }
             long bank = (long)Math.Min(amt, 1e15);
             s.BankAt = bank;
-            if (!bankAtValues.Contains(bank))
-            {
-                int pos = bankAtValues.Count(v => v > 0 && v < bank) + 1;
-                bankAtValues.Insert(pos, bank);
-                El<ComboBox>("cmb_BankAt").Items.Insert(pos, BankAtName(bank));
-            }
+            if (!bankAtValues.Contains(bank)) InsertBankAtValue(bank);
             El<TextBlock>("BankAtHint").Text = "";
             El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(bank);
         }
@@ -1687,6 +1713,9 @@ namespace IdleMafiaBot
 
             El<ComboBox>("cmb_BankAt").IsEnabled = s.Bank;
             El<Border>("txt_BankAtBox").IsEnabled = s.Bank;
+            El<RadioButton>("seg_BankMode_Round").IsEnabled = s.Bank;
+            El<RadioButton>("seg_BankMode_Amount").IsEnabled = s.Bank;
+            El<Border>("BankAtRow").Opacity = s.Bank ? 1 : 0.45;
 
             El<Border>("LuckRollBar").IsEnabled = s.Events;
             El<Border>("LuckRollBar").Opacity = s.Events ? 1 : 0.45;
@@ -3067,15 +3096,9 @@ namespace IdleMafiaBot
             }
             if (bankAtValues != null)
             {
-                if (s.BankAt > 0 && !bankAtValues.Contains(s.BankAt))
-                {
-                    int pos = bankAtValues.Count(v => v > 0 && v < s.BankAt) + 1;
-                    bankAtValues.Insert(pos, s.BankAt);
-                    El<ComboBox>("cmb_BankAt").Items.Insert(pos, BankAtName(s.BankAt));
-                }
-                El<ComboBox>("cmb_BankAt").SelectedIndex = s.BankAt >= 0 ? bankAtValues.IndexOf(s.BankAt) : bankAtValues.IndexOf(BankAtCustom);
-                var box = El<Border>("txt_BankAtBox");
-                box.Visibility = s.BankAt >= 0 ? Visibility.Collapsed : Visibility.Visible;
+                if (s.BankAt > 0 && !bankAtValues.Contains(s.BankAt)) InsertBankAtValue(s.BankAt);
+                ShowBankMode();
+                if (s.BankAt > 0) El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(s.BankAt);
             }
             if (rollValues != null)
             {
