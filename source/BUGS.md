@@ -17,6 +17,12 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 |----|--------|---------|-------|--------|
 | #1 | Fights | Only fighting: after analyzing the player, it can't find the profile's X and gets stuck (fights wait 5 min) | done | this commit |
 | #2 | Fights | Fights aren't guaranteed enough: it attacked without scouting (ScoutFights default off) and only asked for 85% (about 20% more attack) before the analysis of the fight rolls proved 90% needs a 1.25x attack | done | this commit |
+| #3 | Remote | `/remote start` from Discord starts the macro even with Roblox closed; it should say Roblox isn't open and not start | verifying | |
+| #4 | Fights | The fight result's reward lines read corrupted ("VICTORY (-ucife ealth -21 Q evect)" instead of "+21 Respect"), so the fight is remembered with 0 respect even though the game paid +15/+19 | fixing | |
+| #5 | Fights | After SCOUT the profile's numbers reload and the 15 looks (~5 s) gave up too soon, so a scouted player was wrongly "unreadable" | verifying | |
+| #6 | Takedown/Bank/Give stamina | The game's notification toasts cover the top bars: "stamina unreadable (3 tries)" stuck the Takedown for 30+ min, give stamina waited, and a withdraw for $10.2B fell back to WITHDRAW ALL that took the whole $3.42T out | fixing | |
+| #7 | Bosses | Twice in a row it read "every stage beaten today (highest 2)" when the highest was 28 (a fresh list misread) - bosses skipped for two rounds | new | |
+| #8 | Crew | One look at a half-loaded crew page reading the AUTO buttons greyed turned Auto Roll off "until the bot is started again", though the pass was on (the game's own auto roll landed a Secret) | verifying | |
 
 ### #1 - Doesn't close the player's profile when fighting (only-fight mode)
 - Module: Fights (player profile)
@@ -37,6 +43,43 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 - Fix: `ScoutFights` and `FightWinChance` now default to on and 90, and the settings hint says 90 is about 25% more attack while 100 only attacks players whose best roll can't beat the worst one.
 - Verification: done (user ran the bot with the new defaults: it scouted first and only attacked at the 90% odds).
 - Commit: this one.
+
+### #3 - Remote start works with Roblox closed
+- Module: Remote (Discord control)
+- File(s): `src/UiWindow.cs` - `RemoteDo`, `src/Bot.cs`
+- Symptom: `start` from Discord answers "Started. It plays now." even when Roblox isn't open; the macro runs blind (and with Rejoin on it tries to launch Roblox by itself). The user expects a clear refusal.
+- Steps to reproduce: close Roblox, leave the bot's window open, send `/remote start` in the Discord channel.
+- Cause: the remote `start` only checks `bot.Running` and the window being covered, never whether the Roblox window is there.
+- Fix: new `Bot.RobloxOpen()` (`game.Win.Find()`); the remote `start` refuses with "Roblox isn't open..." on Discord, and `status` says "Stopped (Roblox isn't open)".
+- Verification: pending.
+- Commit: pending.
+
+### #6 - Notification toasts cover the top bars
+- Module: Takedown / Bank / Give stamina (top bar)
+- File(s): `src/TerritoryToast.cs`, `src/Bot.cs`, `src/Game.cs`
+- Symptom (account Lordbane, 1.8.1): three "stamina unreadable" at the Takedown ("stuck since 00:42"), "Give stamina: the stamina bar stayed covered by notifications", and `Bank: WITHDRAW pressed for $10.2B, but the top bar shows no cash coming out - WITHDRAW ALL instead` right after taking $36.2B out → WITHDRAW ALL lifted the whole $3.42T (unprotected for seconds).
+- Evidence: report zip 2026-10-19 01:06 (system.txt says "Roblox isn't open" because it was made after closing).
+- Cause: the toasts ("Hired ...", "Deposited 23 items ...", "SHIPMENT SEIZED") stack over the bars and persist; only the shipment/territory ones are closed by name.
+- Fix: `ToastX`/`CloseNotifications()` (grey cross at the strip's right, only with a long line of words beside it) pressed in GiveStaminaHere, the Takedown's stamina wait, and `WithdrawAmount` before "no cash coming out" counts (it re-reads the bars after closing).
+- Verification: pending.
+- Commit: pending.
+
+### #7 - Bosses misread a fresh reset as "highest 2"
+- Module: Bosses
+- File(s): likely `src/Bot.cs` (bosses round)
+- Symptom: at 00:19 and 00:25 of the same report it said "every stage you can reach is beaten today (highest 2)" while the game's list showed highest stage 28 (and the 00:17 check had read 28); by 00:38 it read 28 again. Bosses were skipped for two rounds.
+- Evidence: same zip.
+- Cause: not dug into yet; possibly a mid-render list read (the reset had just happened).
+- Next: watch for it again, then dig.
+
+### #8 - One greyed-AUTO look turns Auto Roll off for the restart
+- Module: Crew (Auto Roll)
+- File(s): `src/Bot.cs` - `StartRollInto`, `src/AutoRoll.cs`, `src/Crew.cs`
+- Symptom: Lordbane's Auto Roll pass is on, but a single reading of the crew page (11 s after a bank round, page half-loading, "HIRE -25% ?" on the screen) read every row's AUTO greyed, and `StartRollInto` set `autoRollOff = true`: "off until the bot is started again". Later the game itself showed "Auto Roll landed Zofia 'Big Hat' Kuznetsov (Secret) after 76 hires for $570M", proving the pass works.
+- Cause: `row.AutoActive` comes from one `LightInk` reading of the button; a mid-load page reads grey, and the punishment isn't repeated or delayed.
+- Fix: three no-pass looks in a row (10 minutes apart) disable it; a successful start or a plain reading error resets the count.
+- Verification: pending.
+- Commit: pending.
 
 ## Commit convention
 

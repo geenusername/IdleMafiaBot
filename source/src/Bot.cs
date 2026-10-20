@@ -4387,6 +4387,7 @@ namespace IdleMafiaBot
 
         AutoRun autoRun;
         bool autoRollOff;
+        int autoRollGrey;
         DateTime autoRollNext = DateTime.MinValue;
         DateTime autoRollRest = DateTime.MinValue;
         const int AutoRollMinutes = 3;
@@ -4417,17 +4418,30 @@ namespace IdleMafiaBot
                 autoRun = null;
                 if (game.AutoRollNoPass)
                 {
-                    autoRollOff = true;
-                    Log("Auto Roll: " + game.AutoRollWhy + " - off until the bot is started again; the bot hires itself as before");
+                    // A half-loaded crew page can show every row's AUTO greyed, so one look doesn't
+                    // prove the pass is gone (the game's own auto roll can land the next second).
+                    // It takes three looks in a row for the pass to count as off.
+                    autoRollGrey++;
+                    if (autoRollGrey >= 3)
+                    {
+                        autoRollOff = true;
+                        Log("Auto Roll: " + game.AutoRollWhy + " - three looks in a row, so it's taken as gone until the bot is started again; the bot hires itself as before");
+                    }
+                    else
+                    {
+                        autoRollNext = DateTime.UtcNow.AddMinutes(10);
+                        Log("Auto Roll: " + game.AutoRollWhy + " (try " + autoRollGrey + " of 3) - looking again in 10 minutes; the bot hires itself meanwhile");
+                    }
                 }
                 else
                 {
-
+                    autoRollGrey = 0;
                     autoRollNext = DateTime.UtcNow.AddMinutes(30);
                     Log("Auto Roll: not started on " + worst.Name + "'s slot - " + game.AutoRollWhy + "; the bot hires into it itself (Auto Roll again in 30 minutes)");
                 }
                 return false;
             }
+            autoRollGrey = 0;
 
             var run = autoRun != null && !autoRun.Running && autoRun.Tier == roll && autoRun.Target == best ? autoRun : new AutoRun { Tier = roll, Target = best };
             if (run.Spent > 0) run.SpentBefore += run.Spent;
@@ -6058,6 +6072,11 @@ namespace IdleMafiaBot
         bool disconnectSaid, awayYours;
 
         public bool OutOfGame { get { return offlineSaid || awayOut; } }
+
+        // True when the Roblox window is open right now. The remote start from Discord asks for it
+        // so it says so on Discord and doesn't start the bot with nothing to play in.
+        public bool RobloxOpen() { return game != null && game.Win.Find(); }
+
         Counters summaryFrom;
         int summaryLevel = -1, levelSaid = -1, levelSeen = -1, levelSaidXp = -1, rerollsSaid;
 
@@ -6438,6 +6457,10 @@ namespace IdleMafiaBot
 
                 if (bars.Stamina < 0 || bars.Stamina <= Kept(bars.StaminaMax))
                 {
+                    if (bars.Stamina < 0 && game.CloseNotifications() > 0) bars = ReadBarsSettled(3000, x => x.Health >= 0 && x.Stamina >= 0);
+                }
+                if (bars.Stamina < 0 || bars.Stamina <= Kept(bars.StaminaMax))
+                {
 
                     if (bars.Stamina >= 0) takedownWants = Math.Max(1, t.Free);
 
@@ -6595,16 +6618,21 @@ namespace IdleMafiaBot
             bool open = false;
             if (h.Stamina < 0)
             {
-
-                if (!FamilyOpen("PERKS", ref nextGive)) return;
-                open = true;
-                h = ReadBarsSettled(6000);
+                // A notification toast over the bars hides them: close the toasts and read again
+                // before it is taken as covered.
+                if (game.CloseNotifications() > 0) h = ReadBarsSettled(3000);
                 if (h.Stamina < 0)
                 {
-                    SayOnce("give stamina covered", "Give stamina: the stamina bar stayed covered by notifications - it tries again in 2 minutes");
-                    SnapshotOnce("stamina bar covered at give stamina");
-                    nextGive = DateTime.UtcNow.AddMinutes(2);
-                    return;
+                    if (!FamilyOpen("PERKS", ref nextGive)) return;
+                    open = true;
+                    h = ReadBarsSettled(6000);
+                    if (h.Stamina < 0)
+                    {
+                        SayOnce("give stamina covered", "Give stamina: the stamina bar stayed covered by notifications - it tries again in 2 minutes");
+                        SnapshotOnce("stamina bar covered at give stamina");
+                        nextGive = DateTime.UtcNow.AddMinutes(2);
+                        return;
+                    }
                 }
             }
             if (WhyNotGive(h) != null) { Neutral(); return; }
