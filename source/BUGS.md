@@ -15,32 +15,8 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 
 | ID | Module | Symptom | State | Commit |
 |----|--------|---------|-------|--------|
-| #3 | Remote | `/remote start` from Discord starts the macro even with Roblox closed; it should say Roblox isn't open and not start | verifying | |
-| #6 | Takedown/Bank/Give stamina | The game's notification toasts cover the top bars: "stamina unreadable (3 tries)" stuck the Takedown for 30+ min, give stamina waited, and a withdraw for $10.2B fell back to WITHDRAW ALL that took the whole $3.42T out | verifying | |
 | #11 | Top bar / Fights / Takedown | Roblox's own title bar covers the game's top bar (energy/cash/name row): every stamina read returns "the bar measured nothing", so fights log "Couldn't read stamina - no attacks this round" and takedowns sit stuck ("stamina unreadable at the takedown") for hours, even in only-fight mode | verifying | |
 | #12 | Operations | Operations ready but not collected/started; the Home tile shows "Operations 1m left" and stays; during the 2X OPERATION SPEED event the timer doesn't update; bot looked at takedowns/donations wasted the stamina | reproducing | |
-
-### #3 - Remote start works with Roblox closed
-- ID: #3 (remote control)
-- Module: Remote (Discord control)
-- File(s): `src/UiWindow.cs` - `RemoteDo`, `src/Bot.cs`
-- Symptom: `start` from Discord answers "Started. It plays now." even when Roblox isn't open; the macro runs blind (and with Rejoin on it tries to launch Roblox by itself). The user expects a clear refusal.
-- Steps to reproduce: close Roblox, leave the bot's window open, send `/remote start` in the Discord channel.
-- Cause: the remote `start` only checks `bot.Running` and the window being covered, never whether the Roblox window is there.
-- Fix: `Bot.RobloxOpen()` (`game.Win.Find()`, already committed); the remote `start` refuses with "Roblox isn't open..." on Discord, and `status` says "Stopped (Roblox isn't open)".
-- Verification: pending.
-- Commit: 8f3b8bc.
-
-### #6 - Notification toasts cover the top bars
-- ID: #6 (report zip 2026-10-19 01:06)
-- Module: Takedown / Bank / Give stamina (top bar)
-- File(s): `src/TerritoryToast.cs` - `ToastX`, `CloseNotifications`, `src/Bot.cs`, `src/Game.cs`
-- Symptom (account Lordbane, 1.8.1): three "stamina unreadable" at the Takedown ("stuck since 00:42"), "Give stamina: the stamina bar stayed covered by notifications", and `Bank: WITHDRAW pressed for $10.2B, but the top bar shows no cash coming out - WITHDRAW ALL instead` right after taking $36.2B out → WITHDRAW ALL lifted the whole $3.42T (unprotected for seconds).
-- Evidence: report zip 2026-10-19 01:06 (system.txt says "Roblox isn't open" because it was made after closing).
-- Cause: the toasts ("Hired ...", "Deposited 23 items ...", "SHIPMENT SEIZED") stack over the bars and persist; only the shipment/territory ones are closed by name.
-- Fix: `ToastX`/`CloseNotifications()` (grey cross at the strip's right, only with a long line of words beside it) pressed in GiveStaminaHere, the Takedown's stamina wait, and `WithdrawAmount` before "no cash coming out" counts (it re-reads the bars after closing). Note: the call sites were committed in 1.8.1 pointing at a `CloseNotifications` that only existed uncommitted - this commit brings the implementation that makes the tree build.
-- Verification: build.ps1 passes; in-game pending.
-- Commit: 40be335.
 
 ### #11 - Roblox's title bar covers the game's top bar
 - ID: #11 (forum report #5, @JAS24J)
