@@ -1469,7 +1469,7 @@ namespace IdleMafiaBot
 
         static string PayerName(long v) { return "Paid " + SafehouseInfo.Money(v) + " or more in a win"; }
 
-        static string BankAtName(long v) { return v < 0 ? "My own amount…" : v == 0 ? "Off" : SafehouseInfo.Money(v); }
+        static string BankAtName(long v) { return v < 0 ? "My own amount…" : v == 0 ? "After every round" : SafehouseInfo.Money(v); }
 
         const long BankAtCustom = -1;
 

@@ -1506,15 +1506,15 @@
                 <Border Style="{StaticResource OptLine}">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Auto bank at" FontSize="14"/>
-                      <TextBlock Text="Off: only after each round, like before. Pick an amount or type your own: the bot banks the moment the cash on hand reaches it." Style="{StaticResource Hint}" FontSize="12.5"/>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="When to bank" FontSize="14"/>
+                      <TextBlock Text="After every round banks everything each round, like before. With an amount it only banks when the cash on hand reaches it - useful while it fights. To turn banking off, untick the task." Style="{StaticResource Hint}" FontSize="12.5"/>
                       <TextBlock x:Name="BankAtHint" Text="" Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                       <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Height="36" Padding="10,0" Visibility="Collapsed" x:Name="txt_BankAtBox">
                         <TextBox x:Name="txt_BankAt" Width="110" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
                                  FontSize="13.5" ToolTip="Your own amount, like 25B, 750M or 2500000000"/>
                       </Border>
-                      <ComboBox x:Name="cmb_BankAt" Width="190" Height="36" VerticalAlignment="Center" Margin="10,0,0,0" ToolTip="The cash on hand that makes the bot bank right away - Off banks only after each round"/>
+                      <ComboBox x:Name="cmb_BankAt" Width="190" Height="36" VerticalAlignment="Center" Margin="10,0,0,0" ToolTip="After every round banks each round like before; with an amount, the bot banks when the cash on hand reaches it"/>
                     </StackPanel>
                   </Grid>
                 </Border>

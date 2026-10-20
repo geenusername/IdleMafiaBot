@@ -865,7 +865,10 @@ namespace IdleMafiaBot
 
             if (Settings.MarketRelistShown && (S.MarketRelist || S.MarketPending.Length > 0) && now >= nextMarket && Can(Tab.BlackMarket)) due.Add("relist");
 
-            if (S.Bank && (now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1)) || (S.BankAt > 0 && h.Cash >= S.BankAt)) && Can(Tab.Bank) && !AutoRollHoldsBank()) due.Add("bank");
+            // Two ways to bank, and the user picks one: BankAt==0 banks everything after each round the
+            // way it always has; an amount only banks when the top bar's cash reads at or over it, so a
+            // long fights session doesn't deposit (and pay a fee) over and over before the money adds up.
+            if (S.Bank && ((S.BankAt <= 0 && (now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1))) || (S.BankAt > 0 && h.Cash >= S.BankAt)) && Can(Tab.Bank) && !AutoRollHoldsBank())) due.Add("bank");
 
             bool lucky = RerollsLead();
             if (rerolls && (due.Count == 0 || lucky) && S.CrewReroll && now >= nextReroll && RerollCashOk(h, now) && Can(Tab.Crew))
