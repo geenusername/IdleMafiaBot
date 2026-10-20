@@ -1929,6 +1929,7 @@ namespace IdleMafiaBot
                 case "start":
                     if (bot.Running) { reply(true, "It's already playing."); return; }
                     if (Covered) { reply(false, "The bot's window is waiting for you on the PC (the guidelines or the welcome). Press the button there first."); return; }
+                    if (!bot.RobloxOpen()) { reply(false, "Roblox isn't open (or its window is still coming up), so there's nothing to play in. Open Idle Mafia Game in Roblox first, then send start again."); return; }
                     bot.Start(); ShowState("Starting");
                     reply(true, "Started. It plays now.");
                     return;
@@ -1939,7 +1940,7 @@ namespace IdleMafiaBot
                     return;
                 case "status":
                 {
-                    string state = !bot.Running ? "Stopped" : bot.OutOfGame ? "Running, but the game is out of reach (disconnected or Roblox closed)" : "Playing";
+                    string state = !bot.Running ? bot.RobloxOpen() ? "Stopped" : "Stopped (Roblox isn't open)" : bot.OutOfGame ? "Running, but the game is out of reach (disconnected or Roblox closed)" : "Playing";
                     var p = System.IO.Path.Combine(dir, "problems", "active");
                     int n = System.IO.Directory.Exists(p) ? System.IO.Directory.GetFiles(p, "*.png").Length : 0;
                     var now = presets == null ? null : presets.FirstOrDefault(x => x.Matches(s));
