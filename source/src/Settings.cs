@@ -143,7 +143,7 @@ namespace IdleMafiaBot
         public bool CrewAutoRoll = false;
         public long AutoRollLimit = 1000000000;
 
-        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000 };
+        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000, 50000000000, 200000000000 };
 
         public bool TrainCrew = true;
         public int TrainAtOnce = 1;

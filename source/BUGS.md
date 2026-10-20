@@ -22,7 +22,9 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 | #5 | Fights | After SCOUT the profile's numbers reload and the 15 looks (~5 s) gave up too soon, so a scouted player was wrongly "unreadable" | verifying | |
 | #6 | Takedown/Bank/Give stamina | The game's notification toasts cover the top bars: "stamina unreadable (3 tries)" stuck the Takedown for 30+ min, give stamina waited, and a withdraw for $10.2B fell back to WITHDRAW ALL that took the whole $3.42T out | fixing | |
 | #7 | Bosses | Twice in a row it read "every stage beaten today (highest 2)" when the highest was 28 (a fresh list misread) - bosses skipped for two rounds | new | |
-| #8 | Crew | One look at a half-loaded crew page reading the AUTO buttons greyed turned Auto Roll off "until the bot is started again", though the pass was on (the game's own auto roll landed a Secret) | verifying | |
+| #8 | Crew | One look at a half-loaded crew page reading the AUTO buttons greyed turned Auto Roll off "until the bot is started again", though the pass was on (the game's own auto roll landed a Secret) | verifying | b8d637f |
+| #9 | Properties | "property build not gold" reports with $2T in the bank: a full block's build is its buy-out price, and the readiness check only counted the cash on hand, not the bank | verifying | |
+| #10 | Crew | Auto Roll limit options stop at $10B; a player asked to roll until $200B | verifying | |
 
 ### #1 - Doesn't close the player's profile when fighting (only-fight mode)
 - Module: Fights (player profile)
@@ -79,7 +81,27 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 - Cause: `row.AutoActive` comes from one `LightInk` reading of the button; a mid-load page reads grey, and the punishment isn't repeated or delayed.
 - Fix: three no-pass looks in a row (10 minutes apart) disable it; a successful start or a plain reading error resets the count.
 - Verification: pending.
+- Commit: b8d637f.
+
+### #9 - A full block's build ignores the banked cash
+- Module: Properties
+- File(s): `src/Game.cs` - `BuildReady`, `src/Bot.cs` - `Replace`
+- Symptom (AutoBrewingOP's zip, chow8005): three "property build not gold" snapshots while every block on the BUILD page reads "BLOCK FULL ($184B...$1.14T)"; at the time he had ~$2T banked but little on hand. BuildReady's full-block branch only checked the cash on hand against the buy-out price, so a rich-in-the-bank account reports the problem forever and never builds.
+- Fix: `BuildReady(target, out need)` now reports when the cash on hand plus the bank covers the price (without the problem snapshot); `Replace` withdraws for it first, then asks again.
+- Verification: pending.
 - Commit: pending.
+
+### #10 - Auto Roll limit options stop at $10B
+- Module: Crew (Auto Roll)
+- File(s): `src/Settings.cs`
+- Symptom: the limit picker's values are fixed at 100M to 10B; AutoBrewingOP asked to roll until 200B.
+- Fix: $50B and $200B added to `AutoRollLimits` (the picker builds from that list).
+- Verification: pending.
+- Commit: pending.
+
+### Observations pending from the same zip (not logged as bugs yet)
+- `fight-refresh-changed-nothing` x4 and `attack-did-not-start` x4 (Oct 18): the fight page shows rows on WAIT(17s/25s) and BREAK SHIELD; needs the report's log to see if the bot attacked shielded rows or just fell on the same cooldowns.
+- "Shop won't buy anything": the shop screenshots all show the -25% sale decree chip and everything cash-bought "SOLD OUT"; needs the log text (the zip's log couldn't be pulled from Discord: only the pictures landed).
 
 ## Commit convention
 

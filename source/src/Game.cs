@@ -2645,7 +2645,10 @@ namespace IdleMafiaBot
                 Press(p.Scout, 700);
                 paid = true;
 
-                var after = LookAtProfile(15, x => x.Read);
+                // The profiles' numbers reload after a SCOUT and a busy PC shows them late, so wait a
+                // moment and then keep looking past the wait the normal reads take.
+                Wait(500);
+                var after = LookAtProfile(25, x => x.Read);
                 if (after == null || !after.Read) { why = "the numbers didn't read after SCOUT"; Snapshot("fight scout unreadable", 60); return null; }
                 Snapshot("fight scouted", 0, true, false);
                 return after;
@@ -2680,6 +2683,14 @@ namespace IdleMafiaBot
         public static bool DailyLimit(string text)
         {
             return text != null && Regex.IsMatch(text.ToUpperInvariant().Replace('1', 'I'), @"DAILY\s*LIMIT|LIMIT\s+REACHED");
+        }
+
+        // The reward lines' OCR has to show at least one signed number followed by a short word
+        // ("+21 Respect", "-160 Health", "+207 XP"). Halfway pictures lose the digits or mangle
+        // them together with the words, and that's when the fight must be read again.
+        static bool RewardRead(string spoils)
+        {
+            return Regex.IsMatch(spoils ?? "", @"[+-]\s?[0-9OoIlS]{1,4}(?:[,.][0-9OoIlS]{1,3})*\s+[A-Za-z]{2}", RegexOptions.IgnoreCase);
         }
 
         internal static string TopRightHospitalized(Frame f)
@@ -2893,6 +2904,7 @@ namespace IdleMafiaBot
             LastOwnRoll = LastOtherRoll = LastOwnAttack = LastOtherDefense = -1;
             if (FightGone != null) { FightGone.Dispose(); FightGone = null; }
             bool first = true;
+            int spoiled = 0;
 
             bool windowUp = false, lastUp = false;
             int goneLooks = 0;
@@ -2914,7 +2926,11 @@ namespace IdleMafiaBot
                     {
                         string all = string.Join(" ", lines.Select(l => l.Text)).ToUpperInvariant();
                         var rewards = lines.Where(l => l.Box.Bottom < done.Box.Y && l.Box.Y > done.Box.Y - 4 * done.Box.Height
-                                                       && (l.Text.Contains("+") || l.Text.Contains("-"))).Select(l => l.Text);
+                                                       && (l.Text.Contains("+") || l.Text.Contains("-"))).Select(l => l.Text).ToList();
+                        // The reward lines ("+21 Respect", "-160 Health") slide in as the window opens,
+                        // so a picture taken halfway garbles them into things like "ucife ealth" and the
+                        // fight is remembered with 0 respect. Put the numbers off and read again.
+                        if (!RewardRead(string.Join(" ", rewards)) && spoiled++ < 2) { Wait(500); continue; }
                         string outcome = all.Contains("VICTORY") ? "VICTORY" : all.Contains("DEFEAT") ? "DEFEAT" : "DONE";
                         if (outcome == "VICTORY") LastFightCash = WinCash(f, lines, done);
                         ReadFightWindow(f, done);
@@ -3325,6 +3341,13 @@ namespace IdleMafiaBot
             string toast = BankToast();
             string moved = AmountMoved(before, amount, out seen);
             if (!seen && toast != null && moved == BankUnread) seen = true;
+            else if (!seen && (moved == BankUnchanged || moved == BankUnread))
+            {
+                // A notification toast over the top bar, or Roblox lagging, hides the cash coming
+                // out. Close the toasts and read the bars again before the withdraw counts as
+                // unchanged, otherwise WITHDRAW ALL takes the whole bank out.
+                if (CloseNotifications() > 0) moved = AmountMoved(before, amount, out seen);
+            }
             return toast != null ? toast.Trim() + (seen && moved != BankUnread ? " - " + moved : "") : moved;
         }
 
@@ -4230,31 +4253,36 @@ namespace IdleMafiaBot
         // The X that closes a player profile sits at the top-right of the dialog, often far from the
         // title and next to the gold gift button. SkillWindowX stops its search at the first gold it
         // meets on the title's row, and the gift button is gold, so it can miss the X and leave the
-        // profile open. This looks for the grey cross itself, ignoring the gold, by grouping the grey
-        // pixels to the right of the title into blobs and keeping the first cross-shaped one.
+        // profile open. This looks for the grey cross itself, ignoring the gold, anywhere to the
+        // right of the title on the title's row.
         internal static Point ProfileClose(Frame f, OcrLine title, Rectangle popup)
         {
             int th = Math.Max(Math.Max(8, title.Box.Height), (int)(21 * Math.Min(f.Height / 1009.0, f.Width / 1790.0)));
-            Func<int, int, bool> grey = (x, y) =>
-            {
-                var c = f.Pixel(x, y);
-                int mx = Math.Max(c.R, Math.Max(c.G, c.B)), mn = Math.Min(c.R, Math.Min(c.G, c.B));
-                return mx >= 110 && mx - mn <= 25;
-            };
-            int top = Math.Max(0, title.CenterY - th * 6 / 5);
-            int bottom = Math.Min(f.Height - 1, title.CenterY + th * 6 / 5);
-            int left = Math.Max(0, title.Box.Right + th);
-            int right = Math.Min(f.Width - 1, popup.Right);
+            var area = Rectangle.FromLTRB(title.Box.Right + th, Math.Max(0, title.CenterY - th * 6 / 5),
+                                          popup.Right, title.CenterY + th * 6 / 5);
+            return CrossIn(f, area, th, false);
+        }
+
+        // Finds a grey cross (an x) inside the area: the grey pixels are grouped into blobs and the
+        // first cross-shaped one about the size of th is returned. The close buttons of the game's
+        // dialogs and the toasts' x are such crosses. Gold pixels are ignored (they'd join the
+        // blobs), and so are the blobs at the far side, so a dialog's X isn't confused with the
+        // grey behind the page.
+        internal static Point CrossIn(Frame f, Rectangle area, int th, bool rightmost)
+        {
+            int top = Math.Max(0, area.Y), bottom = Math.Min(f.Height - 1, area.Bottom - 1);
+            int left = Math.Max(0, area.X), right = Math.Min(f.Width - 1, area.Right - 1);
             if (right - left < 6 || bottom - top < 6) return Point.Empty;
             int w = right - left + 1, rows = bottom - top + 1;
+            if ((long)w * rows > 4000000) return Point.Empty;
             var seen = new bool[w * rows];
-            var stack = new Stack<int>();
+            var stack = new System.Collections.Generic.Stack<int>();
             Point best = Point.Empty;
             for (int y = top; y <= bottom; y++)
                 for (int x = left; x <= right; x++)
                 {
                     int start = (y - top) * w + (x - left);
-                    if (seen[start] || !grey(x, y)) continue;
+                    if (seen[start] || !GreyAt(f, x, y)) continue;
                     stack.Clear(); stack.Push(start); seen[start] = true;
                     int x0 = x, x1 = x, y0 = y, y1 = y;
                     while (stack.Count > 0)
@@ -4271,17 +4299,24 @@ namespace IdleMafiaBot
                                 int nx = cx + dx, ny = cy + dy;
                                 if ((dx == 0 && dy == 0) || nx < left || nx > right || ny < top || ny > bottom) continue;
                                 int ni = (ny - top) * w + (nx - left);
-                                if (seen[ni] || !grey(nx, ny)) continue;
+                                if (seen[ni] || !GreyAt(f, nx, ny)) continue;
                                 seen[ni] = true; stack.Push(ni);
                             }
                     }
                     int bw = x1 - x0 + 1, bh = y1 - y0 + 1;
                     if (bw < th / 3 || bh < th / 3 || bw > 2 * th || bh > 2 * th || bw > 1.5 * bh || bh > 1.5 * bw) continue;
                     int ccx = (x0 + x1) / 2, ccy = (y0 + y1) / 2;
-                    if (!grey(ccx, ccy) || grey(ccx, y0 + 1) || grey(ccx, y1 - 1) || grey(x0 + 1, ccy) || grey(x1 - 1, ccy)) continue;
-                    if (best.IsEmpty || ccx < best.X) best = new Point(ccx, ccy);
+                    if (!GreyAt(f, ccx, ccy) || GreyAt(f, ccx, y0 + 1) || GreyAt(f, ccx, y1 - 1) || GreyAt(f, x0 + 1, ccy) || GreyAt(f, x1 - 1, ccy)) continue;
+                    if (best.IsEmpty || (rightmost ? ccx > best.X : ccx < best.X)) best = new Point(ccx, ccy);
                 }
             return best;
+        }
+
+        internal static bool GreyAt(Frame f, int x, int y)
+        {
+            var c = f.Pixel(x, y);
+            int mx = Math.Max(c.R, Math.Max(c.G, c.B)), mn = Math.Min(c.R, Math.Min(c.G, c.B));
+            return mx >= 110 && mx - mn <= 25;
         }
 
         internal static int PointsToSpend(int window, int topBar, int put)
@@ -5537,17 +5572,23 @@ namespace IdleMafiaBot
             return false;
         }
 
-        public bool BuildReady(PropertyCard target)
+        public bool BuildReady(PropertyCard target, out double need)
         {
+            need = -1;
             PropertiesPage page;
             var card = FindCard(target, out page);
             if (card != null && card.Build != null && card.Price > 0) return true;
             if (card != null && card.BlockFull && card.Price > 0)
             {
-                double cash;
-                using (var f = Capture()) cash = ReadHeader(f).Cash;
-                if (cash >= card.Price) return true;
+                Header h4;
+                using (var f = Capture()) h4 = ReadHeader(f);
+                if (h4.Cash >= card.Price) return true;
+                // A full block's build is its buy-out price, and the bank may hold what the cash on
+                // hand lacks: the caller takes it out and asks again (own cash above the price never
+                // came to this snapshot).
+                if (h4.Cash >= 0 && h4.Banked > 0 && h4.Cash + h4.Banked >= card.Price) need = card.Price;
             }
+            if (need > 0) return false;
             Snapshot(card == null ? "property card not found" : "property build not gold", 60);
             return false;
         }

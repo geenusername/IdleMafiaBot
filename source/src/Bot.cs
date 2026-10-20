@@ -3273,7 +3273,20 @@ namespace IdleMafiaBot
         bool Replace(Game.BlockLot worst, Game.PropertyCard target)
         {
 
-            if (!game.BuildReady(target))
+            double buyOut;
+            if (!game.BuildReady(target, out buyOut) && buyOut > 0)
+            {
+                // The block is full, so the build is its buy-out price, and the bank had the rest:
+                // hand the cash out and ask again.
+                if (!WithdrawFor(buyOut, true))
+                {
+                    Log("Properties: didn't replace a " + worst + " - " + target.Name + "'s buy-out isn't $(" + M(buyOut) + ") and the bank didn't hand it out");
+                    nextProperties = DateTime.UtcNow.AddMinutes(30);
+                    return false;
+                }
+            }
+            double againPrice;
+            if (!game.BuildReady(target, out againPrice))
             {
                 Log("Properties: didn't replace a " + worst + " - " + target.Name + "'s BUILD isn't showing gold yet");
                 nextProperties = DateTime.UtcNow.AddMinutes(10);
