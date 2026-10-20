@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace IdleMafiaBot
 {
@@ -202,6 +203,38 @@ namespace IdleMafiaBot
                 any = true;
             }
             return any;
+        }
+
+        // The game's notification toasts ("Hired ...", "Deposited 23 items ...", "SHIPMENT SEIZED")
+        // stack at the top right and cover the bars, so top-bar reads fail for minutes (stamina at
+        // the takedown and give stamina, a withdraw's confirmation) until their x is pressed.
+        public int CloseNotifications()
+        {
+            int closed = 0;
+            for (int t = 0; t < 4; t++)
+            {
+                Point x;
+                using (var f = Capture()) x = ToastX(f);
+                if (x.IsEmpty) break;
+                log("Closing the game's notification with its x - it covered the bars");
+                Click(x.X, x.Y, 600);
+                closed++;
+            }
+            return closed;
+        }
+
+        // A notification's x: a grey cross at the right of the top strip, only when the strip shows
+        // a run of words beside it (the bars show short bits like "(+5 0:04)" and no words).
+        internal Point ToastX(Frame f)
+        {
+            var v = ViewOf(f);
+            double hs = v.Problem == null ? v.HeaderScale : Math.Max(0.6, f.Height / 1009.0);
+            var strip = Rectangle.Intersect(new Rectangle(f.Width * 45 / 100, 0, f.Width, (int)(4.5 * 34.5 * hs)), new Rectangle(0, 0, f.Width, f.Height));
+            if (strip.Width < 40 || strip.Height < 20) return Point.Empty;
+            var lines = Ocr.Read(f, strip, PopupScale(f), Prep.None);
+            if (!lines.Any(l => Regex.IsMatch(l.Text ?? "", "[A-Za-z]{8}"))) return Point.Empty;
+            int th = Math.Max(8, (int)(21 * Math.Min(f.Height / 1009.0, f.Width / 1790.0)));
+            return CrossIn(f, strip, th, true);
         }
     }
 }
