@@ -17,7 +17,7 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 |----|--------|---------|-------|--------|
 | #11 | Top bar / Fights / Takedown | Roblox's own title bar covers the game's top bar (energy/cash/name row): every stamina read returns "the bar measured nothing", so fights log "Couldn't read stamina - no attacks this round" and takedowns sit stuck ("stamina unreadable at the takedown") for hours, even in only-fight mode | done | this commit |
 | #12 | Operations | Operations ready but not collected/started; the Home tile shows "Operations 1m left" and stays; during the 2X OPERATION SPEED event the timer doesn't update; bot looked at takedowns/donations wasted the stamina | verifying | |
-| #13 | Crew (Auto Roll) | "Bot thinks I don't have auto roll gamepass": one greyed-AUTO look turned Auto Roll off while the user owns the pass (forum report #2, no zip) | dropped | b8d637f |
+| #13 | Crew (Auto Roll) | "Bot thinks I don't have auto roll gamepass": one greyed-AUTO look turned Auto Roll off while the user owns the pass (forum report #2, no zip) | dropped | 1ec2383 |
 
 ### #11 - Roblox's title bar covers the game's top bar
 - ID: #11 (forum report #5, @JAS24J)
@@ -47,8 +47,8 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 ### #13 - Auto Roll disabled although the user has the pass
 - ID: #13 (forum report #2, no zip, one screenshot; reported 2026-10-19 11:46)
 - Module: Crew (Auto Roll)
-- Duplicate of #8. The reporter's screenshot shows the pre-b8d637f message ("off until the bot is started again"), so a build without the #8 fix; the one greyed-AUTO look on a half-loaded crew page turned the pass off even though the account owns it.
-- Covered by the #8 fix in b8d637f: three no-pass looks in a row (10 minutes apart) disable it; a successful start or a plain reading error resets the count.
+- Duplicate of #8. The reporter's screenshot shows the pre-1ec2383 message ("off until the bot is started again"), so a build without the #8 fix; the one greyed-AUTO look on a half-loaded crew page turned the pass off even though the account owns it.
+- Covered by the #8 fix in 1ec2383: three no-pass looks in a row (10 minutes apart) disable it; a successful start or a plain reading error resets the count.
 - State: dropped as a duplicate; verify with the same criteria as #8.
 
 ## Feature requests pending
