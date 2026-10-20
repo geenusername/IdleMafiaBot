@@ -5352,8 +5352,11 @@ namespace IdleMafiaBot
                 nextOps = DateTime.UtcNow.AddSeconds(Math.Min(soonest + 8, 30 * 60));
             }
 
+            // The +90 grace past the displayed timer: when it runs out the tab is re-read once two and a
+            // half minutes later; a stale display ("1m left" that stays) just reschedules itself instead
+            // of parking ready slots 10 minutes like the old +600 did.
             Visited(Tab.Operations, Count.OpsCollected > collectedBefore || Count.OpsStarted > startedBefore, !allRunning,
-                    soonest >= 0 ? DateTime.UtcNow.AddSeconds(soonest + 600) : DateTime.MinValue);
+                    soonest >= 0 ? DateTime.UtcNow.AddSeconds(soonest + 90) : DateTime.MinValue);
         }
 
         bool opsNoneSaid;
