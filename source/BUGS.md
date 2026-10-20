@@ -29,7 +29,7 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 - Cause: the remote `start` only checks `bot.Running` and the window being covered, never whether the Roblox window is there.
 - Fix: `Bot.RobloxOpen()` (`game.Win.Find()`, already committed); the remote `start` refuses with "Roblox isn't open..." on Discord, and `status` says "Stopped (Roblox isn't open)".
 - Verification: pending.
-- Commit: pending.
+- Commit: 8f3b8bc.
 
 ### #6 - Notification toasts cover the top bars
 - ID: #6 (report zip 2026-10-19 01:06)
@@ -40,7 +40,7 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 - Cause: the toasts ("Hired ...", "Deposited 23 items ...", "SHIPMENT SEIZED") stack over the bars and persist; only the shipment/territory ones are closed by name.
 - Fix: `ToastX`/`CloseNotifications()` (grey cross at the strip's right, only with a long line of words beside it) pressed in GiveStaminaHere, the Takedown's stamina wait, and `WithdrawAmount` before "no cash coming out" counts (it re-reads the bars after closing). Note: the call sites were committed in 1.8.1 pointing at a `CloseNotifications` that only existed uncommitted - this commit brings the implementation that makes the tree build.
 - Verification: build.ps1 passes; in-game pending.
-- Commit: pending.
+- Commit: 40be335.
 
 ### #11 - Roblox's title bar covers the game's top bar
 - ID: #11 (forum report #5, @JAS24J)
