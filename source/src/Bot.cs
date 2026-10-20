@@ -2116,7 +2116,16 @@ namespace IdleMafiaBot
 
                 if (h.Stamina < 0 && staminaLeft >= 0) h.Stamina = staminaLeft;
 
-                if (h.Stamina < 0) { Log("Couldn't read stamina - no attacks this round"); game.NoteFailure("the stamina bar didn't read"); break; }
+                if (h.Stamina < 0)
+                {
+                    if (game.RobloxBar && barFixTries < 2)
+                    {
+                        barFixTries++;
+                        Log("Fights: the stamina bar didn't read and Roblox's own title bar is over the top bar - the bot clears it before giving up");
+                        if (FixRobloxBarNow()) continue;
+                    }
+                    Log("Couldn't read stamina - no attacks this round"); game.NoteFailure("the stamina bar didn't read"); break;
+                }
                 if (reserve == AboveKept) reserve = Kept(h.StaminaMax);
                 else if (reserve < 0) reserve = Math.Max(0, h.Stamina - Kept(h.StaminaMax));
                 if (h.Stamina <= reserve) break;
@@ -5880,6 +5889,7 @@ namespace IdleMafiaBot
                     Log("Roblox's title bar is gone after " + (int)Math.Round((now - robloxBarSince).TotalMinutes) + " min - the top bar reads again");
                 robloxBarSince = DateTime.MinValue;
                 barSweeps = 0;
+                barFixTries = 0;
                 nextBarSweep = DateTime.MinValue;
                 bankHiddenSaid = false;
             }
@@ -5887,22 +5897,40 @@ namespace IdleMafiaBot
 
         DateTime nextBarSweep = DateTime.MinValue;
         int barSweeps;
+        int barFixTries;
 
-        bool SweepRobloxBar()
+        bool SweepRobloxBar(bool eagerly = false)
         {
             var now = DateTime.UtcNow;
-            if (!game.RobloxBar || robloxBarSince == DateTime.MinValue || now - robloxBarSince < TimeSpan.FromSeconds(20) || now < nextBarSweep) return false;
-            if (S.WaitWhileBusy && game.Win.UserActiveWithin(S.IdleSeconds * 1000)) return false;
+            if (!game.RobloxBar || robloxBarSince == DateTime.MinValue ||
+                now - robloxBarSince < TimeSpan.FromSeconds(20) && !eagerly || now < nextBarSweep) return false;
+            if (!eagerly && S.WaitWhileBusy && game.Win.UserActiveWithin(S.IdleSeconds * 1000)) return false;
             barSweeps++;
             nextBarSweep = now.AddMinutes(barSweeps < 3 ? 2 : 15);
             bool gone = false;
             State("Moving the mouse over Roblox's title bar so it goes away");
             if (!Act(delegate { gone = game.ClearRobloxBar(); })) return true;
             if (gone) Log("Roblox's title bar went away after the bot moved the mouse up to it and back down");
-            else if (barSweeps == 1) Log("Roblox's title bar stays after the bot moved the mouse up to it and back down - trying again in 2 minutes");
-            else if (barSweeps == 3) Log("Roblox's title bar still stays - the bot tries every 15 minutes. Moving the mouse to the top of the screen and away, "
-                                         + "or playing Roblox in a window instead of fullscreen (F11), clears it");
+            else
+            {
+                bool f11 = false;
+                State("Pressing F11 so Roblox's title bar goes away");
+                if (!Act(delegate { f11 = game.ToggleFullscreenClearBar(); })) return true;
+                if (f11) { Log("Roblox's title bar went away after the bot pressed F11 twice - the top bar reads again"); barSweeps = 0; }
+                else if (eagerly || barSweeps >= 3) Log("Roblox's title bar still stays after the mouse and F11 - the bot can't read the top bar until it goes (moving the mouse to the top of the screen and away, "
+                                                     + "or playing Roblox in a window instead of fullscreen, clears it)");
+                else if (barSweeps == 1) Log("Roblox's title bar stays after the bot moved the mouse up to it and back down - trying the mouse again in 2 minutes, then F11");
+                else Log("Roblox's title bar stays after the bot moved the mouse up to it and back down - trying F11 next");
+            }
             return true;
+        }
+
+        bool FixRobloxBarNow()
+        {
+            if (!game.RobloxBar) return false;
+            if (robloxBarSince == DateTime.MinValue) robloxBarSince = DateTime.UtcNow.AddSeconds(-21);
+            nextBarSweep = DateTime.MinValue;
+            return SweepRobloxBar(true);
         }
 
         int emptySaid, copiesSaid;
@@ -6477,6 +6505,12 @@ namespace IdleMafiaBot
 
                     if (bars.Stamina >= 0) takedownWants = Math.Max(1, t.Free);
 
+                    if (bars.Stamina < 0 && game.RobloxBar && barFixTries < 2)
+                    {
+                        barFixTries++;
+                        Log("Takedown: the stamina didn't read and Roblox's own title bar is over the top bar - the bot clears it before waiting");
+                        if (FixRobloxBarNow()) continue;
+                    }
                     if (bars.Stamina < 0) { Log("Couldn't read stamina (" + game.BarLook(1) + ") - " + t.Free + " free Takedown attack(s) wait"); game.Snapshot("stamina unreadable at the takedown", 60); }
                     else SayOnce("takedown waits for stamina", "Takedown: " + t.Free + " free attack(s) wait for stamina above the " + Kept(bars.StaminaMax) + " kept for bosses and fights - they go before the stamina gifts");
                     nextTakedown = DateTime.UtcNow.AddMinutes(20);

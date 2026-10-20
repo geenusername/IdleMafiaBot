@@ -482,6 +482,24 @@ namespace IdleMafiaBot
             }
         }
 
+        public void PressKey(byte vk)
+        {
+            if (!IsForeground)
+            {
+                if (!Activate(Handle)) throw new WindowChangedException("couldn't bring Roblox to the front");
+                lastBotInput = Native.Now;
+                Thread.Sleep(200);
+            }
+            if (UserInputSinceBot()) throw new UserBusyException();
+            byte sc = (byte)Native.MapVirtualKey(vk, 0);
+            Native.keybd_event(vk, sc, 0, UIntPtr.Zero);
+            Thread.Sleep(30);
+            Native.keybd_event(vk, sc, 2, UIntPtr.Zero);
+            lastBotInput = Native.Now;
+            LastInput = DateTime.UtcNow;
+            Thread.Sleep(300);
+        }
+
         public void Hover(int x, int y) { StillOn(MoveTo(x, y)); }
 
         public void SweepFromTop()

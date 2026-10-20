@@ -463,6 +463,18 @@ namespace IdleMafiaBot
             return false;
         }
 
+        public bool ToggleFullscreenClearBar()
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                Check();
+                Win.PressKey(0x7A);
+                Wait(2500);
+                using (var f = Capture()) if (!RobloxBarOver(f)) return true;
+            }
+            using (var f = Capture()) return !RobloxBarOver(f);
+        }
+
         public Header ReadHeader(Frame f, View v)
         {
             RobloxBar = RobloxBarOver(f);

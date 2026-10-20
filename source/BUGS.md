@@ -15,7 +15,7 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 
 | ID | Module | Symptom | State | Commit |
 |----|--------|---------|-------|--------|
-| #11 | Top bar / Fights / Takedown | Roblox's own title bar covers the game's top bar (energy/cash/name row): every stamina read returns "the bar measured nothing", so fights log "Couldn't read stamina - no attacks this round" and takedowns sit stuck ("stamina unreadable at the takedown") for hours, even in only-fight mode | verifying | |
+| #11 | Top bar / Fights / Takedown | Roblox's own title bar covers the game's top bar (energy/cash/name row): every stamina read returns "the bar measured nothing", so fights log "Couldn't read stamina - no attacks this round" and takedowns sit stuck ("stamina unreadable at the takedown") for hours, even in only-fight mode | done | this commit |
 | #12 | Operations | Operations ready but not collected/started; the Home tile shows "Operations 1m left" and stays; during the 2X OPERATION SPEED event the timer doesn't update; bot looked at takedowns/donations wasted the stamina | reproducing | |
 
 ### #11 - Roblox's title bar covers the game's top bar
@@ -29,8 +29,8 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
   1. `FixRobloxBarNow()` (Bot.cs): when a bar read fails and `game.RobloxBar` is set, the sweep runs immediately instead of waiting - used by the fights loop (before "no attacks this round") and the takedown loop (before the 20 min wait), capped at 2 tries per pass.
   2. `ToggleFullscreenClearBar()` (Game.cs) + `RobloxWindow.PressKey()` (Native.cs): escalation after a failed mouse sweep - press F11 (twice if needed), verifying with a fresh capture after each press; only if neither the mouse nor F11 clears it does the bot tell the user to do it by hand.
   3. Verification before "stuck": the counters reset when the bar goes away, and the give-up message now reflects that both automatic actions were tried.
-- Verification: pending (build.ps1 passes; needs a session with the title bar showing).
-- Commit: pending.
+- Verification: done (build.ps1 passes; confirmed on the session where the title bar was showing).
+- Commit: this commit.
 - User workaround until 1.8.2: press F11 in Roblox (fullscreen has no title bar).
 
 ### #12 - Operations stop being collected and the tile's timer freezes
