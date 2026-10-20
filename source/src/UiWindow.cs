@@ -1323,6 +1323,10 @@ namespace IdleMafiaBot
             if (!payerValues.Contains(s.BigPayerCash)) { payerValues.Add(s.BigPayerCash); payerValues.Sort(); }
             Combo("cmb_BigPayerCash", payerValues.Select(PayerName).ToList(), payerValues.IndexOf(s.BigPayerCash), i => s.BigPayerCash = payerValues[i]);
 
+            bankAtValues = Settings.BankAts.ToList();
+            if (!bankAtValues.Contains(s.BankAt)) { bankAtValues.Add(s.BankAt); bankAtValues.Sort(); }
+            Combo("cmb_BankAt", bankAtValues.Select(BankAtName).ToList(), bankAtValues.IndexOf(s.BankAt), i => s.BankAt = bankAtValues[i]);
+
             rollValues = Settings.AutoRollLimits.ToList();
             if (!rollValues.Contains(s.AutoRollLimit)) { rollValues.Add(s.AutoRollLimit); rollValues.Sort(); }
             Combo("cmb_AutoRollLimit", rollValues.Select(RollLimitName).ToList(), rollValues.IndexOf(s.AutoRollLimit), i => s.AutoRollLimit = rollValues[i]);
@@ -1435,6 +1439,7 @@ namespace IdleMafiaBot
         List<int> goalValues;
         List<long> whaleValues;
         List<long> payerValues;
+        List<long> bankAtValues;
         List<long> rollValues;
 
         static string RollLimitName(long v) { return "Stop a slot at " + SafehouseInfo.Money(v) + " spent"; }
@@ -1442,6 +1447,8 @@ namespace IdleMafiaBot
         static string WhaleName(long v) { return "A win of " + SafehouseInfo.Money(v) + " or more"; }
 
         static string PayerName(long v) { return "Paid " + SafehouseInfo.Money(v) + " or more in a win"; }
+
+        static string BankAtName(long v) { return v <= 0 ? "Off" : "Bank at " + SafehouseInfo.Money(v) + " on hand"; }
 
         void UsePayers(FightMemory m)
         {
@@ -1611,6 +1618,8 @@ namespace IdleMafiaBot
 
             El<CheckBox>("sw_CrewAutoRoll").IsEnabled = s.CrewReroll;
             El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+
+            El<ComboBox>("cmb_BankAt").IsEnabled = s.Bank;
 
             El<Border>("LuckRollBar").IsEnabled = s.Events;
             El<Border>("LuckRollBar").Opacity = s.Events ? 1 : 0.45;
@@ -2988,6 +2997,16 @@ namespace IdleMafiaBot
                     El<ComboBox>("cmb_BigPayerCash").Items.Insert(payerValues.IndexOf(s.BigPayerCash), PayerName(s.BigPayerCash));
                 }
                 El<ComboBox>("cmb_BigPayerCash").SelectedIndex = payerValues.IndexOf(s.BigPayerCash);
+            }
+            if (bankAtValues != null)
+            {
+                if (!bankAtValues.Contains(s.BankAt))
+                {
+                    bankAtValues.Add(s.BankAt);
+                    bankAtValues.Sort();
+                    El<ComboBox>("cmb_BankAt").Items.Insert(bankAtValues.IndexOf(s.BankAt), BankAtName(s.BankAt));
+                }
+                El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(s.BankAt);
             }
             if (rollValues != null)
             {

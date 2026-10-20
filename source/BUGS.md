@@ -54,6 +54,7 @@ Working branch: `fix/bugs`. Everything gets fixed and committed here.
 ## Feature requests pending
 
 - \@tbear25201 (idea #1): "Auto bank at X amount" - a setting so the macro banks whenever the cash on hand reaches a user-set amount. The bot only banks after each round, and while fighting the cash piles up to huge numbers between rounds.
+  - Done: `BankAt` setting with an amount picker on the Bank tile's options; the scheduler banks when the top bar's cash reads at or over the amount, and the fights session banks right there between attacks (a fights run lasts long without a scheduler pass), then goes back to the fight list. Off = only after each round, like before.
 - \@tbear25201 (idea #4): "Stamina flexibility" - the kept stamina groups gifts, player fights and takedowns into one budget; the user wants player fights' kept stamina as a separate value, so it can keep enough to fight while still donating gifts to the family perks.
 - \@rocketcrock (report #3): when a level-up is close, the macro should spend the remaining stamina/energy first (donate to the family perks, do a job) instead of rolling straight into the next level-up - "doing this allows less wasting". Priority-order tweak for the round scheduler, not a bug.
 

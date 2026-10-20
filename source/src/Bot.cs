@@ -865,7 +865,7 @@ namespace IdleMafiaBot
 
             if (Settings.MarketRelistShown && (S.MarketRelist || S.MarketPending.Length > 0) && now >= nextMarket && Can(Tab.BlackMarket)) due.Add("relist");
 
-            if (S.Bank && (now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1))) && Can(Tab.Bank) && !AutoRollHoldsBank()) due.Add("bank");
+            if (S.Bank && (now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1)) || (S.BankAt > 0 && h.Cash >= S.BankAt)) && Can(Tab.Bank) && !AutoRollHoldsBank()) due.Add("bank");
 
             bool lucky = RerollsLead();
             if (rerolls && (due.Count == 0 || lucky) && S.CrewReroll && now >= nextReroll && RerollCashOk(h, now) && Can(Tab.Crew))
@@ -2090,6 +2090,13 @@ namespace IdleMafiaBot
                 using (var f = game.Capture()) { rows = game.ReadFightRows(f, out war); if (i == 0) hospital = game.Hospitalized(f); }
                 if (hospital) { Hospital(); return fought; }
 
+                if (BankAtHit(h) && BankAtMid())
+                {
+                    Log("Fights: the cash on hand is " + M(h.Cash) + ", over the " + M(S.BankAt) + " auto-bank amount - banking between attacks");
+                    DoBank();
+                    if (!game.OpenTab(Tab.Fight)) { Log("Fights: the fight list didn't come back after the bank - fights wait 5 minutes"); nextFights = DateTime.UtcNow.AddMinutes(5); return fought; }
+                }
+
                 if (LowForFights(h))
                 {
                     Log("Fights: health is " + h.Health + "/" + h.HealthMax + " - player fights wait until it comes back");
@@ -2716,6 +2723,13 @@ namespace IdleMafiaBot
         }
 
         const int BankMinutes = 1;
+
+        // "Auto bank at X": the fights session runs long without a scheduler pass, so the cash on hand
+        // can pile up while it attacks - when it reaches the user's amount, the bot banks right there,
+        // between two attacks, and goes on fighting.
+        bool BankAtHit(Header h) { return S.Bank && S.BankAt > 0 && h.Cash >= S.BankAt; }
+
+        bool BankAtMid() { return Can(Tab.Bank) && !AutoRollHoldsBank() && DateTime.UtcNow - lastBank >= TimeSpan.FromSeconds(30); }
 
         internal bool BankJustRan(DateTime now) { return !cashOut && now - lastBank < TimeSpan.FromSeconds(15); }
 

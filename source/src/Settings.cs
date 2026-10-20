@@ -77,6 +77,10 @@ namespace IdleMafiaBot
 
         public bool Bank = true;
 
+        public long BankAt = 0;
+
+        public static readonly long[] BankAts = { 0, 1000000000, 5000000000, 10000000000, 50000000000, 100000000000, 500000000000, 1000000000000 };
+
         public bool Operations = true;
 
         public bool Playtime = true;
