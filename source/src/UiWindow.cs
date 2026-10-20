@@ -1335,9 +1335,18 @@ namespace IdleMafiaBot
             if (!payerValues.Contains(s.BigPayerCash)) { payerValues.Add(s.BigPayerCash); payerValues.Sort(); }
             Combo("cmb_BigPayerCash", payerValues.Select(PayerName).ToList(), payerValues.IndexOf(s.BigPayerCash), i => s.BigPayerCash = payerValues[i]);
 
-            bankAtValues = Settings.BankAts.ToList();
-            if (!bankAtValues.Contains(s.BankAt)) { bankAtValues.Add(s.BankAt); bankAtValues.Sort(); }
-            Combo("cmb_BankAt", bankAtValues.Select(BankAtName).ToList(), bankAtValues.IndexOf(s.BankAt), i => s.BankAt = bankAtValues[i]);
+            bankAtValues = Settings.BankAts.Where(v => v > 0).OrderBy(v => v).ToList();
+            bankAtValues.Insert(0, 0);
+            if (s.BankAt > 0 && !bankAtValues.Contains(s.BankAt))
+            {
+                int pos = bankAtValues.Count(v => v > 0 && v < s.BankAt) + 1;
+                bankAtValues.Insert(pos, s.BankAt);
+            }
+            bankAtValues.Add(BankAtCustom);
+            Combo("cmb_BankAt", bankAtValues.Select(BankAtName).ToList(), bankAtValues.IndexOf(s.BankAt >= 0 ? s.BankAt : BankAtCustom), i => BankAtPick(bankAtValues[i]));
+            var txt = El<TextBox>("txt_BankAt");
+            txt.LostKeyboardFocus += (a, b) => CommitBankAt(txt.Text);
+            txt.KeyDown += (a, b) => { if (b.Key == Key.Enter) { b.Handled = true; CommitBankAt(txt.Text); } };
 
             rollValues = Settings.AutoRollLimits.ToList();
             if (!rollValues.Contains(s.AutoRollLimit)) { rollValues.Add(s.AutoRollLimit); rollValues.Sort(); }
@@ -1460,7 +1469,52 @@ namespace IdleMafiaBot
 
         static string PayerName(long v) { return "Paid " + SafehouseInfo.Money(v) + " or more in a win"; }
 
-        static string BankAtName(long v) { return v <= 0 ? "Off" : "Bank at " + SafehouseInfo.Money(v) + " on hand"; }
+        static string BankAtName(long v) { return v < 0 ? "My own amount…" : v == 0 ? "Off" : SafehouseInfo.Money(v); }
+
+        const long BankAtCustom = -1;
+
+        void BankAtPick(long v)
+        {
+            if (v >= 0) s.BankAt = v;
+            bool custom = v < 0;
+            El<Border>("txt_BankAtBox").Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+            El<TextBlock>("BankAtHint").Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+            if (custom) El<TextBox>("txt_BankAt").Focus();
+        }
+
+        void CommitBankAt(string text)
+        {
+            text = (text ?? "").Trim();
+            if (text.Length == 0) return;
+            var m = Regex.Match(text, @"^\$?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s?([KMBT])?$", RegexOptions.IgnoreCase);
+            double amt = -1;
+            if (m.Success)
+            {
+                if (!double.TryParse(m.Groups[1].Value.Replace(",", ""), NumberStyles.Float, CultureInfo.InvariantCulture, out amt)) amt = -1;
+                switch ((m.Groups[2].Value ?? "").ToUpperInvariant())
+                {
+                    case "K": amt *= 1e3; break;
+                    case "M": amt *= 1e6; break;
+                    case "B": amt *= 1e9; break;
+                    case "T": amt *= 1e12; break;
+                }
+            }
+            if (amt <= 0)
+            {
+                El<TextBlock>("BankAtHint").Text = "Couldn't read that amount - use something like 25B, 750M or 2500000000.";
+                return;
+            }
+            long bank = (long)Math.Min(amt, 1e15);
+            s.BankAt = bank;
+            if (!bankAtValues.Contains(bank))
+            {
+                int pos = bankAtValues.Count(v => v > 0 && v < bank) + 1;
+                bankAtValues.Insert(pos, bank);
+                El<ComboBox>("cmb_BankAt").Items.Insert(pos, BankAtName(bank));
+            }
+            El<TextBlock>("BankAtHint").Text = "";
+            El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(bank);
+        }
 
         void UsePayers(FightMemory m)
         {
@@ -1632,6 +1686,7 @@ namespace IdleMafiaBot
             El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
 
             El<ComboBox>("cmb_BankAt").IsEnabled = s.Bank;
+            El<Border>("txt_BankAtBox").IsEnabled = s.Bank;
 
             El<Border>("LuckRollBar").IsEnabled = s.Events;
             El<Border>("LuckRollBar").Opacity = s.Events ? 1 : 0.45;
@@ -3012,13 +3067,15 @@ namespace IdleMafiaBot
             }
             if (bankAtValues != null)
             {
-                if (!bankAtValues.Contains(s.BankAt))
+                if (s.BankAt > 0 && !bankAtValues.Contains(s.BankAt))
                 {
-                    bankAtValues.Add(s.BankAt);
-                    bankAtValues.Sort();
-                    El<ComboBox>("cmb_BankAt").Items.Insert(bankAtValues.IndexOf(s.BankAt), BankAtName(s.BankAt));
+                    int pos = bankAtValues.Count(v => v > 0 && v < s.BankAt) + 1;
+                    bankAtValues.Insert(pos, s.BankAt);
+                    El<ComboBox>("cmb_BankAt").Items.Insert(pos, BankAtName(s.BankAt));
                 }
-                El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(s.BankAt);
+                El<ComboBox>("cmb_BankAt").SelectedIndex = s.BankAt >= 0 ? bankAtValues.IndexOf(s.BankAt) : bankAtValues.IndexOf(BankAtCustom);
+                var box = El<Border>("txt_BankAtBox");
+                box.Visibility = s.BankAt >= 0 ? Visibility.Collapsed : Visibility.Visible;
             }
             if (rollValues != null)
             {
