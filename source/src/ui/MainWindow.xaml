@@ -1502,7 +1502,7 @@
                 </ItemsControl>
               </StackPanel>
               <StackPanel x:Name="Opt_Bank" Visibility="Collapsed">
-                <TextBlock Text="The bot banks everything after every round. Amount: it also banks whenever the cash on hand reaches it - useful while it fights, since a fights session runs long without a round." Style="{StaticResource Hint}" Margin="2,0,0,10"/>
+                <TextBlock Text="After every round: the bot banks everything each round, like before. With an amount it only banks when the cash on hand reaches it, so a long fights session doesn't deposit over and over before the money adds up." Style="{StaticResource Hint}" Margin="2,0,0,10"/>
                 <Border Style="{StaticResource OptLine}">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
