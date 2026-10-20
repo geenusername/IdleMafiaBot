@@ -43,9 +43,9 @@ namespace IdleMafiaBot
         public bool Fights = false;
         public bool WarTargetsOnly = true;
 
-        public bool ScoutFights = false;
+        public bool ScoutFights = true;
 
-        public int FightWinChance = 85;
+        public int FightWinChance = 90;
 
         public bool OnlyFightsSpendAll = false;
 

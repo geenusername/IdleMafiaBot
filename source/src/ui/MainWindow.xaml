@@ -1164,7 +1164,7 @@
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="Attack only at" FontSize="14"/>
-                      <TextBlock Text="With Scout players first: your chance to win a scouted player. 85 is about 20% more attack than their defense." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                      <TextBlock Text="With Scout players first: your chance to win a scouted player. 90 is about 25% more attack than their defense, 100 only attacks players whose best roll can't beat your worst one." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
                     <ContentControl x:Name="num_FightWinChance" Grid.Column="1" Tag="50,99,1,%" VerticalAlignment="Center"/>
                   </Grid>
                 </Border>
