@@ -2474,6 +2474,10 @@ namespace IdleMafiaBot
                 var near = new OcrLine { Text = title.Text, Box = Rectangle.FromLTRB(title.Box.X, title.Box.Y, Math.Max(title.Box.Right, mirror - 4 * h), title.Box.Bottom) };
                 p.Close = SkillWindowX(f, near, popup);
             }
+            // Last resort: find the grey cross itself, ignoring the gold that gets in the way (the
+            // gift button next to the X cuts SkillWindowX's search short, and the close button of
+            // this wide dialog sits far past where a click guessed from the title would land).
+            if (p.Close.IsEmpty) p.Close = ProfileClose(f, title, popup);
             int left = title.Box.X - 3 * h, right = p.Close.IsEmpty ? popup.Right : p.Close.X + 2 * h;
             var inside = lines.Where(l => l != title && l.Box.X >= left && l.Box.Right <= right && l.Box.Y > title.Box.Bottom).ToList();
 
@@ -4221,6 +4225,63 @@ namespace IdleMafiaBot
             int cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
             if (!grey(cx, cy) || grey(cx, y0 + 1) || grey(cx, y1 - 1) || grey(x0 + 1, cy) || grey(x1 - 1, cy)) return Point.Empty;
             return new Point(cx, cy);
+        }
+
+        // The X that closes a player profile sits at the top-right of the dialog, often far from the
+        // title and next to the gold gift button. SkillWindowX stops its search at the first gold it
+        // meets on the title's row, and the gift button is gold, so it can miss the X and leave the
+        // profile open. This looks for the grey cross itself, ignoring the gold, by grouping the grey
+        // pixels to the right of the title into blobs and keeping the first cross-shaped one.
+        internal static Point ProfileClose(Frame f, OcrLine title, Rectangle popup)
+        {
+            int th = Math.Max(Math.Max(8, title.Box.Height), (int)(21 * Math.Min(f.Height / 1009.0, f.Width / 1790.0)));
+            Func<int, int, bool> grey = (x, y) =>
+            {
+                var c = f.Pixel(x, y);
+                int mx = Math.Max(c.R, Math.Max(c.G, c.B)), mn = Math.Min(c.R, Math.Min(c.G, c.B));
+                return mx >= 110 && mx - mn <= 25;
+            };
+            int top = Math.Max(0, title.CenterY - th * 6 / 5);
+            int bottom = Math.Min(f.Height - 1, title.CenterY + th * 6 / 5);
+            int left = Math.Max(0, title.Box.Right + th);
+            int right = Math.Min(f.Width - 1, popup.Right);
+            if (right - left < 6 || bottom - top < 6) return Point.Empty;
+            int w = right - left + 1, rows = bottom - top + 1;
+            var seen = new bool[w * rows];
+            var stack = new Stack<int>();
+            Point best = Point.Empty;
+            for (int y = top; y <= bottom; y++)
+                for (int x = left; x <= right; x++)
+                {
+                    int start = (y - top) * w + (x - left);
+                    if (seen[start] || !grey(x, y)) continue;
+                    stack.Clear(); stack.Push(start); seen[start] = true;
+                    int x0 = x, x1 = x, y0 = y, y1 = y;
+                    while (stack.Count > 0)
+                    {
+                        int cur = stack.Pop();
+                        int cx = left + cur % w, cy = top + cur / w;
+                        if (cx < x0) x0 = cx;
+                        if (cx > x1) x1 = cx;
+                        if (cy < y0) y0 = cy;
+                        if (cy > y1) y1 = cy;
+                        for (int dy = -1; dy <= 1; dy++)
+                            for (int dx = -1; dx <= 1; dx++)
+                            {
+                                int nx = cx + dx, ny = cy + dy;
+                                if ((dx == 0 && dy == 0) || nx < left || nx > right || ny < top || ny > bottom) continue;
+                                int ni = (ny - top) * w + (nx - left);
+                                if (seen[ni] || !grey(nx, ny)) continue;
+                                seen[ni] = true; stack.Push(ni);
+                            }
+                    }
+                    int bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+                    if (bw < th / 3 || bh < th / 3 || bw > 2 * th || bh > 2 * th || bw > 1.5 * bh || bh > 1.5 * bw) continue;
+                    int ccx = (x0 + x1) / 2, ccy = (y0 + y1) / 2;
+                    if (!grey(ccx, ccy) || grey(ccx, y0 + 1) || grey(ccx, y1 - 1) || grey(x0 + 1, ccy) || grey(x1 - 1, ccy)) continue;
+                    if (best.IsEmpty || ccx < best.X) best = new Point(ccx, ccy);
+                }
+            return best;
         }
 
         internal static int PointsToSpend(int window, int topBar, int put)
