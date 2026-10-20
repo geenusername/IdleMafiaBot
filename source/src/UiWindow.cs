@@ -909,14 +909,16 @@ namespace IdleMafiaBot
                 Collect(g, inside);
                 if (inside.OfType<CheckBox>().Any()) groups.Add(Tuple.Create(g, inside.OfType<CheckBox>().ToList()));
             }
-            foreach (var tile in all.OfType<CheckBox>().Where(c => c.Uid == "1"))
+            // Every tile with an options panel gets its ••• button, not just the Uid=1 ones (Bank has no
+            // Uid because it isn't a round task of its own, but its panel must open all the same).
+            foreach (var tile in all.OfType<CheckBox>())
             {
                 var t = tile;
                 string key = TileKey(t);
                 if (Window.FindName("Opt_" + key) == null) continue;
                 t.ApplyTemplate();
                 var more = t.Template == null ? null : t.Template.FindName("MoreBtn", t) as Button;
-                if (more != null) more.Click += (a, b) => { OpenOptions(key, (string)t.Content, t.Tag as Geometry); b.Handled = true; };
+                if (more != null) { more.Visibility = Visibility.Visible; more.Click += (a, b) => { OpenOptions(key, (string)t.Content, t.Tag as Geometry); b.Handled = true; }; }
             }
             var layer = El<Grid>("OptionsLayer");
             El<Button>("BtnOptionsClose").Click += (a, b) => CloseOptions();
