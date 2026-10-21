@@ -14,7 +14,7 @@ It only reads the screen and moves the mouse, like someone at your PC, and only 
 changes Roblox, never asks for your password and never presses anything that costs Robux (the full list of buttons it
 never presses is on its Settings page). It only goes online for the Discord links you give it (your own channel's, and
 the stats link from `/link` in our Discord, which with Remote control on also takes `/remote` there: start, stop,
-status, a preset or a report) and when you press **Check for updates** (this GitHub page, nothing else).
+status, a preset or a report, and shares or adds presets) and when you press **Check for updates** (this GitHub page, nothing else).
 
 ## Download
 
