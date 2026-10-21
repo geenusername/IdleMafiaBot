@@ -168,6 +168,7 @@ namespace IdleMafiaBot
             if (lost && ShareLost != null) ShareLost("No answer from our Discord about the share. Try again, or press Copy code and type /preset share there.");
             if (c != null && c.Id != lastDone && !seen.Contains(c.Id))
             {
+                if (seen.Count >= 200) seen.Clear();
                 seen.Add(c.Id);
                 lastDone = c.Id;
                 if (discordNow - c.At > TooOld || c.At - discordNow > TooOld)
