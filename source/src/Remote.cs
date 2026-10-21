@@ -17,7 +17,7 @@ namespace IdleMafiaBot
         static readonly TimeSpan TooOld = TimeSpan.FromMinutes(2);
         const int Timeout = 20000;
 
-        public static readonly string[] Commands = { "start", "stop", "status", "preset", "report" };
+        public static readonly string[] Commands = { "start", "stop", "status", "preset", "report", "addpreset", "shared" };
 
         readonly Settings s;
         readonly Action<string> log;
@@ -37,6 +37,11 @@ namespace IdleMafiaBot
         DateTime nextTry = DateTime.MinValue;
         volatile bool dirty;
         bool failing;
+
+        string shareId, shareCode;
+        DateTime shareAt;
+
+        public Action<string> ShareLost;
 
         public RemoteControl(Settings settings, Action<string> log, Action save, StatsCard stats)
         {
@@ -87,6 +92,20 @@ namespace IdleMafiaBot
             }
         }
 
+        public string Share(string code)
+        {
+            if (!On) return "off";
+            lock (gate)
+            {
+                shareId = "s" + Guid.NewGuid().ToString("N").Substring(0, 12);
+                shareCode = code;
+                shareAt = DateTime.UtcNow;
+            }
+            if (Json(null, false, "").Length > 1850) { lock (gate) shareId = shareCode = null; return "too big"; }
+            Wake();
+            return null;
+        }
+
         string MessageOf(string link)
         {
             string saved = (s.RemoteMessage ?? "").Trim(), wid = StatsCard.WebhookOf(link);
@@ -101,6 +120,9 @@ namespace IdleMafiaBot
             var names = PresetNames != null ? PresetNames() : new List<string>();
             string json = "{\n  \"imb\": 1,\n  \"remote\": 1,\n  \"app\": " + StatsCard.Q(Program.Version)
                           + ",\n  \"presets\": [" + string.Join(", ", names.Take(25).Select(n => StatsCard.Q(n.Length > 60 ? n.Substring(0, 60) : n))) + "]";
+            string sid, scode;
+            lock (gate) { sid = shareId; scode = shareCode; }
+            if (sid != null) json += ",\n  \"share\": { \"id\": " + StatsCard.Q(sid) + ", \"code\": " + StatsCard.Q(scode) + " }";
             if (doneId != null) json += ",\n  \"done\": { \"id\": " + StatsCard.Q(doneId) + ", \"ok\": " + (ok ? "true" : "false") + ", \"text\": " + StatsCard.Q(text.Length > 900 ? text.Substring(0, 900) : text) + " }";
             return json + "\n}";
         }
@@ -132,6 +154,14 @@ namespace IdleMafiaBot
             if (failing) { failing = false; log("Remote control from Discord: works again"); }
             nextTry = DateTime.MinValue;
             Command c = ReadCommand(StatsCard.TopLevel(answer, "content"));
+            bool lost;
+            lock (gate)
+            {
+
+                lost = shareId != null && (c == null || c.Do != "shared") && DateTime.UtcNow - shareAt > TooOld;
+                if (lost || (c != null && c.Do == "shared" && c.Id != lastDone && !seen.Contains(c.Id))) { shareId = shareCode = null; dirty = true; }
+            }
+            if (lost && ShareLost != null) ShareLost("No answer from our Discord about the share. Try again, or press Copy code and type /preset share there.");
             if (c != null && c.Id != lastDone && !seen.Contains(c.Id))
             {
                 seen.Add(c.Id);
@@ -203,7 +233,8 @@ namespace IdleMafiaBot
             DateTime when;
             if (id == null || !Regex.IsMatch(id, @"^[A-Za-z0-9_-]{4,40}$") || Array.IndexOf(Commands, what) < 0
                 || !DateTime.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out when)) return null;
-            return new Command { Id = id, Do = what, Arg = arg.Length > 60 ? arg.Substring(0, 60) : arg, At = when };
+            int max = what == "addpreset" ? 1800 : what == "shared" ? 300 : 60;
+            return new Command { Id = id, Do = what, Arg = arg.Length > max ? arg.Substring(0, max) : arg, At = when };
         }
 
         static int Get(string url, out string answer, out DateTime discordNow)

@@ -89,6 +89,7 @@ namespace IdleMafiaBot
             bot.FamilyDistricts += (held, garrisons) => NoteDistricts(held, garrisons);
             bot.HeistShort += o => NoteHeistCall(o);
             bot.ShipmentSeen += t => NoteShipment(t);
+            bot.EventSeen += e => NoteEvent(e);
             bot.FightWon += w => { try { NoteWin(w); } finally { if (w.Shot != null) w.Shot.Dispose(); } };
             bot.ShopSeen += (item, stock) => { try { NoteShop(item, stock); } finally { if (item.Shot != null) { item.Shot.Dispose(); item.Shot = null; } } };
 
@@ -184,6 +185,14 @@ namespace IdleMafiaBot
             if (!Family || string.IsNullOrWhiteSpace(text)) return;
             string t = text.Trim();
             Queue(PostHead("shipment") + ",\n  \"text\": " + Q(t.Length > 200 ? t.Substring(0, 200) : t) + "\n}", null);
+        }
+
+        internal void NoteEvent(Game.ActiveEvent e)
+        {
+            if (!Family || e == null || string.IsNullOrWhiteSpace(e.Title)) return;
+            string t = e.Title.Trim();
+            Queue(PostHead("gameevent") + ",\n  \"kind\": " + Q(e.Kind.ToString()) + ",\n  \"title\": " + Q(t.Length > 60 ? t.Substring(0, 60) : t)
+                  + (e.SecondsLeft >= 0 ? ",\n  \"ends\": " + N(e.SecondsLeft) : "") + "\n}", null);
         }
 
         internal void NoteHeistCall(Game.OwnHeist o)

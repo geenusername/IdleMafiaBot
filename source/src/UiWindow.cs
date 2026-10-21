@@ -1169,12 +1169,16 @@ namespace IdleMafiaBot
                 var use = new Button { Style = (Style)Window.FindResource(on ? "Btn" : "PrimaryBtn"), Content = "Use", Padding = new Thickness(16, 8, 16, 8), IsEnabled = !on };
                 use.Click += (a, b) => UsePreset(preset);
                 var copy = new Button { Style = (Style)Window.FindResource("Btn"), Content = "Copy code", Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(8, 0, 0, 0),
-                                        ToolTip = "Copies this preset as one line of text, to paste in Discord" };
+                                        ToolTip = "Copies this preset's code: in our Discord, /preset share and paste it" };
                 copy.Click += (a, b) =>
                 {
-                    try { Clipboard.SetText(preset.Code()); PresetSays("\"" + preset.Name + "\" copied. Paste it in Discord, others add it with \"Add a shared code\"."); }
+
+                    try { Clipboard.SetText(preset.Code()); PresetSays("\"" + preset.Name + "\" copied. In our Discord type /preset share and paste it: others press Get code, then \"Add a shared code\"."); }
                     catch (Exception) { PresetSays("Couldn't copy it. Try again."); }
                 };
+                var share = new Button { Style = (Style)Window.FindResource("Btn"), Content = "Share", Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(8, 0, 0, 0),
+                                         ToolTip = "Posts this preset as a card in our Discord, with Add to my bot for others (needs Remote control from Discord)" };
+                share.Click += (a, b) => SharePreset(preset);
                 bool asked = deleteAsked == p.Name;
                 var del = new Button { Style = (Style)Window.FindResource("GhostBtn"), Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(6, 0, 0, 0),
                                        Content = new TextBlock { Text = asked ? "Sure? Delete" : "Delete", FontWeight = FontWeights.SemiBold, Foreground = asked ? Res("BloodRed") : Res("Text2") } };
@@ -1187,12 +1191,21 @@ namespace IdleMafiaBot
                     ShowPresets();
                 };
                 buttons.Children.Add(use);
+                buttons.Children.Add(share);
                 buttons.Children.Add(copy);
                 buttons.Children.Add(del);
                 row.Children.Add(buttons);
                 list.Children.Add(new Border { Style = (Style)Window.FindResource("OptLine"), Child = row });
             }
             ShowPresetNow();
+        }
+
+        void SharePreset(Preset p)
+        {
+            string why = bot.Remote.Share(p.Code());
+            if (why == "off") PresetSays("To share with one click, switch on Stats in our Discord and Remote control from Discord (Settings). Or press Copy code and type /preset share in our Discord.");
+            else if (why != null) PresetSays("\"" + p.Name + "\" is too big to share this way. Press Copy code and type /preset share in our Discord.");
+            else { PresetSays("Sharing \"" + p.Name + "\" in our Discord... (up to 15 seconds)"); bot.Log("Preset: sharing " + p.Name + " in our Discord"); }
         }
 
         bool SavePresets()
@@ -1259,7 +1272,9 @@ namespace IdleMafiaBot
             El<TextBlock>("PresetPreviewOn").Text = "On: " + (on.Count == 0 ? "nothing" : string.Join(", ", on));
             El<TextBlock>("PresetPreviewOff").Text = "Off: " + (off.Count == 0 ? "nothing" : string.Join(", ", off));
             preview.Visibility = Visibility.Visible;
-            PresetSays("Your Discord links and your account stay as they are.");
+            PresetSays(p.Newer > 0 ? "This code is from a newer version of the bot: " + p.Newer + (p.Newer == 1 ? " setting" : " settings")
+                                     + " in it won't work here. Update the bot (Settings → Check for updates) to get the whole preset."
+                                   : "Your Discord links and your account stay as they are.");
         }
 
         void AddPasted(bool use)
@@ -1326,6 +1341,22 @@ namespace IdleMafiaBot
             rollValues = Settings.AutoRollLimits.ToList();
             if (!rollValues.Contains(s.AutoRollLimit)) { rollValues.Add(s.AutoRollLimit); rollValues.Sort(); }
             Combo("cmb_AutoRollLimit", rollValues.Select(RollLimitName).ToList(), rollValues.IndexOf(s.AutoRollLimit), i => s.AutoRollLimit = rollValues[i]);
+
+            bankAtValues = Settings.BankAts.Where(v => v > 0).ToList();
+            if (s.BankAt > 0 && !bankAtValues.Contains(s.BankAt)) { bankAtValues.Add(s.BankAt); bankAtValues.Sort(); }
+            bankAtValues.Add(BankAtCustom);
+            Combo("cmb_BankAt", bankAtValues.Select(BankAtName).ToList(), bankAtValues.IndexOf(s.BankAt > 0 ? s.BankAt : BankAtCustom), i => BankAtPick(bankAtValues[i]));
+            var bankTxt = El<TextBox>("txt_BankAt");
+            bankTxt.LostKeyboardFocus += (a, b) => CommitBankAt(bankTxt.Text);
+            bankTxt.KeyDown += (a, b) => { if (b.Key == Key.Enter) { b.Handled = true; CommitBankAt(bankTxt.Text); } };
+            El<RadioButton>("seg_BankMode_Round").Checked += (a, b) => { if (!bankModeSync) { s.BankAt = 0; ShowBankMode(); Save(); UpdateDerived(); } };
+            El<RadioButton>("seg_BankMode_Amount").Checked += (a, b) =>
+            {
+                if (bankModeSync) return;
+                if (s.BankAt <= 0) s.BankAt = bankAtValues.First(v => v > 0);
+                ShowBankMode(); Save(); UpdateDerived();
+            };
+            ShowBankMode();
 
             Combo("cmb_StartHeist", new[] { "Off" }.Concat(Game.HeistNames).ToList(), HeistChoice(),
                   i => { s.StartHeists = i > 0; if (i > 0) s.StartHeist = Game.HeistNames[i - 1]; });
@@ -1436,6 +1467,72 @@ namespace IdleMafiaBot
         List<long> whaleValues;
         List<long> payerValues;
         List<long> rollValues;
+        List<long> bankAtValues;
+
+        const long BankAtCustom = -1;
+        bool bankModeSync;
+
+        static string BankAtName(long v) { return v < 0 ? "My own amount\u2026" : SafehouseInfo.Money(v); }
+
+        void ShowBankMode()
+        {
+            bankModeSync = true;
+            El<RadioButton>("seg_BankMode_Round").IsChecked = s.BankAt <= 0;
+            El<RadioButton>("seg_BankMode_Amount").IsChecked = s.BankAt > 0;
+            bankModeSync = false;
+            El<Border>("BankAtRow").Visibility = s.BankAt > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (s.BankAt > 0)
+            {
+                if (!bankAtValues.Contains(s.BankAt)) InsertBankAt(s.BankAt);
+                El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(s.BankAt);
+            }
+        }
+
+        void InsertBankAt(long v)
+        {
+            int pos = bankAtValues.Count(x => x > 0 && x < v);
+            bankAtValues.Insert(pos, v);
+            El<ComboBox>("cmb_BankAt").Items.Insert(pos, BankAtName(v));
+        }
+
+        void BankAtPick(long v)
+        {
+            if (v > 0) s.BankAt = v;
+            bool custom = v < 0;
+            El<Border>("txt_BankAtBox").Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+            El<TextBlock>("BankAtHint").Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+            if (custom) El<TextBox>("txt_BankAt").Focus();
+        }
+
+        void CommitBankAt(string text)
+        {
+            text = (text ?? "").Trim();
+            if (text.Length == 0) return;
+            var m = Regex.Match(text, @"^\$?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s?([KMBT])?$", RegexOptions.IgnoreCase);
+            double amt = -1;
+            if (m.Success)
+            {
+                if (!double.TryParse(m.Groups[1].Value.Replace(",", ""), NumberStyles.Float, CultureInfo.InvariantCulture, out amt)) amt = -1;
+                switch (m.Groups[2].Value.ToUpperInvariant())
+                {
+                    case "K": amt *= 1e3; break;
+                    case "M": amt *= 1e6; break;
+                    case "B": amt *= 1e9; break;
+                    case "T": amt *= 1e12; break;
+                }
+            }
+            if (amt < 1)
+            {
+                El<TextBlock>("BankAtHint").Text = "Couldn't read that amount - use something like 25B, 750M or 2500000000.";
+                return;
+            }
+            long bank = (long)Math.Min(amt, 1e15);
+            s.BankAt = bank;
+            if (!bankAtValues.Contains(bank)) InsertBankAt(bank);
+            El<TextBlock>("BankAtHint").Text = "";
+            El<ComboBox>("cmb_BankAt").SelectedIndex = bankAtValues.IndexOf(bank);
+            Save(); UpdateDerived();
+        }
 
         static string RollLimitName(long v) { return "Stop a slot at " + SafehouseInfo.Money(v) + " spent"; }
 
@@ -1611,6 +1708,11 @@ namespace IdleMafiaBot
 
             El<CheckBox>("sw_CrewAutoRoll").IsEnabled = s.CrewReroll;
             El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+
+            El<Border>("BankModeBar").IsEnabled = s.Bank;
+            El<Border>("BankModeBar").Opacity = s.Bank ? 1 : 0.45;
+            El<Border>("BankAtRow").IsEnabled = s.Bank;
+            El<Border>("BankAtRow").Opacity = s.Bank ? 1 : 0.45;
 
             El<Border>("LuckRollBar").IsEnabled = s.Events;
             El<Border>("LuckRollBar").Opacity = s.Events ? 1 : 0.45;
@@ -1855,7 +1957,7 @@ namespace IdleMafiaBot
                 string t = box.Password.Trim(), saved = (s.StatsLink ?? "").Trim();
 
                 hint.Text = t == saved && bot.Stats.Family
-                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start (and a last call when one is short of helps near its end), big wins, territory shipments and Mythic or better shop items, the wins and items with a picture of just that window. With Defend districts on, also your family's districts' garrisons every 3 hours."
+                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start (and a last call when one is short of helps near its end), big wins, territory shipments, game events (2X EXP and the like) and Mythic or better shop items, the wins and items with a picture of just that window."
                     : plain;
                 El<TextBlock>("StatsLinkHint").Visibility = box.Password.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (t.Length == 0) StatsSays("Off. Nothing is sent without a link.", null);
@@ -1908,6 +2010,7 @@ namespace IdleMafiaBot
                 try { Window.Dispatcher.Invoke(new Action(() => { if (presets != null) names = presets.Select(p => p.Name).ToList(); })); } catch (Exception) { }
                 return names;
             };
+            bot.Remote.ShareLost = text => Ui(() => { PresetSays(text); bot.Log("Preset share: " + text); });
             bot.Remote.Handler = (what, arg, reply) => Ui(() =>
             {
                 try { RemoteDo(what, arg, reply); }
@@ -1929,6 +2032,8 @@ namespace IdleMafiaBot
                 case "start":
                     if (bot.Running) { reply(true, "It's already playing."); return; }
                     if (Covered) { reply(false, "The bot's window is waiting for you on the PC (the guidelines or the welcome). Press the button there first."); return; }
+
+                    if (!new RobloxWindow().Find()) { reply(false, "Roblox isn't open on the PC, so the bot wasn't started. Open Idle Mafia Game there first, then send start again."); return; }
                     bot.Start(); ShowState("Starting");
                     reply(true, "Started. It plays now.");
                     return;
@@ -1939,7 +2044,7 @@ namespace IdleMafiaBot
                     return;
                 case "status":
                 {
-                    string state = !bot.Running ? "Stopped" : bot.OutOfGame ? "Running, but the game is out of reach (disconnected or Roblox closed)" : "Playing";
+                    string state = !bot.Running ? (new RobloxWindow().Find() ? "Stopped" : "Stopped (Roblox isn't open)") : bot.OutOfGame ? "Running, but the game is out of reach (disconnected or Roblox closed)" : "Playing";
                     var p = System.IO.Path.Combine(dir, "problems", "active");
                     int n = System.IO.Directory.Exists(p) ? System.IO.Directory.GetFiles(p, "*.png").Length : 0;
                     var now = presets == null ? null : presets.FirstOrDefault(x => x.Matches(s));
@@ -1966,6 +2071,30 @@ namespace IdleMafiaBot
                 case "report":
                     MakeReport(reply);
                     return;
+                case "addpreset":
+                {
+
+                    string why;
+                    var p = Preset.Parse(arg, out why);
+                    if (p == null) { reply(false, why); return; }
+                    int old = presets.FindIndex(o => Preset.SameName(o.Name, p.Name));
+                    if (old >= 0) presets[old] = p; else presets.Add(p);
+                    if (!SavePresets()) { reply(false, "The bot couldn't save its presets on the PC."); return; }
+                    ShowPresets();
+                    bot.Log("Preset added from Discord: " + p.Name);
+                    reply(true, (old >= 0 ? "Replaced your \"" : "Added \"") + p.Name + "\" in your presets. Use it in the bot (Presets, top bar) or with /remote."
+                                + (p.Newer > 0 ? " " + p.Newer + " of its settings are from a newer bot: update yours (Settings → Check for updates) to get them all." : ""));
+                    return;
+                }
+                case "shared":
+                {
+                    bool ok = arg.StartsWith("ok:", StringComparison.Ordinal);
+                    string text = arg.Length > 3 ? arg.Substring(3) : arg;
+                    PresetSays(text);
+                    bot.Log("Preset share: " + text);
+                    reply(ok, text);
+                    return;
+                }
             }
             reply(false, "The bot doesn't know that command.");
         }
@@ -2998,6 +3127,7 @@ namespace IdleMafiaBot
                 }
                 El<ComboBox>("cmb_AutoRollLimit").SelectedIndex = rollValues.IndexOf(s.AutoRollLimit);
             }
+            if (bankAtValues != null) ShowBankMode();
             if (goalValues != null)
             {
                 s.CrewRerollStats = s.CrewRerollStats > 0 ? Settings.Perfect : 0;

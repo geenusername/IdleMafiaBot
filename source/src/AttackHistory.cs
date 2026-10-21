@@ -64,6 +64,44 @@ namespace IdleMafiaBot
                 }
                 entries.Add(e);
             }
+            if (heads.Count == 0) entries = ReadCompactHistory(lines);
+            return entries;
+        }
+
+        static readonly Regex CompactResultRx = new Regex(@"^\W{0,3}(\S{1,2}\s+)?\W{0,2}(VICT[O0]RY|DEFEAT)\b", RegexOptions.IgnoreCase);
+        static readonly Regex AgoRx = new Regex(@"(\bago|\bnow)\s*$", RegexOptions.IgnoreCase);
+
+        static List<AttackEntry> ReadCompactHistory(List<OcrLine> lines)
+        {
+            var entries = new List<AttackEntry>();
+            var results = lines.Where(l => CompactResultRx.IsMatch(l.Text)).OrderBy(l => l.Box.Y).ToList();
+            foreach (var r in results)
+            {
+                int h = Math.Max(8, r.Box.Height);
+
+                var row = lines.Where(l => l != r && l.Box.X > r.Box.X + 8 * h && Math.Abs(l.CenterY - r.CenterY) <= h).ToList();
+                bool back = row.Any(l => Parse.Key(l.Text) == "ATTACKBACK");
+                var again = row.FirstOrDefault(l => Parse.Key(l.Text) == "ATTACKAGAIN");
+                int wait = -1;
+                foreach (var l in row)
+                {
+                    var w = HistoryWaitRx.Match(l.Text);
+                    int s;
+                    if (w.Success && int.TryParse(Parse.Digits(w.Groups[1].Value.Replace(" ", "")), out s)) wait = s;
+                }
+                bool limit = row.Any(l => DailyLimit(l.Text));
+                if (back || (again == null && wait < 0 && !limit)) continue;
+
+                var name = lines.Where(l => l != r && !AgoRx.IsMatch(l.Text) && Math.Abs(l.Box.X - r.Box.X) <= 2 * h
+                                            && l.CenterY < r.Box.Y && r.Box.Y - l.CenterY <= 2 * h)
+                                .OrderByDescending(l => l.Box.Y).FirstOrDefault();
+                if (name == null) continue;
+                var e = new AttackEntry { Name = name.Text.Trim(), Again = again, WaitSeconds = wait, Limit = limit, Top = name.Box.Y - h / 2, Bottom = r.Box.Bottom + h };
+                string k = Parse.Key(CompactResultRx.Match(r.Text).Groups[2].Value).Replace('0', 'O');
+                e.Won = k == "VICTORY";
+                e.Lost = k == "DEFEAT";
+                entries.Add(e);
+            }
             return entries;
         }
 

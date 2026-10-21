@@ -55,6 +55,25 @@ namespace IdleMafiaBot
         [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO lii);
         [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
         [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
+        [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint cmd);
+        [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+        [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int index);
+        [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int value, int size);
+        [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT value, int size);
+
+        public static bool Cloaked(IntPtr h)
+        {
+            int c;
+            try { return DwmGetWindowAttribute(h, 14, out c, 4) == 0 && c != 0; }
+            catch (Exception) { return false; }
+        }
+
+        public static bool DrawnRect(IntPtr h, out RECT r)
+        {
+            try { if (DwmGetWindowAttribute(h, 9, out r, Marshal.SizeOf(typeof(RECT))) == 0) return true; }
+            catch (Exception) { }
+            return GetWindowRect(h, out r);
+        }
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int max);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int max);
         [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
@@ -265,7 +284,25 @@ namespace IdleMafiaBot
                     IntPtr at = Native.WindowFromPoint(p);
                     if (at == IntPtr.Zero || Native.GetAncestor(at, 2) != root) return false;
                 }
-            return true;
+            return !Overlapped(root);
+        }
+
+        bool Overlapped(IntPtr root)
+        {
+            var p = new Native.POINT();
+            if (!Native.ClientToScreen(Handle, ref p)) return true;
+            int l = p.X, t = p.Y, r = p.X + Width, b = p.Y + Height;
+            int n = 0;
+            for (IntPtr w = Native.GetWindow(root, 3); w != IntPtr.Zero && n < 2000; w = Native.GetWindow(w, 3), n++)
+            {
+                if (!Native.IsWindowVisible(w) || Native.IsIconic(w) || Native.Cloaked(w)) continue;
+                int ex = Native.GetWindowLong(w, -20);
+                if ((ex & 0x80020) == 0x80020) continue;
+                Native.RECT o;
+                if (!Native.DrawnRect(w, out o) || o.Right <= o.Left || o.Bottom <= o.Top) continue;
+                if (o.Left < r && o.Right > l && o.Top < b && o.Bottom > t) return true;
+            }
+            return false;
         }
 
         Frame FromScreen()
@@ -480,6 +517,25 @@ namespace IdleMafiaBot
                 LastInput = DateTime.UtcNow;
                 Thread.Sleep(50);
             }
+        }
+
+        public void PressKey(byte vk)
+        {
+            if (!IsForeground)
+            {
+                bool ok = Activate(Handle);
+                lastBotInput = Native.Now;
+                if (!ok) throw new WindowChangedException("couldn't bring Roblox to the front");
+                Thread.Sleep(200);
+            }
+            if (UserInputSinceBot()) throw new UserBusyException();
+            byte sc = (byte)Native.MapVirtualKey(vk, 0);
+            Native.keybd_event(vk, sc, 0, UIntPtr.Zero);
+            Thread.Sleep(30);
+            Native.keybd_event(vk, sc, 2, UIntPtr.Zero);
+            lastBotInput = Native.Now;
+            LastInput = DateTime.UtcNow;
+            Thread.Sleep(300);
         }
 
         public void Hover(int x, int y) { StillOn(MoveTo(x, y)); }

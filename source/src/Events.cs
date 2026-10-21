@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace IdleMafiaBot
 {
 
-    enum GameEvent { Cash, EnergyRegen, StaminaRegen, HealthRegen, OpsSpeed, BossDamage, TakedownDamage, Mastery, CrateLuck, RecruitLuck, ShopSale, Other }
+    enum GameEvent { Cash, EnergyRegen, StaminaRegen, HealthRegen, OpsSpeed, BossDamage, TakedownDamage, Mastery, CrateLuck, RecruitLuck, ShopSale, Exp, Other }
 
     sealed partial class Game
     {
@@ -178,6 +178,8 @@ namespace IdleMafiaBot
             if (k.Contains("BOSS") && k.Contains("DAMAGE")) return GameEvent.BossDamage;
             if (k.Contains("OPERATION") && (k.Contains("SPEED") || k.Contains("FAST") || k.Contains("TIMER"))) return GameEvent.OpsSpeed;
             if (k.Contains("MASTERY")) return GameEvent.Mastery;
+
+            if (Regex.IsMatch(k, @"^[0-9OIS]{0,3}X?EXP")) return GameEvent.Exp;
             if (k.Contains("SHOP") && (k.Contains("SAIE") || k.Contains("OFF"))) return GameEvent.ShopSale;
             if (k.Contains("ENERGY") && (k.Contains("REFIII") || k.Contains("REGEN") || k.Contains("FAST"))) return GameEvent.EnergyRegen;
             if (k.Contains("STAMINA") && (k.Contains("REFIII") || k.Contains("REGEN") || k.Contains("FAST"))) return GameEvent.StaminaRegen;

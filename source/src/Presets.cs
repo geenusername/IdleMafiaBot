@@ -18,8 +18,35 @@ namespace IdleMafiaBot
 
         public readonly List<KeyValuePair<string, string>> Values = new List<KeyValuePair<string, string>>();
 
-        public const string Prefix = "IMB-PRESET-1:";
+        public int Newer;
+
+        public const string Prefix = "IMB-PRESET-2:";
         public const int NameMax = 30;
+
+        static readonly string[] Base2 = {
+            "Jobs=True", "JobMode=BestXp", "OneJob=", "Heists=True", "HeistsFamilyOnly=False", "StartHeists=False", "StartHeist=Grand Vault of Caldera",
+            "Fights=False", "WarTargetsOnly=True", "ScoutFights=True", "FightWinChance=90", "OnlyFightsSpendAll=False", "FightLowHealth=10",
+            "WhaleHunt=False", "RememberPlayers=True", "WhaleCash=100000000", "WhaleHits=5", "BigPayerCash=100000000", "FightStaminaReserve=15",
+            "Bosses=True", "BossWeakestFirst=True", "Bank=True", "BankAt=0", "Operations=True", "Playtime=True", "Contracts=True", "Crates=True",
+            "Briefcases=True", "Events=True", "ShopBuy=True", "ShopWithdraw=True", "ShopCommon=True", "ShopUncommon=True", "ShopRare=True",
+            "ShopEpic=True", "ShopLegendary=True", "ShopMythic=True", "ShopSecret=True", "ShopForbidden=True", "ShopBankMythic=True",
+            "ShopBankSecret=True", "ShopBankForbidden=True", "EquipBest=True", "MarketRelist=False", "MarketMinutes=30", "Properties=True",
+            "GoldLots=0", "PropertyOnly=", "PropertySeen=", "SafehouseUpgrade=True", "CrewSlots=True", "CrewFill=True", "CrewRollType=Street",
+            "CrewLuckRoll=Same", "CrewReroll=False", "CrewRerollStats=0", "RerollsFirst=False", "CrewAutoRoll=False", "AutoRollLimit=1000000000",
+            "TrainCrew=True", "TrainAtOnce=1", "TrainOrder=Best", "DefendTerritory=False", "DefendHeal=False", "FamilyWatch=True",
+            "GameStats=False", "Takedown=True", "GiveStamina=True", "StaminaPerk=", "SpendPoints=True", "PointsStat=0" };
+
+        static Dictionary<string, string> baseValues;
+        static Dictionary<string, string> BaseValues()
+        {
+            if (baseValues == null)
+            {
+                var d = new Dictionary<string, string>();
+                foreach (var line in Base2) { int eq = line.IndexOf('='); d[line.Substring(0, eq)] = line.Substring(eq + 1); }
+                baseValues = d;
+            }
+            return baseValues;
+        }
         const int TextMax = 64 * 1024;
 
         public static readonly string[] Remembered = { "HeistsToday", "CratesOpenedAt", "MarketPending", "StatsMessage", "Focus", "Account",
@@ -79,7 +106,10 @@ namespace IdleMafiaBot
         {
             var sb = new StringBuilder();
             sb.Append("Name=").Append(Name).Append('\n');
-            foreach (var v in Values) sb.Append(v.Key).Append('=').Append(v.Value).Append('\n');
+            var b = BaseValues();
+            string was;
+            foreach (var v in Values)
+                if (!b.TryGetValue(v.Key, out was) || was != v.Value) sb.Append(v.Key).Append('=').Append(v.Value).Append('\n');
             byte[] raw = Encoding.UTF8.GetBytes(sb.ToString());
             byte[] packed;
             using (var ms = new MemoryStream())
@@ -100,15 +130,16 @@ namespace IdleMafiaBot
             }
         }
 
-        static readonly Regex CodeIn = new Regex(Regex.Escape(Prefix) + @"([A-Za-z0-9_-]{8,20000})\.([0-9a-fA-F]{8})");
+        static readonly Regex CodeIn = new Regex(@"IMB-PRESET-([12]):([A-Za-z0-9_-]{8,20000})\.([0-9a-fA-F]{8})");
 
         public static Preset Parse(string pasted, out string why)
         {
             why = null;
             var m = CodeIn.Match(Regex.Replace(pasted ?? "", @"\s+", ""));
             if (!m.Success) { why = (pasted ?? "").Contains("IMB-PRESET") ? "That code isn't complete. Copy the whole line." : "That's not a preset code. It starts with " + Prefix; return null; }
-            string body = m.Groups[1].Value;
-            if (!string.Equals(Check(body), m.Groups[2].Value, StringComparison.OrdinalIgnoreCase)) { why = "That code is broken or was changed. Copy it again."; return null; }
+            bool sparse = m.Groups[1].Value == "2";
+            string body = m.Groups[2].Value;
+            if (!string.Equals(Check(body), m.Groups[3].Value, StringComparison.OrdinalIgnoreCase)) { why = "That code is broken or was changed. Copy it again."; return null; }
             string text;
             try
             {
@@ -130,20 +161,35 @@ namespace IdleMafiaBot
             }
             catch (Exception) { why = "That code is broken. Copy it again."; return null; }
             var p = new Preset();
-            var known = new HashSet<string>(Fields().Select(f => f.Name));
-            var seen = new HashSet<string>();
+            var got = new Dictionary<string, string>();
+            int lines = 0;
             foreach (var line in text.Split('\n'))
             {
                 int eq = line.IndexOf('=');
                 if (eq <= 0) continue;
                 string key = line.Substring(0, eq).Trim(), val = line.Substring(eq + 1).Trim();
                 if (key == "Name") { p.Name = CleanName(val); continue; }
-                if (!known.Contains(key) || !seen.Add(key)) continue;
-                var f = typeof(Settings).GetField(key);
-                if (!Settings.SetText(new Settings(), f, val)) continue;
-                p.Values.Add(new KeyValuePair<string, string>(key, val));
+                lines++;
+                if (!got.ContainsKey(key)) got[key] = val;
             }
-            if (p.Values.Count == 0) { why = "That code holds no settings this version knows."; return null; }
+
+            var b = BaseValues();
+            int read = 0;
+            foreach (var f in Fields())
+            {
+                string val;
+                bool sent = got.TryGetValue(f.Name, out val), given = sent && Settings.SetText(new Settings(), f, val);
+                if (given) read++;
+                else
+                {
+                    if (sent) p.Newer++;
+                    if (!(sparse && b.TryGetValue(f.Name, out val) && Settings.SetText(new Settings(), f, val))) continue;
+                }
+                p.Values.Add(new KeyValuePair<string, string>(f.Name, val));
+            }
+            foreach (var key in got.Keys)
+                if (typeof(Settings).GetField(key) == null) p.Newer++;
+            if (read == 0 && (lines > 0 || !sparse)) { why = "That code holds no settings this version knows."; return null; }
             if (p.Name.Length == 0) p.Name = "Shared preset";
             return p;
         }

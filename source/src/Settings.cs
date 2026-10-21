@@ -43,9 +43,9 @@ namespace IdleMafiaBot
         public bool Fights = false;
         public bool WarTargetsOnly = true;
 
-        public bool ScoutFights = false;
+        public bool ScoutFights = true;
 
-        public int FightWinChance = 85;
+        public int FightWinChance = 90;
 
         public bool OnlyFightsSpendAll = false;
 
@@ -76,6 +76,9 @@ namespace IdleMafiaBot
             "OpsCollect", "OpsStart", "OpsName", "ShopMaxPrice", "ShopGold", "Collection", "CrewSort", "StaminaKeepPct", "IdleSeconds" };
 
         public bool Bank = true;
+
+        public long BankAt = 0;
+        public static readonly long[] BankAts = { 0, 1000000000, 5000000000, 10000000000, 50000000000, 100000000000, 500000000000 };
 
         public bool Operations = true;
 
@@ -143,7 +146,7 @@ namespace IdleMafiaBot
         public bool CrewAutoRoll = false;
         public long AutoRollLimit = 1000000000;
 
-        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000 };
+        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000, 50000000000, 100000000000, 200000000000 };
 
         public bool TrainCrew = true;
         public int TrainAtOnce = 1;
@@ -263,7 +266,7 @@ namespace IdleMafiaBot
                 long l;
                 if (field.FieldType == typeof(bool)) field.SetValue(s, v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase));
                 else if (field.FieldType == typeof(int)) { if (!int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) return false; field.SetValue(s, n); }
-                else if (field.FieldType == typeof(long)) { if (!long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out l) || l <= 0) return false; field.SetValue(s, l); }
+                else if (field.FieldType == typeof(long)) { if (!long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out l) || l < 0 || (l == 0 && field.Name != "BankAt")) return false; field.SetValue(s, l); }
                 else if (field.FieldType == typeof(string)) field.SetValue(s, v);
                 else if (field.FieldType.IsEnum)
                 {

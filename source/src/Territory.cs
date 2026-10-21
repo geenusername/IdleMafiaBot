@@ -31,8 +31,15 @@ namespace IdleMafiaBot
     {
 
         static readonly Regex ToastWhat = new Regex(@"^(.*?)\s*[—–\-:]*\s*(defen[cs]es\s*fa[lI1|]{2}en|attacked|garrison\s*[lI1|]ost)", RegexOptions.IgnoreCase);
-        static readonly Regex DistrictRow = new Regex(@"^\s*(\d{3})\s+(.+?)\s*/\s*(.+?)\s*$");
-        static readonly Regex GarrisonRx = new Regex(@"GARRISON\s*([0-9OoIl]{1,3})\s*/\s*([0-9OoIl]{1,3})", RegexOptions.IgnoreCase);
+
+        static readonly Regex DistrictRow = new Regex(@"^\s*([0-9OoDIl|]{3})\s+(.+?)\s*/\s*(.+?)\s*$");
+
+        internal static int DistrictRowNumber(string text)
+        {
+            var m = DistrictRow.Match(text ?? "");
+            return m.Success ? int.Parse(Parse.Digits(m.Groups[1].Value)) : -1;
+        }
+        static readonly Regex GarrisonRx =new Regex(@"GARRISON\s*([0-9OoIl]{1,3})\s*/\s*([0-9OoIl]{1,3})", RegexOptions.IgnoreCase);
         static readonly Regex GarrisonFreeRx = new Regex(@"([0-9]{1,3})\s*available", RegexOptions.IgnoreCase);
 
         internal string TerritoryToastDistrict(Frame f, out bool garrisonLost, out Point x) { string by; return TerritoryToastDistrict(f, out garrisonLost, out x, out by); }
@@ -171,6 +178,50 @@ namespace IdleMafiaBot
             return false;
         }
 
+        internal List<string> FlaggedCities(Frame f)
+        {
+            var got = new List<string>();
+            var lines = Ocr.Read(f, PageArea(f), PageScale(f), Prep.None);
+            var search = lines.FirstOrDefault(l => Parse.Has(l.Text, "Search districts"));
+            foreach (var row in lines.Where(l => Parse.Has(l.Text, "TIER")))
+            {
+                string city = Districts.Cities.FirstOrDefault(c => Parse.Key(row.Text).StartsWith(Parse.Key(c)));
+                if (city == null || got.Contains(city)) continue;
+                if (RowFlagged(f, row.Box, search != null ? search.Box.X : row.Box.X + 30 * Math.Max(8, row.Box.Height))) got.Add(city);
+            }
+            return got;
+        }
+
+        static bool FlagGold(Color c) { return c.R > 170 && c.G > 130 && c.G < 200 && c.B < 90 && c.R - c.B > 110; }
+
+        internal static bool RowFlagged(Frame f, Rectangle row, int limit)
+        {
+            int h = Math.Max(8, row.Height);
+            int y0 = Math.Max(0, row.Y + row.Height / 2 - h), y1 = Math.Min(f.Height - 1, row.Y + row.Height / 2 + h);
+            int gold = 0;
+            for (int x = row.Right + h; x < Math.Min(f.Width, limit); x++)
+            {
+                int col = 0;
+                for (int y = y0; y <= y1; y++) if (FlagGold(f.Pixel(x, y))) col++;
+                if (col * 10 >= (y1 - y0 + 1) * 9) break;
+                gold += col;
+            }
+            return gold * 3 >= h * h;
+        }
+
+        List<string> FlaggedCities(OcrLine cityBox)
+        {
+            Click(cityBox.CenterX, cityBox.CenterY, 900);
+            List<string> got;
+            using (var f = Capture()) got = FlaggedCities(f);
+            Click(cityBox.CenterX, cityBox.CenterY, 600);
+
+            bool open;
+            using (var f = Capture()) open = Ocr.Read(f, PageArea(f), PageScale(f), Prep.None).Count(l => l.Box.Y > cityBox.Box.Bottom && Parse.Has(l.Text, "TIER")) >= 3;
+            if (open) Click(cityBox.CenterX, cityBox.CenterY, 600);
+            return got;
+        }
+
         static readonly Regex HoldsRx = new Regex(@"HOLDS\s*([0-9OoIl]{1,3})\s*OF\s*([0-9OoIl]{1,3})", RegexOptions.IgnoreCase);
 
         public List<Tuple<string, int, string>> ReadFamilyDistricts()
@@ -180,7 +231,27 @@ namespace IdleMafiaBot
             List<OcrLine> lines;
             using (var f = Capture()) lines = Ocr.Read(f, PageArea(f), PageScale(f), Prep.None);
             if (!MyFamilyOn()) return null;
-            foreach (var city in Districts.Cities)
+
+            var cities = Districts.Cities.ToList();
+            OcrLine bar, barDistrict;
+            bool barRead;
+            using (var f = Capture()) barRead = TerritoryBar(f, out bar, out barDistrict);
+            if (barRead)
+            {
+                var flagged = FlaggedCities(bar);
+                log("Territory: the city list's flag " + (flagged.Count > 0 ? "on " + string.Join(", ", flagged) : "not seen - every city looked at"));
+                if (flagged.Count > 0) cities = flagged;
+            }
+
+            for (int pass = 0; pass < 2; pass++)
+            {
+                if (pass == 1)
+                {
+                    if (held.Count > 0 || cities.Count == Districts.Cities.Count()) break;
+                    log("Territory: no district read in " + string.Join(", ", cities) + " - every city looked at");
+                    cities = Districts.Cities.ToList();
+                }
+            foreach (var city in cities)
             {
                 OcrLine cityBox, districtBox;
                 if (!SelectCity(city, out cityBox, out districtBox)) continue;
@@ -212,14 +283,16 @@ namespace IdleMafiaBot
                             any = l;
                             string c2, nm; int no;
 
-                            seen[int.Parse(m.Groups[1].Value)] = MatchDistrict(m.Groups[2].Value, out c2, out no, out nm) && c2 == city ? nm : m.Groups[2].Value.Trim();
+                            seen[int.Parse(Parse.Digits(m.Groups[1].Value))] = MatchDistrict(m.Groups[2].Value, out c2, out no, out nm) && c2 == city ? nm : m.Groups[2].Value.Trim();
                         }
                     if (any == null || (look > 0 && seen.Count == before) || (holds > 0 && seen.Count >= holds)) break;
                     Scroll(any.CenterX, any.CenterY, -3);
                     Wait(400);
                 }
                 Click(districtBox.CenterX, districtBox.CenterY, 700);
+                if (seen.Count == 0) log("Territory: " + city + "'s district list read nothing (the page says " + (holds < 0 ? "no count" : "it holds " + holds) + ")");
                 foreach (var kv in seen.OrderBy(kv => kv.Key)) held.Add(Tuple.Create(city, kv.Key, kv.Value));
+            }
             }
             return held;
         }
@@ -240,7 +313,7 @@ namespace IdleMafiaBot
                 List<Tuple<int, OcrLine>> rows;
                 using (var f = Capture())
                     rows = Ocr.Read(f, PageArea(f), PageScale(f) + 1, Prep.None).Where(l => l.Box.Y > districtBox.Box.Bottom)
-                              .Select(l => { var m = DistrictRow.Match(l.Text); return m.Success ? Tuple.Create(int.Parse(m.Groups[1].Value), l) : null; })
+                              .Select(l => { var m = DistrictRow.Match(l.Text); return m.Success ? Tuple.Create(int.Parse(Parse.Digits(m.Groups[1].Value)), l) : null; })
                               .Where(t => t != null).ToList();
 
                 Func<Tuple<int, OcrLine>, int> off = t => View.Distance(Parse.Key(DistrictRow.Match(t.Item2.Text).Groups[2].Value), Parse.Key(name));

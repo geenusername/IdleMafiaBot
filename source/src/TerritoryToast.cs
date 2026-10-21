@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace IdleMafiaBot
 {
@@ -69,6 +70,7 @@ namespace IdleMafiaBot
             if (right < 0 || f.Width - right > 2 * row) return Point.Empty;
 
             int inX = right - (int)row, top = y, bottom = y;
+            if (IsToastGold(f.Pixel(inX, y))) return FilledToastAt(f, y, row, inX, right, out text, out box, accept, tried);
             while (top > 0 && y - top < 4 * row && !IsToastGold(f.Pixel(inX, top))) top--;
             while (bottom < f.Height - 1 && bottom - y < 4 * row && !IsToastGold(f.Pixel(inX, bottom))) bottom++;
             if (bottom - top < 0.8 * row || bottom - top >= 4 * row) return Point.Empty;
@@ -92,6 +94,38 @@ namespace IdleMafiaBot
                 {
                     var c = f.Pixel(x, yy);
                     if (Math.Min(c.R, Math.Min(c.G, c.B)) < 180) continue;
+                    x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, yy); y1 = Math.Max(y1, yy);
+                }
+            if (x1 < 0 || x1 - x0 > row || y1 - y0 > row) return Point.Empty;
+            text = words;
+            box = Rectangle.FromLTRB(left, top, right, bottom);
+            return new Point((x0 + x1) / 2, (y0 + y1) / 2);
+        }
+
+        Point FilledToastAt(Frame f, int y, double row, int inX, int right, out string text, out Rectangle box, Func<string, bool> accept, List<Rectangle> tried)
+        {
+            text = null; box = Rectangle.Empty;
+            int top = y, bottom = y;
+            while (top > 0 && y - top < 3 * row && IsToastGold(f.Pixel(inX, top - 1))) top--;
+            while (bottom < f.Height - 1 && bottom - y < 3 * row && IsToastGold(f.Pixel(inX, bottom + 1))) bottom++;
+            if (bottom - top < 0.8 * row || bottom - top >= 3 * row) return Point.Empty;
+
+            int ry = top + 2;
+            while (right + 1 < f.Width && IsToastGold(f.Pixel(right + 1, ry))) right++;
+            int left = inX, miss = 0;
+            for (int x = inX; x > 0 && miss <= 2; x--) if (IsToastGold(f.Pixel(x, ry))) { left = x; miss = 0; } else miss++;
+            if (right - left < 6 * row) return Point.Empty;
+            var inside = Rectangle.FromLTRB(left + 2, top + 2, right - 2, bottom - 2);
+            if (tried != null && tried.Contains(inside)) return Point.Empty;
+            string words = Ocr.ReadText(f, inside, View.ScaleFor(20 * row / 34.5), Prep.None), k = Parse.Key(words);
+            if (!accept(k)) { if (tried != null) tried.Add(inside); return Point.Empty; }
+
+            int x0 = int.MaxValue, x1 = -1, y0 = int.MaxValue, y1 = -1;
+            for (int yy = top + 2; yy < Math.Min(bottom - 1, top + (int)(1.2 * row)); yy++)
+                for (int x = Math.Max(left, right - (int)(1.2 * row)); x < right - 1; x++)
+                {
+                    var c = f.Pixel(x, yy);
+                    if (Math.Max(c.R, Math.Max(c.G, c.B)) > 80) continue;
                     x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, yy); y1 = Math.Max(y1, yy);
                 }
             if (x1 < 0 || x1 - x0 > row || y1 - y0 > row) return Point.Empty;
@@ -180,11 +214,20 @@ namespace IdleMafiaBot
             Click(x.X, x.Y, 500);
         }
 
+        internal Point AnyToastX(Frame f, out string text) { Rectangle box; return TerritoryToastX(f, out text, out box, k => k.Length > 0); }
+
+        static string Short(string words)
+        {
+            words = Regex.Replace(Regex.Replace(words ?? "", @"\s+", " ").Trim(), @"^[xX×]\s+|\s+[xX×]$", "");
+            return words.Length > 60 ? words.Substring(0, 60) + "..." : words;
+        }
+
         public bool CloseTerritoryToast(Frame f)
         {
-            var x = TerritoryToastX(f);
+            string text;
+            var x = AnyToastX(f, out text);
             if (x.IsEmpty) return false;
-            log("Closing the game's territory notification with its x - it covered the bars");
+            log("Closing the game's notification (\"" + Short(text) + "\") with its x - it covered the bars");
             Click(x.X, x.Y, 500);
             return true;
         }
@@ -192,12 +235,13 @@ namespace IdleMafiaBot
         public bool CloseTerritoryToasts()
         {
             bool any = false;
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 Point x;
-                using (var f = Capture()) x = TerritoryToastX(f);
+                string text;
+                using (var f = Capture()) x = AnyToastX(f, out text);
                 if (x.IsEmpty) break;
-                log("Closing the game's territory notification with its x - it covered the page");
+                log("Closing the game's notification (\"" + Short(text) + "\") with its x - it covered the page");
                 Click(x.X, x.Y, 500);
                 any = true;
             }

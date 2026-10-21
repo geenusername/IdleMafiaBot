@@ -256,7 +256,7 @@ namespace IdleMafiaBot
 
         internal static bool CutName(string n)
         {
-            return Regex.IsMatch(n ?? "", @"^\S+ ""[^""]*$") && Regex.Split(n.Trim(), @"\s+").Length <= 3;
+            return Regex.IsMatch(n ?? "", @"^\S+ ""[^""]*$");
         }
 
         static string NameAgain(Frame f, int s, List<OcrLine> nameLines, OcrLine rarity, int h, string name)
@@ -714,6 +714,8 @@ namespace IdleMafiaBot
                         string k = Parse.Key(l.Text);
                         if ((k == "TRAINING" && l.CenterX < area.X + area.Width * 0.45) || k.StartsWith("TRAININGTO")) row.Training = true;
                         if ((k == "ONDUTY" && l.CenterX < area.X + area.Width * 0.45) || k.StartsWith("STATIONEDAT")) row.Stationed = true;
+
+                        if ((k.StartsWith("RECAIIING") || k.StartsWith("RECALLING")) && l.CenterX < area.X + area.Width * 0.45) row.Stationed = true;
                         var left = TrainLeftRx.Match(l.Text);
                         if (left.Success)
                         {
@@ -1333,6 +1335,8 @@ namespace IdleMafiaBot
 
         public string TrainWhy;
 
+        public bool TrainBusy;
+
         public CrewRow EmptyRowNear(int y)
         {
             using (var f = Capture())
@@ -1804,7 +1808,7 @@ namespace IdleMafiaBot
 
         public int TrainHenchman(CrewRow found, CrewRow picked, double cash, double keep, out TrainWindow offer)
         {
-            offer = null;
+            offer = null; TrainBusy = false;
             var row = RowToPress(found, picked);
 
             TrainWhy = row == null ? "its row didn't read again" : row.Training && row.TrainSecondsLeft > 0 ? "it's training already" : row.Train == null ? "its TRAIN didn't read"
@@ -1868,11 +1872,16 @@ namespace IdleMafiaBot
                 }
             }
 
+            bool busy;
             using (var f = Capture())
             {
                 var still = ReadTrainWindow(f);
                 if (still != null && still.Cancel != null) PressCrew(still.Cancel, Parse.Key(still.Cancel.Text) == "CANCEI", "not the training window's CANCEL");
+                busy = CrewBusyToast(f);
             }
+
+            if (busy) { TrainWhy = "the game says the crew is being updated (\"try again shortly\")"; TrainBusy = true; return -1; }
+            TrainWhy = "the training wasn't seen starting after the window's TRAIN";
             Snapshot("crew training not started", 60);
             return -1;
         }
