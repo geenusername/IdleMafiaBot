@@ -900,7 +900,7 @@ namespace IdleMafiaBot
 
             if (Settings.MarketRelistShown && (S.MarketRelist || S.MarketPending.Length > 0) && now >= nextMarket && Can(Tab.BlackMarket)) due.Add("relist");
 
-            bool bankTime = S.BankAt > 0 && !cashOut ? h.Cash >= S.BankAt : now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1));
+            bool bankTime = S.BankAt > 0 && !cashOut ? h.Cash >= S.BankAt && now - lastBank >= TimeSpan.FromSeconds(30) : now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1));
             if (S.Bank && bankTime && Can(Tab.Bank) && !AutoRollHoldsBank()) due.Add("bank");
 
             bool lucky = RerollsLead();
