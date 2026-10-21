@@ -272,7 +272,9 @@ namespace IdleMafiaBot
             return new Frame(bmp);
         }
 
-        public bool InSight()
+        public bool InSight() { return InSight(false); }
+
+        bool InSight(bool strict)
         {
             if (Width < 50 || Height < 50) return false;
             IntPtr root = Native.GetAncestor(Handle, 2);
@@ -284,10 +286,10 @@ namespace IdleMafiaBot
                     IntPtr at = Native.WindowFromPoint(p);
                     if (at == IntPtr.Zero || Native.GetAncestor(at, 2) != root) return false;
                 }
-            return !Overlapped(root);
+            return !Overlapped(root, strict);
         }
 
-        bool Overlapped(IntPtr root)
+        bool Overlapped(IntPtr root, bool strict)
         {
             var p = new Native.POINT();
             if (!Native.ClientToScreen(Handle, ref p)) return true;
@@ -297,7 +299,7 @@ namespace IdleMafiaBot
             {
                 if (!Native.IsWindowVisible(w) || Native.IsIconic(w) || Native.Cloaked(w)) continue;
                 int ex = Native.GetWindowLong(w, -20);
-                if ((ex & 0x80020) == 0x80020) continue;
+                if (!strict && (ex & 0x80020) == 0x80020) continue;
                 Native.RECT o;
                 if (!Native.DrawnRect(w, out o) || o.Right <= o.Left || o.Bottom <= o.Top) continue;
                 if (o.Left < r && o.Right > l && o.Top < b && o.Bottom > t) return true;
@@ -312,8 +314,10 @@ namespace IdleMafiaBot
             Bitmap bmp = null;
             try
             {
+                bool clear = InSight(true);
                 bmp = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
                 using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen(p.X, p.Y, 0, 0, new Size(Width, Height));
+                if (!clear || !InSight(true)) bmp.Tag = Frame.NotSendable;
                 return new Frame(bmp);
             }
             catch (Exception) { if (bmp != null) bmp.Dispose(); return null; }

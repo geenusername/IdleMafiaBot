@@ -51,6 +51,7 @@ namespace IdleMafiaBot
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 Check();
+                bool slow = attempt > 0 || DateTime.UtcNow < slowUntil;
                 using (var f = Capture())
                 {
                     if (StatsTitle(f) != null) break;
@@ -58,13 +59,16 @@ namespace IdleMafiaBot
                     var at = FindMenuButton(f);
 
                     if (at.IsEmpty) { CloseTerritoryToasts(); Wait(1500); continue; }
-                    Click(at.X, at.Y, 900);
+
+                    if (slow) { Check(); NoteLateFrame(); Win.SlowClick(at.X, at.Y); Wait(1200 + (FrameLag() > 0 ? 800 : 0)); }
+                    else Click(at.X, at.Y, 900);
                 }
                 using (var f = Capture())
                 {
                     var stats = DropdownStats(f);
                     if (stats == null) continue;
-                    Press(stats, 1200);
+                    if (slow) PressSlow(stats.Text, stats.CenterX, stats.CenterY, 1200);
+                    else Press(stats, 1200);
                 }
             }
             OcrLine title;

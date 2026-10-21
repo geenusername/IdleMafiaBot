@@ -52,7 +52,7 @@ namespace IdleMafiaBot
             if (r.Width < 20 || r.Height < 20) return null;
             var b = new Bitmap(r.Width, r.Height);
             using (var g = Graphics.FromImage(b)) g.DrawImage(f.Bitmap, new Rectangle(0, 0, r.Width, r.Height), r, GraphicsUnit.Pixel);
-            return b;
+            return Frame.Marked(f.Bitmap, b);
         }
     }
 }

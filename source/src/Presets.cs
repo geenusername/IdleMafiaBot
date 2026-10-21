@@ -50,7 +50,7 @@ namespace IdleMafiaBot
         const int TextMax = 64 * 1024;
 
         public static readonly string[] Remembered = { "HeistsToday", "CratesOpenedAt", "MarketPending", "StatsMessage", "Focus", "Account",
-            "LastLevel", "LastAttackPower", "LastDefensePower", "BarMax", "CheckOffered", "CheckHintLevel", "JobsReadAt", "FamilyDistrictsAt", "CrewGearOff" };
+            "LastLevel", "LastPrestige", "CratesLeft", "BossesDoneUntil", "Totals", "LastAttackPower", "LastDefensePower", "BarMax", "CheckOffered", "CheckHintLevel", "JobsReadAt", "FamilyDistrictsAt", "CrewGearOff", "RobloxUsers" };
 
         public static IEnumerable<FieldInfo> Fields()
         {

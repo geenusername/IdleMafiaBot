@@ -398,7 +398,7 @@ namespace IdleMafiaBot
 
         public static byte[] Jpg(Bitmap b)
         {
-            if (b == null || b.Width < 1 || b.Height < 1) return null;
+            if (b == null || b.Width < 1 || b.Height < 1 || b.Tag == Frame.NotSendable) return null;
             double k = Math.Min(1.0, 1280.0 / b.Width);
             int w = Math.Max(1, (int)Math.Round(b.Width * k)), h = Math.Max(1, (int)Math.Round(b.Height * k));
             using (var small = new Bitmap(w, h, PixelFormat.Format24bppRgb))

@@ -53,14 +53,16 @@ namespace IdleMafiaBot
 
         string Link { get { return (s.StatsLink ?? "").Trim(); } }
 
-        public bool On { get { return s.RemoteControl && stats.On; } }
+        public bool On { get { return Wanted && stats.Ours; } }
 
-        public void Begin() { if (On) Start(); }
+        bool Wanted { get { return s.RemoteControl && stats.On; } }
+
+        public void Begin() { if (Wanted) Start(); }
 
         public void Wake()
         {
             dirty = true;
-            if (On) Start();
+            if (Wanted) Start();
             wake.Set();
         }
 
@@ -76,7 +78,7 @@ namespace IdleMafiaBot
 
         void Loop()
         {
-            bool wasOn = false;
+            bool wasOn = false, saidNotOurs = false;
             while (true)
             {
                 wake.WaitOne(Every);
@@ -84,6 +86,8 @@ namespace IdleMafiaBot
                 {
                     bool on = On;
                     if (on != wasOn) log(on ? "Remote control from Discord: on (it looks for a /remote command every 15 seconds)" : "Remote control from Discord: off");
+                    if (Wanted && stats.NotOurs && !saidNotOurs) log("Remote control from Discord: off - the stats link isn't from our Discord (only /link there gives one it listens to)");
+                    saidNotOurs = Wanted && stats.NotOurs;
                     if (!on && wasOn) Retire();
                     wasOn = on;
                     if (on && DateTime.UtcNow >= nextTry) Tick();

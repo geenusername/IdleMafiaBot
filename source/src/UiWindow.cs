@@ -262,6 +262,7 @@ namespace IdleMafiaBot
                 bot.Log("Window closed " + (closedBy != null ? "by " + closedBy : "by another program or Windows (not its Close button)"));
                 bool wasRunning = bot.Running;
                 bot.Stop();
+                bot.FoldTotals(false);
                 Save();
 
                 if (ClosedMessage(wasRunning, closedBy))
@@ -315,6 +316,8 @@ namespace IdleMafiaBot
             ShowCrew(null);
             RefreshJobCard();
             RefreshJobs();
+            El<RadioButton>("TotSpanSession").Checked += (a, b) => UpdateTotals();
+            El<RadioButton>("TotSpanAll").Checked += (a, b) => UpdateTotals();
             UpdateTotals();
             UpdateCheckWhen();
             UpdateProblems();
@@ -1033,7 +1036,7 @@ namespace IdleMafiaBot
                 case "Jobs": return known(Shown("JobName")) && !Shown("JobName").EndsWith(" off") ? Shown("JobName") : "";
                 case "Heists": return known(Shown("FavorsText")) ? Shown("FavorsText").Replace(" left", "") + " favors" + (Shown("FavorsText").EndsWith(" left") ? " left" : "") : "";
                 case "Bosses": return known(Shown("BossName")) ? Shown("BossName") + (Shown("BossWhen").Length > 0 ? ", " + Shown("BossWhen") : "") : "";
-                case "Fights": return Shown("TotFights") + " this session";
+                case "Fights": return bot.Count.Fights + " this session";
                 case "WhaleHunt": return "Up to " + s.WhaleHitsNow + " hits";
                 case "CrewFill": return known(Shown("CrewCount")) ? Shown("CrewCount") + " henchmen" : "";
                 case "Reroll": return RollMode();
@@ -1708,6 +1711,7 @@ namespace IdleMafiaBot
 
             El<CheckBox>("sw_CrewAutoRoll").IsEnabled = s.CrewReroll;
             El<ComboBox>("cmb_AutoRollLimit").IsEnabled = s.CrewReroll && s.CrewAutoRoll;
+            El<ComboBox>("cmb_AutoRollLimit").Opacity = s.CrewReroll && s.CrewAutoRoll ? 1 : 0.45;
 
             El<Border>("BankModeBar").IsEnabled = s.Bank;
             El<Border>("BankModeBar").Opacity = s.Bank ? 1 : 0.45;
@@ -1957,7 +1961,7 @@ namespace IdleMafiaBot
                 string t = box.Password.Trim(), saved = (s.StatsLink ?? "").Trim();
 
                 hint.Text = t == saved && bot.Stats.Family
-                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start (and a last call when one is short of helps near its end), big wins, territory shipments, game events (2X EXP and the like) and Mythic or better shop items, the wins and items with a picture of just that window."
+                    ? "This is your family's link. Your level, cash and crew go to your family's Discord, with your Roblox name, the heists you start (and a last call when one is short of helps near its end), big wins, territory shipments, game events (2X EXP and the like) and Mythic or better shop items, the wins and items with a picture of just that window, cut from the game. Never your screen or other windows."
                     : plain;
                 El<TextBlock>("StatsLinkHint").Visibility = box.Password.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (t.Length == 0) StatsSays("Off. Nothing is sent without a link.", null);
@@ -1972,7 +1976,7 @@ namespace IdleMafiaBot
                 else StatsSays("That isn't the link from /link, so it's off. Type /link in our Discord to get yours.", "Red");
             };
             show();
-            bot.Stats.Changed += () => Ui(show);
+            bot.Stats.Changed += () => Ui(() => { show(); ShowRemote(); });
             box.PasswordChanged += (a, b) =>
             {
                 string t = box.Password.Trim(), old = (s.StatsLink ?? "").Trim();
@@ -2021,6 +2025,7 @@ namespace IdleMafiaBot
         void ShowRemote()
         {
             El<TextBlock>("RemoteHint").Text = !s.RemoteControl ? "Off. Switch it on to use /remote in our Discord: start, stop, status, a preset or a problem report."
+                : bot.Stats.NotOurs ? "On, but the stats link isn't from our Discord. It only listens to the link /link gives in our Discord."
                 : StatsCard.IsLink((s.StatsLink ?? "").Trim()) ? "On. Type /remote in our Discord. It takes up to 15 seconds."
                 : "On, but it needs the stats link above first.";
         }
@@ -2532,14 +2537,19 @@ namespace IdleMafiaBot
 
         void UpdateTotals()
         {
-            var c = bot.Count;
-            El<TextBlock>("TotJobs").Text = c.Jobs.ToString();
-            El<TextBlock>("TotHelps").Text = c.Helps.ToString();
-            El<TextBlock>("TotBoss").Text = c.BossHits.ToString();
-            El<TextBlock>("TotFights").Text = c.Fights.ToString();
-            El<TextBlock>("TotFightsSub").Text = c.Fights > 0 ? string.Format("fights, {0} won", c.Wins) : "fights";
-            El<TextBlock>("TotDeposits").Text = c.Deposits.ToString();
-            El<TextBlock>("TotRewards").Text = (c.Rewards + c.Crates).ToString();
+
+            bool all = El<RadioButton>("TotSpanAll").IsChecked == true;
+            var c = all ? bot.AllTime : bot.Count;
+            El<TextBlock>("TotSpanNote").Text = all ? (s.Account.Length > 0 ? s.Account + ", since this version" : "Since this version") : "Since Start";
+            El<TextBlock>("TotJobs").Text = c.Jobs.ToString("N0");
+            El<TextBlock>("TotHelps").Text = c.Helps.ToString("N0");
+            El<TextBlock>("TotBoss").Text = c.BossHits.ToString("N0");
+            El<TextBlock>("TotFights").Text = c.Fights.ToString("N0");
+
+            El<TextBlock>("TotFightsSub").Text = c.Fights > 0 ? string.Format("fights, {0:N0} won", c.Wins) + (c.FightCash > 0 ? ", " + Money(c.FightCash) : "") : "fights";
+            El<TextBlock>("TotDeposits").Text = c.Deposits.ToString("N0");
+            El<TextBlock>("TotRewards").Text = (c.Rewards + c.Crates).ToString("N0");
+            c = bot.Count;
             try
             {
                 var gs = bot.LastGameStats;
@@ -2982,6 +2992,32 @@ namespace IdleMafiaBot
             int n = System.IO.Directory.Exists(p) ? System.IO.Directory.GetFiles(p, "*.png").Length : 0;
             El<TextBlock>("ProblemsText").Text = n > 0 ? "Problems (" + n + ")" : "Problems";
             El<RadioButton>("RailSettings").Uid = n > 0 ? n.ToString() : "";
+            TaskbarBadge(n);
+        }
+
+        int badgeShown = -1;
+
+        void TaskbarBadge(int n)
+        {
+            int k = Math.Min(n, 10);
+            if (k == badgeShown) return;
+            badgeShown = k;
+            if (Window.TaskbarItemInfo == null) Window.TaskbarItemInfo = new TaskbarItemInfo();
+            if (k <= 0) { Window.TaskbarItemInfo.Overlay = null; return; }
+            string text = k > 9 ? "9+" : k.ToString();
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xED, 0x42, 0x45)), null, new Point(16, 16), 16, 16);
+                var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+                    text.Length > 1 ? 17 : 22, Brushes.White, 1.0);
+                dc.DrawText(ft, new Point(16 - ft.Width / 2, 16 - ft.Height / 2));
+            }
+            var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap(32, 32, 96, 96, PixelFormats.Pbgra32);
+            bmp.Render(dv);
+            bmp.Freeze();
+            Window.TaskbarItemInfo.Overlay = bmp;
         }
 
         bool ReviewShowing { get { return El<Grid>("Review").Visibility == Visibility.Visible; } }

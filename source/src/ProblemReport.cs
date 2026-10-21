@@ -99,12 +99,14 @@ namespace IdleMafiaBot
             var order = firsts.Concat(again).Concat(files.Except(firsts)).ToList();
             long used = 0;
             var over = new List<string>();
+            int covered = 0;
             foreach (var file in order)
             {
                 bool sent = again.Contains(file);
 
                 string name = NoUser("problems/" + file.Substring(problems.Length + 1).Replace('\\', '/'), true);
                 if (!file.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) { AddFile(z, file, name, skipped); continue; }
+                if (IsCovered(file)) { covered++; continue; }
                 if (used >= PictureBudget) { if (!sent) over.Add(name); continue; }
                 byte[] jpg;
                 try { jpg = Discord.JpgOf(file); }
@@ -116,6 +118,7 @@ namespace IdleMafiaBot
                 Stamp(e, file);
                 using (var dst = e.Open()) dst.Write(jpg, 0, jpg.Length);
             }
+            if (covered > 0) leftOut.Add(covered + " problem pictures taken with another window over Roblox (they could show it)");
             if (over.Count > 0)
             {
                 leftOut.Add(over.Count + " older problem pictures (to keep the zip small):");
@@ -127,6 +130,11 @@ namespace IdleMafiaBot
         static string Kind(string file)
         {
             return Regex.Replace(Regex.Replace(Path.GetFileNameWithoutExtension(file), @"^\d{8}-\d{6}-", ""), @"-\d+$", "");
+        }
+
+        internal static bool IsCovered(string file)
+        {
+            return Regex.IsMatch(Path.GetFileNameWithoutExtension(file), Regex.Escape(Game.Covered) + @"(-\d+)?$", RegexOptions.IgnoreCase);
         }
 
         static void AddText(ZipArchive z, string file, string name, long tail, List<string> skipped, List<string> leftOut)
@@ -148,7 +156,7 @@ namespace IdleMafiaBot
                         leftOut.Add(name + ": its first " + Size(from + (nl + 1)) + " (older lines)");
                     }
                 }
-                string text = NoUser(new UTF8Encoding(false).GetString(bytes));
+                string text = NoUser(HideLink(new UTF8Encoding(false).GetString(bytes)));
                 var e = z.CreateEntry(name, CompressionLevel.Optimal);
                 Stamp(e, file);
                 using (var w = new StreamWriter(e.Open(), new UTF8Encoding(false))) w.Write(text);
@@ -219,7 +227,9 @@ namespace IdleMafiaBot
 
         internal static string HideLink(string text)
         {
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^([ \t]*(?:DiscordLink|StatsLink)[ \t]*=)[ \t]*[^\s][^\r\n]*", "$1(set, left out of this report)");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^([ \t]*(?:DiscordLink|StatsLink|RobloxUsers)[ \t]*=)[ \t]*[^\s][^\r\n]*", "$1(set, left out of this report)");
+
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"(your Roblox name is )@\S+", "$1(left out)");
             return System.Text.RegularExpressions.Regex.Replace(text, @"https?://\S*webhooks/\S+", "(a webhook link, left out)");
         }
 

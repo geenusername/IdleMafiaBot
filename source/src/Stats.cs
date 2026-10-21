@@ -26,6 +26,8 @@ namespace IdleMafiaBot
 
         static readonly HashSet<string> FamilyServers = new HashSet<string> { "1543575606053183538", "1559739278387454057" };
 
+        internal const string OurServer = "1549472576743415838";
+
         readonly Bot bot;
         readonly Settings s;
         readonly Action<string> log;
@@ -45,6 +47,7 @@ namespace IdleMafiaBot
 
         string familyLink;
         bool? family;
+        string guild;
         DateTime familyAt = DateTime.MinValue;
         double bountyMin = DefaultBounty;
         const double DefaultBounty = 1e9;
@@ -110,12 +113,40 @@ namespace IdleMafiaBot
 
         public bool Family { get { return On && family == true && familyLink == Link; } }
 
+        public bool Ours { get { return On && familyLink == Link && guild == OurServer; } }
+
+        public bool NotOurs { get { return On && familyLink == Link && guild != null && guild != OurServer; } }
+
         static string Iso(DateTime utc) { return utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture); }
+
+        internal static string UserOf(string users, string account)
+        {
+            string key = (account ?? "").Trim();
+            foreach (var pair in (users ?? "").Split(';'))
+            {
+                int eq = pair.IndexOf('=');
+                if (eq > 0 && string.Equals(pair.Substring(0, eq).Trim(), key, StringComparison.OrdinalIgnoreCase)) return pair.Substring(eq + 1).Trim();
+            }
+            return "";
+        }
+
+        internal static string WithUser(string users, string account, string user)
+        {
+            string key = (account ?? "").Trim();
+            var kept = (users ?? "").Split(';').Where(p => p.Contains("=") && !string.Equals(p.Substring(0, p.IndexOf('=')).Trim(), key, StringComparison.OrdinalIgnoreCase));
+            return string.Join(";", kept.Concat(new[] { key + "=" + user }));
+        }
+
+        string ShownName()
+        {
+            string name = s.Account.Trim(), user = UserOf(s.RobloxUsers, s.Account);
+            return user.Length > 0 && !string.Equals(user, name, StringComparison.OrdinalIgnoreCase) ? name + " (@" + user + ")" : name;
+        }
 
         string PostHead(string kind)
         {
             string fp = Fingerprint(s.Account);
-            return "{\n  \"imb\": 1,\n  \"event\": " + Q(kind) + ",\n  \"app\": " + Q(Program.Version) + (fp != null ? ",\n  \"account\": " + Q(fp) + ",\n  \"name\": " + Q(s.Account.Trim()) : "")
+            return "{\n  \"imb\": 1,\n  \"event\": " + Q(kind) + ",\n  \"app\": " + Q(Program.Version) + (fp != null ? ",\n  \"account\": " + Q(fp) + ",\n  \"name\": " + Q(ShownName()) : "")
                    + ",\n  \"at\": " + Q(Iso(DateTime.UtcNow));
         }
 
@@ -134,7 +165,8 @@ namespace IdleMafiaBot
         internal void NoteWin(Bot.FightWin w)
         {
             if (!Family || w == null || w.Took < bountyMin || string.IsNullOrEmpty(w.Name)) return;
-            Queue(PostHead("bounty") + ",\n  \"target\": " + Q(w.Name.Trim()) + (w.Level > 0 ? ",\n  \"level\": " + N(w.Level) : "") + ",\n  \"took\": " + N(w.Took) + "\n}", w.Shot);
+            Queue(PostHead("bounty") + ",\n  \"target\": " + Q(w.Name.Trim()) + (w.Level > 0 ? ",\n  \"level\": " + N(w.Level) : "")
+                  + (w.Prestige >= 0 ? ",\n  \"prestige\": " + N(w.Prestige) : "") + ",\n  \"took\": " + N(w.Took) + "\n}", w.Shot);
         }
 
         internal void NoteShop(Game.ShopItem item, int stockSeconds)
@@ -183,8 +215,19 @@ namespace IdleMafiaBot
         internal void NoteShipment(string text)
         {
             if (!Family || string.IsNullOrWhiteSpace(text)) return;
-            string t = text.Trim();
-            Queue(PostHead("shipment") + ",\n  \"text\": " + Q(t.Length > 200 ? t.Substring(0, 200) : t) + "\n}", null);
+            string t = text.Trim(), city, name;
+            bool found = ShipmentDistrict(t, out city, out name);
+            Queue(PostHead("shipment") + ",\n  \"text\": " + Q(t.Length > 200 ? t.Substring(0, 200) : t)
+                  + (found ? ",\n  \"city\": " + Q(city) + ",\n  \"district\": " + Q(name) : "") + "\n}", null);
+        }
+
+        internal static bool ShipmentDistrict(string text, out string city, out string name)
+        {
+            city = name = null;
+            var m = Regex.Match(text ?? "", @"\bHold\s+(.+?)\s+when\b", RegexOptions.IgnoreCase);
+            if (!m.Success) m = Regex.Match(text ?? "", @"\bfrom\s+(.+?)(?:\s+[x×](?:\s|$)|\s*\(|\s*$)", RegexOptions.IgnoreCase);
+            int number;
+            return m.Success && Game.MatchDistrict(m.Groups[1].Value.Trim(), out city, out number, out name);
         }
 
         internal void NoteEvent(Game.ActiveEvent e)
@@ -364,13 +407,15 @@ namespace IdleMafiaBot
             if (acct != null) add("account", Q(acct));
             add("state", Q(state));
             bool fam = acct != null && family == true && familyLink == Link;
-            if (fam) add("name", Q(s.Account.Trim()));
+            if (fam) add("name", Q(ShownName()));
             lock (gate)
             {
                 if (fam && heist != null)
                     add("heist", "{ " + Q("at") + ": " + Q(heistAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)) + ", " + Q("name") + ": " + Q(heist.Name)
                         + (heist.Minutes > 0 ? ", " + Q("minutes") + ": " + N(heist.Minutes) : "") + (heist.Helps > 0 ? ", " + Q("helps") + ": " + N(heist.Helps) : "") + " }");
                 if (level > 0) add("level", N(level));
+
+                if (s.LastPrestige >= 0) add("prestige", N(s.LastPrestige));
                 double cash = Middle(cashReads), bank = Middle(bankReads);
                 if (cash >= 0) add("cash", N(cash));
                 if (bank >= 0) add("bank", N(bank));
@@ -485,7 +530,7 @@ namespace IdleMafiaBot
         {
             string link = Link;
             if (!IsLink(link) || link == deadLink) return;
-            if (familyLink != link) { familyLink = link; family = null; bountyMin = DefaultBounty; lock (gate) posts.Clear(); }
+            if (familyLink != link) { familyLink = link; family = null; guild = null; bountyMin = DefaultBounty; lock (gate) posts.Clear(); }
             if ((family == null || (family == true && DateTime.UtcNow - familyAt >= FamilyAgain)) && timeoutMs > ClosingTimeout) AskFamily(link, timeoutMs);
             string account = s.Account, fp = Fingerprint(account), wid = WebhookOf(link), mid = MessageOf(link);
             string json = Json(state, true, fp), core = Json(state, false, fp);
@@ -546,18 +591,20 @@ namespace IdleMafiaBot
         {
             string answer, after;
             bool? before = family;
+            string guildBefore = guild;
             int code = Call("GET", Base(link), null, timeoutMs, out answer, out after);
             if (code == 200)
             {
-                family = FamilyServers.Contains(TopLevel(answer, "guild_id") ?? "");
+                guild = TopLevel(answer, "guild_id") ?? "";
+                family = FamilyServers.Contains(guild);
                 familyAt = DateTime.UtcNow;
                 var m = Regex.Match(TopLevel(answer, "name") ?? "", @"^family-\d+-(\d{1,20})$");
                 double v;
                 bountyMin = m.Success && double.TryParse(m.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out v) ? v : DefaultBounty;
             }
-            else if (code == 401 || code == 404) family = false;
+            else if (code == 401 || code == 404) { family = false; guild = null; }
             if (family == true && before != true) log("Stats in our Discord: a family server's link - the game's name, your heists, big wins and good shop items go there too");
-            if (family != before) { var h = Changed; if (h != null) h(); }
+            if (family != before || guild != guildBefore) { var h = Changed; if (h != null) h(); }
         }
 
         void SetTrouble(string link, string why, bool sent)

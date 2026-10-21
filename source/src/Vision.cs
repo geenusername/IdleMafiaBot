@@ -33,6 +33,16 @@ namespace IdleMafiaBot
         public int Width { get { return Bitmap.Width; } }
         public int Height { get { return Bitmap.Height; } }
 
+        public static readonly object NotSendable = new object();
+
+        public bool Sendable { get { return Bitmap.Tag != NotSendable; } }
+
+        public static Bitmap Marked(Bitmap from, Bitmap copy)
+        {
+            if (from != null && copy != null && from.Tag == NotSendable) copy.Tag = NotSendable;
+            return copy;
+        }
+
         public Color Pixel(int x, int y)
         {
             if (x < 0 || y < 0 || x >= Width || y >= Height) return Color.Black;

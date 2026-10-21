@@ -37,7 +37,7 @@ namespace IdleMafiaBot
 
     sealed class HeistRow { public int Top; public Point HelpAt; public string Name = ""; public string HelpText = ""; public int XpPerHelp = -1, Energy = -1; public bool CanHelp, YourFamily; }
 
-    sealed class FightRow { public int Index; public Point AttackAt, NameAt; public string AttackText = "", Name = ""; public int Level = -1; public int Steal = -1; public int StaminaCost = 5; public bool Ready, War, NoFamily; }
+    sealed class FightRow { public int Index; public Point AttackAt, NameAt; public string AttackText = "", Name = ""; public int Level = -1; public int Steal = -1; public int StaminaCost = 5; public int Prestige = -1; public bool Ready, War, NoFamily; }
     sealed class OpSlot { public int Index; public string Name = ""; public int SecondsLeft = -1; public bool Running, Locked, Done, Pass; public OcrLine Collect; }
     sealed class OpRow { public string Name; public int Y; public Point StartAt; public string StartText = ""; public int Seconds = -1; public int Xp = -1; public bool CanStart; public int Page; }
     sealed class CityHeader { public int Index; public int Y; public bool Collapsed; public Point ButtonAt; }
@@ -87,6 +87,8 @@ namespace IdleMafiaBot
 
         public int Shots { get; private set; }
 
+        public const string Covered = "-covered";
+
         public void Snapshot(string reason, int minMinutes = 0, bool keep = false, bool failure = true, Bitmap picture = null)
         {
             var failed = Failed;
@@ -103,8 +105,12 @@ namespace IdleMafiaBot
                 string dir = keep ? System.IO.Path.Combine(active, "first seen") : active;
                 System.IO.Directory.CreateDirectory(dir);
                 string file = System.IO.Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + slug + ".png");
-                using (var f = picture != null ? new Frame(new Bitmap(picture)) : Win.Capture())
+                bool sendable;
+                using (var f = picture != null ? new Frame(Frame.Marked(picture, new Bitmap(picture))) : Win.Capture())
                 {
+                    sendable = f.Sendable;
+
+                    if (!sendable) file = file.Substring(0, file.Length - 4) + Covered + ".png";
                     if (GameLoading(f))
                     {
 
@@ -117,7 +123,8 @@ namespace IdleMafiaBot
                 if (!keep) Shots++;
                 log("Saved a screenshot of this: problems\\active\\" + (keep ? "first seen\\" : "") + System.IO.Path.GetFileName(file));
                 var saved = Saved;
-                if (!keep && failure && saved != null) saved(reason ?? "problem", file);
+
+                if (!keep && failure && saved != null) saved(reason ?? "problem", sendable ? file : null);
 
                 var reasons = new HashSet<string>();
                 int kept = 0, most = keep ? 200 : 80;
@@ -2069,8 +2076,8 @@ namespace IdleMafiaBot
                                 .OrderByDescending(l => l.Box.X).FirstOrDefault();
                 if (name != null) r.Name = name.Text;
 
-                var xp = lines.FirstOrDefault(l => Parse.Has(l.Text, "XP") && l.CenterY > b.Box.Bottom && l.CenterY < b.Box.Bottom + 4 * h
-                                                   && l.CenterX > b.Box.X - b.Box.Width && l.CenterX < b.Box.Right + b.Box.Width / 3);
+                var xp = lines.Where(l => Parse.Has(l.Text, "XP") && l.CenterY > b.Box.Bottom && l.CenterY < b.Box.Bottom + 8 * h
+                                          && l.CenterX > b.Box.X - b.Box.Width && l.CenterX < b.Box.Right + b.Box.Width / 3).OrderBy(l => l.CenterY).FirstOrDefault();
 
                 bool grand = Parse.Has(r.Name, "GRAND VAULT");
                 r.XpPerHelp = grand ? 140 : -1;
@@ -2079,22 +2086,46 @@ namespace IdleMafiaBot
                 if (r.XpPerHelp < 0 && xm.Success && int.TryParse(xm.Groups[1].Value.Replace(",", ""), out cardXp)) r.XpPerHelp = cardXp;
                 if (r.XpPerHelp < 0) r.XpPerHelp = KnownHeistXp(r.Name);
 
-                var en = lines.Where(l => Parse.Has(l.Text, "ENERGY") && l.CenterY > b.Box.Bottom && l.CenterY < b.Box.Bottom + 3 * h
-                                          && l.Box.Right > b.Box.X - h && l.Box.X < b.Box.Right).OrderBy(l => l.Box.X).FirstOrDefault();
-                var em = en != null ? Regex.Match(en.Text, @"([0-9]{1,2})\s*ENERGY", RegexOptions.IgnoreCase) : Match.Empty;
+                var en = lines.Where(l => (Parse.Has(l.Text, "ENERGY") || Regex.IsMatch(l.Text.Trim(), @"^\W{0,2}-\s*[0-9]{1,2}$"))
+                                          && l.CenterY > b.Box.Bottom && l.CenterY < b.Box.Bottom + 3.5 * h
+                                          && l.Box.Right > b.Box.X - 6 * h && l.Box.X >= b.Box.X - 9 * h && l.Box.X < b.Box.Right).OrderBy(l => l.Box.X).FirstOrDefault();
+                var em = en != null ? Regex.Match(en.Text, @"-?\s*([0-9]{1,2})\s*(ENERGY)?\s*$", RegexOptions.IgnoreCase) : Match.Empty;
                 if (em.Success) r.Energy = int.Parse(em.Groups[1].Value);
                 string k = Parse.Key(r.HelpText);
-                r.CanHelp = k.Contains("HEIPOUT") && !k.Contains("HEIPED") && GoldIsh(f, b.Box.X - Math.Max(4, h / 2), b.CenterY);
+                r.CanHelp = k.Contains("HEIPOUT") && !k.Contains("HEIPED") && GoldButton(f, b.Box.X, b.CenterY, h);
 
                 if (en == null && b.Box.Bottom + 2 * h > PageArea(f).Bottom) r.CanHelp = false;
 
                 var n = Regex.Match(k, @"HEIPOUT([0-9IOS]{1,2})OF([0-9IOS]{1,2})");
                 if (n.Success && HelpCount(n.Groups[1].Value) >= HelpCount(n.Groups[2].Value) && HelpCount(n.Groups[2].Value) > 0) r.CanHelp = false;
 
-                r.YourFamily = lines.Any(l => l.Box.Right < b.Box.X && l.CenterY > b.Box.Y - h && l.CenterY < b.Box.Bottom + 2.2 * h && Parse.Has(l.Text, "YOUR FAMILY"));
+                r.YourFamily = lines.Any(l => l.Box.Right < b.Box.X && l.CenterY > b.Box.Y - h && l.CenterY < b.Box.Bottom + 3.5 * h
+                                              && (Parse.Has(l.Text, "YOUR FAMILY") || (l.Text.Contains("[") && GreenText(f, l.Box))));
                 rows.Add(r);
             }
             return rows;
+        }
+
+        static bool GoldButton(Frame f, int textX, int y, int h)
+        {
+            for (int x = textX - 2; x >= Math.Max(0, textX - 12 * h); x--)
+            {
+                var c = f.Pixel(x, y);
+                if (Math.Max(c.R, Math.Max(c.G, c.B)) >= 80) return GoldIsh(f, x, y);
+            }
+            return false;
+        }
+
+        static bool GreenText(Frame f, Rectangle box)
+        {
+            int green = 0;
+            for (int y = box.Top; y < box.Bottom; y += 2)
+                for (int x = box.Left; x < box.Right; x += 2)
+                {
+                    var c = f.Pixel(x, y);
+                    if (c.G >= 140 && c.G - c.R >= 35 && c.G - c.B >= 60) green++;
+                }
+            return green >= 6;
         }
 
         static int HelpCount(string folded)
@@ -2217,6 +2248,10 @@ namespace IdleMafiaBot
                 double nameMaxX = under.Count > 0 ? under.Min(l => l.Box.X) + 3 * h : list.Left + 0.45 * (b.Box.X - list.Left);
                 if (nameLine != null && nameLine.Box.X > nameMaxX) nameLine = null;
                 if (nameLine != null) { r.Name = nameLine.Text.Trim(); r.NameAt = new Point(nameLine.CenterX, nameLine.CenterY); }
+
+                int badge;
+                if (nameLine != null && SplitPrestige(r.Name, out badge) != r.Name)
+                    r.Prestige = badge > 0 ? badge : PrestigeCount(f, nameLine.Box, scale);
 
                 double below = (nameLine != null ? nameLine.CenterY : b.Box.Y - 0.5 * h) + 0.5 * h;
                 r.War = warLabels.Any(l => l.CenterY > below && l.CenterY >= b.Box.Y);
@@ -2444,6 +2479,7 @@ namespace IdleMafiaBot
         public sealed class PlayerProfile
         {
             public string Name = "";
+            public string Username = "";
             public int Respect = -1, Attack = -1, Defense = -1, Crew = -1;
             public OcrLine Title, Scout;
             public Point Close;
@@ -2451,7 +2487,149 @@ namespace IdleMafiaBot
             public bool Read { get { return Attack >= 0 && Defense >= 0; } }
         }
 
-        static readonly Regex ProfileTitleRx = new Regex(@"^\s*(PLAYER|FAMI[LI1]Y)\s*PROFI[LI1]E\s*[:;.]?\s*(.*)$", RegexOptions.IgnoreCase);
+        internal static string ProfileUsername(string title)
+        {
+            var m = Regex.Match(title ?? "", @"\(\s*@\s*([A-Za-z0-9_ ]{3,24}?)\s*\)?\s*$");
+            if (!m.Success) return "";
+
+            string u = m.Groups[1].Value.Trim();
+            u = Regex.Matches(u, @"\s+").Count == 1 && !u.Contains("_") ? Regex.Replace(u, @"\s+", "_") : u.Replace(" ", "");
+            return Regex.IsMatch(u, "^[A-Za-z0-9_]{3,20}$") ? u.ToLowerInvariant() : "";
+        }
+
+        internal static string SplitPrestige(string name, out int prestige)
+        {
+            prestige = -1;
+            string s = (name ?? "").Trim();
+            var m = Regex.Match(s, @"^(.{3,}?)\s+(?:([OoQ0@©®○◯Ⓞ])|([①-⑥])|\(?([1-6])\)?)$");
+            if (!m.Success) return s;
+            prestige = m.Groups[3].Success ? m.Groups[3].Value[0] - '①' + 1 : m.Groups[4].Success ? m.Groups[4].Value[0] - '0' : 0;
+            return m.Groups[1].Value.Trim();
+        }
+
+        internal static int PrestigeCount(Frame f, Rectangle nameLine, int scale)
+        {
+            int h = Math.Max(8, nameLine.Height);
+            var words = Ocr.ReadWords(f, Rectangle.Inflate(nameLine, h / 2, h / 3), scale, Prep.None).OrderBy(w => w.Box.X).ToList();
+            if (words.Count < 2) return -1;
+            var last = words[words.Count - 1];
+            int p;
+            SplitPrestige("xxx " + last.Text, out p);
+            if (p < 0 || last.Box.Width > 2 * h || last.Box.Height < h / 2) return -1;
+            return p > 0 ? p : BadgeDigit(f, last.Box);
+        }
+
+        static List<double[]> digitShapes;
+
+        internal static int BadgeDigit(Frame f, Rectangle badge)
+        {
+
+            var inner = Rectangle.FromLTRB(badge.X + badge.Width * 3 / 10, badge.Y + badge.Height / 5, badge.Right - badge.Width * 3 / 10, badge.Bottom - badge.Height / 5);
+            if (inner.Width < 3 || inner.Height < 5) return -1;
+            var grey = new double[inner.Width, inner.Height];
+            for (int x = 0; x < inner.Width; x++)
+                for (int y = 0; y < inner.Height; y++)
+                {
+                    var c = f.Pixel(inner.X + x, inner.Y + y);
+                    grey[x, y] = Math.Max(0, Math.Min(1, ((c.R + c.G + c.B) / 3.0 - 70) / 120));
+                }
+
+            var keep = new bool[inner.Width, inner.Height];
+            int sx = -1, sy = -1;
+            double near = double.MaxValue;
+            for (int x = 0; x < inner.Width; x++)
+                for (int y = 0; y < inner.Height; y++)
+                {
+                    double d = Math.Pow(x - inner.Width / 2.0, 2) + Math.Pow(y - inner.Height / 2.0, 2);
+                    if (grey[x, y] >= 0.5 && d < near) { near = d; sx = x; sy = y; }
+                }
+            if (sx < 0) return -1;
+            var todo = new Stack<Point>();
+            todo.Push(new Point(sx, sy));
+            keep[sx, sy] = true;
+            while (todo.Count > 0)
+            {
+                var q = todo.Pop();
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        int x = q.X + dx, y = q.Y + dy;
+
+                        if (x < 0 || y < 0 || x >= inner.Width || y >= inner.Height || keep[x, y] || grey[x, y] < 0.2) continue;
+                        keep[x, y] = true;
+                        todo.Push(new Point(x, y));
+                    }
+            }
+            for (int x = 0; x < inner.Width; x++)
+                for (int y = 0; y < inner.Height; y++)
+                    if (!keep[x, y]) grey[x, y] = 0;
+            var shape = ShapeOf(grey, inner.Width, inner.Height);
+            if (shape == null) return -1;
+
+            var cols = new double[inner.Width];
+            for (int x = 0; x < inner.Width; x++) for (int y = 0; y < inner.Height; y++) cols[x] += grey[x, y];
+            double all = cols.Sum(), two = 0;
+            for (int x = 0; x + 1 < inner.Width; x++) two = Math.Max(two, cols[x] + cols[x + 1]);
+            if (all > 0 && two >= 0.8 * all) return 1;
+            if (digitShapes == null) digitShapes = DigitShapes();
+            double best = double.MaxValue, second = double.MaxValue;
+            int digit = -1;
+            for (int i = 0; i < digitShapes.Count; i++)
+            {
+                double d = 0;
+                for (int k = 0; k < shape.Length; k++) d += (shape[k] - digitShapes[i][k]) * (shape[k] - digitShapes[i][k]);
+                int n = i % 6 + 1;
+                if (d < best) { if (n != digit) second = best; best = d; digit = n; }
+                else if (d < second && n != digit) second = d;
+            }
+            return best < 4 && second - best > 0.6 ? digit : -1;
+        }
+
+        static double[] ShapeOf(double[,] grey, int w, int hgt)
+        {
+            int x1 = w, y1 = hgt, x2 = -1, y2 = -1;
+            for (int x = 0; x < w; x++)
+                for (int y = 0; y < hgt; y++)
+                    if (grey[x, y] >= 0.5) { x1 = Math.Min(x1, x); y1 = Math.Min(y1, y); x2 = Math.Max(x2, x); y2 = Math.Max(y2, y); }
+            if (x2 < 0 || y2 - y1 < 3) return null;
+            double gw = x2 - x1 + 1, gh = y2 - y1 + 1;
+            var s = new double[4 * 6 + 1];
+            for (int cx = 0; cx < 4; cx++)
+                for (int cy = 0; cy < 6; cy++)
+                {
+                    double sum = 0, n = 0;
+                    for (double u = 0.125; u < 1; u += 0.25)
+                        for (double v = 0.125; v < 1; v += 0.25)
+                        {
+                            int x = x1 + (int)((cx + u) * gw / 4), y = y1 + (int)((cy + v) * gh / 6);
+                            sum += grey[Math.Min(x2, x), Math.Min(y2, y)]; n++;
+                        }
+                    s[cy * 4 + cx] = sum / n;
+                }
+            s[24] = 2 * gw / gh;
+            return s;
+        }
+
+        static List<double[]> DigitShapes()
+        {
+            var shapes = new List<double[]>();
+            foreach (var font in new[] { "Arial", "Segoe UI" })
+                for (int d = 1; d <= 6; d++)
+                    using (var bmp = new Bitmap(60, 80))
+                    using (var g = Graphics.FromImage(bmp))
+                    using (var fnt = new Font(font, 40, FontStyle.Bold, GraphicsUnit.Pixel))
+                    {
+                        g.Clear(Color.Black);
+                        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                        g.DrawString(d.ToString(), fnt, Brushes.White, 5, 5);
+                        var grey = new double[60, 80];
+                        for (int x = 0; x < 60; x++) for (int y = 0; y < 80; y++) grey[x, y] = bmp.GetPixel(x, y).R / 255.0;
+                        shapes.Add(ShapeOf(grey, 60, 80));
+                    }
+            return shapes;
+        }
+
+        static readonly Regex ProfileTitleRx =new Regex(@"^\s*(PLAYER|FAMI[LI1]Y)\s*PROFI[LI1]E\s*[:;.]?\s*(.*)$", RegexOptions.IgnoreCase);
 
         public PlayerProfile ReadPlayerProfile(Frame f)
         {
@@ -2476,6 +2654,7 @@ namespace IdleMafiaBot
             var p = new PlayerProfile { Title = title, Family = !tm.Groups[1].Value.ToUpperInvariant().StartsWith("P") };
 
             p.Name = Regex.Replace(tm.Groups[2].Value + rest, @"\s*\(\s*@.*$", "").Trim();
+            p.Username = ProfileUsername(tm.Groups[2].Value + rest);
             var x = lines.Where(l => Regex.IsMatch(l.Text.Trim(), "^[xX×]$") && l.Box.X > title.Box.Right && Math.Abs(l.CenterY - title.CenterY) <= 1.5 * h)
                          .OrderBy(l => l.Box.X).FirstOrDefault();
             p.Close = x != null ? new Point(x.CenterX, x.CenterY) : SkillWindowX(f, title, popup);
@@ -2954,7 +3133,7 @@ namespace IdleMafiaBot
                     {
                         first = false;
                         if (AfterAttack != null) AfterAttack.Dispose();
-                        AfterAttack = new Bitmap(f.Bitmap);
+                        AfterAttack = Frame.Marked(f.Bitmap, new Bitmap(f.Bitmap));
                     }
                     var lines = Ocr.Read(f, PopupArea(f), PopupScale(f), Prep.None);
                     CheckForPurchasePrompt(lines);
@@ -2999,7 +3178,7 @@ namespace IdleMafiaBot
                     else if (windowUp && !sawWindow && dim == false && ++goneLooks >= 2)
                     {
                         FightCalledOff = true;
-                        FightGone = new Bitmap(f.Bitmap);
+                        FightGone = Frame.Marked(f.Bitmap, new Bitmap(f.Bitmap));
                         LastFightToast = ToastIn(f) ?? ReadToast(1500);
                         if (Refused(LastFightToast)) LastFightRefusal = LastFightToast;
                         return null;
@@ -3086,16 +3265,28 @@ namespace IdleMafiaBot
             Press(button, 200);
             string said = BankToast() ?? BankMoved(before, false);
             if (said == BankUnchanged || said == BankUnread) said = DepositLate(before) ?? said;
+            said = BankCardSays(said);
             if (said != BankUnchanged) return said;
 
             OcrLine again;
             using (var f = Capture()) { again = FindDepositAll(f); before = ReadHeader(f); }
-            if (again == null || before.Cash < 1) return said;
+            if (again == null || (before.Cash >= 0 && before.Cash < 1)) return said;
             CheckForPurchaseWindow();
             Press(again, 200);
             said = BankToast() ?? BankMoved(before, false);
             if (said == BankUnchanged || said == BankUnread) said = DepositLate(before) ?? said;
-            return said == BankUnchanged ? said : said + " (pressed twice)";
+            said = BankCardSays(said);
+            return said == BankUnchanged || said == BankUnread ? said : said + " (pressed twice)";
+        }
+
+        string BankCardSays(string said)
+        {
+            if (said != BankUnread) return said;
+            double onHand;
+            using (var f = Capture()) onHand = BankCardOnHand(f);
+            if (onHand < 1000) return said;
+            CloseTerritoryToasts();
+            return BankUnchanged;
         }
 
         string DepositLate(Header before)
@@ -3677,9 +3868,22 @@ namespace IdleMafiaBot
             return rewards.Count(l => Parse.Key(l.Text) == "CIAIMED") >= 5 ? -2 : -1;
         }
 
-        public int ClaimPlaytimeRewards()
+        public bool PlaytimeExpHeld;
+
+        static List<OcrLine> ExpClaims(List<OcrLine> rewards)
+        {
+            var heads = rewards.Where(l => Regex.IsMatch(l.Text.Trim(), @"^\d{1,3}\s*M[I1l]N$", RegexOptions.IgnoreCase)).Select(l => l.CenterX).OrderBy(x => x).ToList();
+            var claims = rewards.Where(l => Parse.Key(l.Text) == "CIAIM").ToList();
+            int half = heads.Count >= 2 ? Enumerable.Range(1, heads.Count - 1).Min(i => heads[i] - heads[i - 1]) / 2
+                                        : claims.Count > 0 ? 6 * Math.Max(8, claims[0].Box.Height) : 0;
+            return claims.Where(c => rewards.Any(l => l.Box.Y < c.Box.Y && Math.Abs(l.CenterX - c.CenterX) < half
+                                                     && Regex.IsMatch(Parse.Key(l.Text), @"^[0-9OIS]{0,2}X?EXP$"))).ToList();
+        }
+
+        public int ClaimPlaytimeRewards(bool exp = false, bool expOnly = false)
         {
             PlaytimeNextSeconds = -1;
+            PlaytimeExpHeld = false;
             if (!OpenTab(Tab.Safehouse)) return 0;
             ScrollPage(0.54, 15);
             for (int look = 0; look < 4; look++)
@@ -3692,8 +3896,13 @@ namespace IdleMafiaBot
                 {
                     var stats = lines.FirstOrDefault(l => Parse.Has(l.Text, "YOUR STATS") && l.Box.Y > title.Box.Bottom);
                     int bottom = stats != null ? stats.Box.Y : int.MaxValue;
-                    PlaytimeNextSeconds = NextPlaytime(lines.Where(l => l.Box.Y > title.Box.Bottom && l.Box.Y < bottom).ToList());
-                    return ClaimButtons(l => l.Box.Y > title.Box.Bottom && l.Box.Y < bottom);
+                    var rewards = lines.Where(l => l.Box.Y > title.Box.Bottom && l.Box.Y < bottom).ToList();
+                    var expAt = ExpClaims(rewards);
+                    PlaytimeExpHeld = !exp && expAt.Count > 0;
+                    PlaytimeNextSeconds = NextPlaytime(rewards.Where(l => !PlaytimeExpHeld || !expAt.Contains(l)).ToList());
+
+                    Func<OcrLine, bool> isExp = c => expAt.Any(e => Math.Abs(e.CenterX - c.CenterX) < Math.Max(8, e.Box.Height) && Math.Abs(e.CenterY - c.CenterY) < Math.Max(8, e.Box.Height));
+                    return ClaimButtons(l => l.Box.Y > title.Box.Bottom && l.Box.Y < bottom && (isExp(l) ? exp : !expOnly));
                 }
                 ScrollPage(0.54, -4);
             }
@@ -3785,6 +3994,7 @@ namespace IdleMafiaBot
             if (tab != null) Press(tab, 800);
             int tabBottom = tab != null ? tab.Box.Bottom + tab.Box.Height : 0;
             int opened = 0, menuTries = 0;
+            bool openRetried = false;
             string chosen = "", chosenTag = "";
             for (int round = 0; round < 60; round++)
             {
@@ -3823,6 +4033,7 @@ namespace IdleMafiaBot
                     continue;
                 }
                 menuTries = 0;
+
                 Press(openAll ?? open, 800);
                 var got = new List<string>();
                 int quiet = 0;
@@ -3857,6 +4068,15 @@ namespace IdleMafiaBot
                     using (var f = Capture()) eventUp = CloseEventPopup(f);
                     if (eventUp) { log("Crates: Roblox's \"Join Event\" window was over the crate - tried again next round"); break; }
 
+                    if (!openRetried) { openRetried = true; Wait(1000); continue; }
+
+                    if (LeaveCrate(chosen, 24))
+                    {
+                        log("Crates: " + chosen + " didn't open - the game blocks some crates in some countries (it may open with a VPN). The bot tries it again in 24 hours");
+                        openRetried = false;
+                        continue;
+                    }
+
                     bool named = LeaveCrate(chosen);
                     log(named ? "Crates: " + chosen + " opened but no COLLECT button showed up - stopping crates, and leaving that one alone for 6 hours"
                               : "A crate opened but no COLLECT button showed up - stopping crates");
@@ -3887,12 +4107,28 @@ namespace IdleMafiaBot
             return k.Length > 0 && cratesLeft.TryGetValue(k, out until) && DateTime.UtcNow < until;
         }
 
-        internal bool LeaveCrate(string name)
+        internal bool LeaveCrate(string name, int hours = 6)
         {
             string k = Parse.Key(name);
             if (k.Length == 0) return false;
-            cratesLeft[k] = DateTime.UtcNow.AddHours(6);
+            cratesLeft[k] = DateTime.UtcNow.AddHours(hours);
             return true;
+        }
+
+        public string CratesLeftText
+        {
+            get { return string.Join(";", cratesLeft.Where(kv => kv.Value > DateTime.UtcNow).Select(kv => kv.Key + "=" + kv.Value.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture))); }
+            set
+            {
+                cratesLeft.Clear();
+                foreach (var pair in (value ?? "").Split(';'))
+                {
+                    int eq = pair.IndexOf('=');
+                    DateTime until;
+                    if (eq > 0 && DateTime.TryParse(pair.Substring(eq + 1), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out until))
+                        cratesLeft[pair.Substring(0, eq)] = until;
+                }
+            }
         }
 
         internal Point? NextCrate(List<OcrLine> lines, List<Rectangle> cards, bool onlyCrates, int below, out string name, out string tag)
@@ -4976,7 +5212,7 @@ namespace IdleMafiaBot
                     {
 
                         string rest = Regex.Replace(it.PriceText, "GOLD|BARS?", "", RegexOptions.IgnoreCase), d = Parse.Digits(rest);
-                        if (d.Length > 0 && d.Length <= 7 && !Regex.IsMatch(rest, "[A-Za-z]{2}"))
+                        if (rest.Length < it.PriceText.Length && d.Length > 0 && d.Length <= 7 && !Regex.IsMatch(rest, "[A-Za-z]{2}"))
                         { it.Gold = true; it.Price = double.Parse(d); }
                     }
                 }
@@ -6405,6 +6641,12 @@ namespace IdleMafiaBot
             var lines = Ocr.Read(f, area, scale, Prep.None);
             SafehouseTop(f, scale, lines, s);
 
+            foreach (var l in lines)
+            {
+                var pm = Regex.Match(l.Text, @"PRESTIGE\s*([0-9OoIl])\s*OF\s*([0-9])", RegexOptions.IgnoreCase);
+                if (pm.Success) s.Prestige = int.Parse(Regex.Replace(Regex.Replace(pm.Groups[1].Value, "[Oo]", "0"), "[Il]", "1"));
+            }
+
             if (s.Level < 0 && lines.Any(l => { string k = Parse.Key(l.Text); return k.StartsWith("UPGRADE") || Regex.IsMatch(k, "^NEXT[A-Z]{4}") || RequiresLevelRx.IsMatch(l.Text); }))
                 foreach (var t in new[] { Tuple.Create(scale, Prep.WhiteText), Tuple.Create(scale, Prep.WhiteSoft), Tuple.Create(scale + 1, Prep.None) })
                 {
@@ -6869,6 +7111,7 @@ namespace IdleMafiaBot
         public int Hired = -1, HireMax = -1, Gear = -1, GearMax = -1;
         public int SkillPoints = -1, Energy = -1, Stamina = -1, Health = -1, BaseAttack = -1, BaseDefense = -1, Capacity = -1;
         public int Members = -1, MembersMax = -1;
+        public int Prestige = -1;
         public bool FamilySeen;
 
         public bool NoFamily { get { return Family != null && Parse.Key(Family) == "NONEYET"; } }

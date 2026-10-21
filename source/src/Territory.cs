@@ -34,6 +34,21 @@ namespace IdleMafiaBot
 
         static readonly Regex DistrictRow = new Regex(@"^\s*([0-9OoDIl|]{3})\s+(.+?)\s*/\s*(.+?)\s*$");
 
+        internal static bool ListedDistrict(string text, string city, out int number, out string name)
+        {
+            number = -1; name = null;
+            var m = Regex.Match(text ?? "", @"^\s*(\S{2,4})\s+(.+?)\s*/\s*(.+?)\s*$");
+            if (!m.Success || View.Distance(Parse.Key(m.Groups[3].Value), Parse.Key(city)) > 2) return false;
+            string c2;
+            if (MatchDistrict(m.Groups[2].Value, out c2, out number, out name) && c2 == city) return true;
+            string digits = Regex.Replace(m.Groups[1].Value, "[OoD]", "0");
+            digits = Regex.Replace(digits, "[Il|]", "1");
+            if (!Regex.IsMatch(digits, @"^\d{3}$")) return false;
+            number = int.Parse(digits);
+            name = m.Groups[2].Value.Trim();
+            return true;
+        }
+
         internal static int DistrictRowNumber(string text)
         {
             var m = DistrictRow.Match(text ?? "");
@@ -270,24 +285,34 @@ namespace IdleMafiaBot
 
                 Scroll(districtBox.CenterX, districtBox.Box.Bottom + 6 * Math.Max(8, districtBox.Box.Height), 10);
                 Wait(300);
+
                 var seen = new Dictionary<int, string>();
-                for (int look = 0; look < 12; look++)
+                int still = 0;
+                for (int look = 0; look < 15; look++)
                 {
                     int before = seen.Count;
                     OcrLine any = null;
                     using (var f = Capture())
-                        foreach (var l in Ocr.Read(f, PageArea(f), PageScale(f) + 1, Prep.None).Where(l => l.Box.Y > districtBox.Box.Bottom))
-                        {
-                            var m = DistrictRow.Match(l.Text);
-                            if (!m.Success) continue;
-                            any = l;
-                            string c2, nm; int no;
+                        foreach (var scale in new[] { PageScale(f) + 1, PageScale(f) + 2 })
+                            foreach (var l in Ocr.Read(f, PageArea(f), scale, Prep.None).Where(l => l.Box.Y > districtBox.Box.Bottom))
+                            {
+                                int no;
+                                string nm;
+                                if (!ListedDistrict(l.Text, city, out no, out nm)) continue;
+                                any = l;
+                                seen[no] = nm;
+                            }
+                    if (any == null || (holds > 0 && seen.Count >= holds)) break;
 
-                            seen[int.Parse(Parse.Digits(m.Groups[1].Value))] = MatchDistrict(m.Groups[2].Value, out c2, out no, out nm) && c2 == city ? nm : m.Groups[2].Value.Trim();
-                        }
-                    if (any == null || (look > 0 && seen.Count == before) || (holds > 0 && seen.Count >= holds)) break;
+                    if (look > 0 && seen.Count == before && ++still >= 2) break;
+                    if (seen.Count > before) still = 0;
                     Scroll(any.CenterX, any.CenterY, -3);
-                    Wait(400);
+                    Wait(500);
+                }
+                if (holds > 0 && seen.Count > 0 && seen.Count < holds)
+                {
+                    log("Territory: " + city + "'s district list gave " + seen.Count + " of the " + holds + " the page counts");
+                    Snapshot("district list short", 180);
                 }
                 Click(districtBox.CenterX, districtBox.CenterY, 700);
                 if (seen.Count == 0) log("Territory: " + city + "'s district list read nothing (the page says " + (holds < 0 ? "no count" : "it holds " + holds) + ")");

@@ -146,7 +146,8 @@ namespace IdleMafiaBot
         public bool CrewAutoRoll = false;
         public long AutoRollLimit = 1000000000;
 
-        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000, 50000000000, 100000000000, 200000000000 };
+        public static readonly long[] AutoRollLimits = { 100000000, 500000000, 1000000000, 5000000000, 10000000000, 100000000000,
+            500000000000, 1000000000000, 10000000000000, 50000000000000, 100000000000000 };
 
         public bool TrainCrew = true;
         public int TrainAtOnce = 1;
@@ -198,6 +199,10 @@ namespace IdleMafiaBot
 
         public string Account = "";
         public int LastLevel = -1;
+        public int LastPrestige = -1;
+        public string Totals = "";
+        public string BossesDoneUntil = "";
+        public string CratesLeft = "";
         public int LastAttackPower = -1;
         public int LastDefensePower = -1;
         public string BarMax = "";
@@ -205,6 +210,7 @@ namespace IdleMafiaBot
         public string CheckOffered = "";
         public int CheckHintLevel = 0;
         public string FamilyDistrictsAt = "";
+        public string RobloxUsers = "";
         public string JobsReadAt = "";
         public bool CrewGearOff = false;
         public bool ScreenFirst = false;
