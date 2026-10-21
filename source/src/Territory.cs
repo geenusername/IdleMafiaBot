@@ -75,11 +75,16 @@ namespace IdleMafiaBot
             return m.Groups[1].Value.Trim();
         }
 
+        internal static string NoDistrictNumber(string read)
+        {
+            return Regex.Replace(read ?? "", @"^\W*\d{1,3}[.):]?\s+(?=[A-Za-z])", "");
+        }
+
         internal static bool MatchDistrict(string read, out string city, out int number, out string name)
         {
             city = name = null; number = -1;
 
-            read = Regex.Replace(read ?? "", @"^\W*\d{1,2}[.):]?\s+(?=[A-Za-z])", "");
+            read = NoDistrictNumber(read);
             string k = Parse.Key((read ?? "").Replace("æ", "as").Replace("Æ", "As"));
             if (k.Length < 4) return false;
             var hits = new List<Tuple<int, string, int, string>>();
@@ -376,8 +381,8 @@ namespace IdleMafiaBot
                 if (look > 0) Wait(700);
                 using (var f = Capture())
                     label = Ocr.Read(f, PageArea(f), PageScale(f), Prep.None)
-                               .Where(l => l.Box.Y > districtBox.Box.Bottom + 2 * h && View.Distance(Parse.Key(l.Text), Parse.Key(name)) <= 2)
-                               .OrderBy(l => View.Distance(Parse.Key(l.Text), Parse.Key(name))).FirstOrDefault();
+                               .Where(l => l.Box.Y > districtBox.Box.Bottom + 2 * h && View.Distance(Parse.Key(NoDistrictNumber(l.Text)), Parse.Key(name)) <= 2)
+                               .OrderBy(l => View.Distance(Parse.Key(NoDistrictNumber(l.Text)), Parse.Key(name))).FirstOrDefault();
             }
             if (label == null) { log("Territory: " + name + " not seen on the map"); CloseStrayDistrict(); return false; }
             Click(label.CenterX, label.CenterY + 2 * label.Box.Height, 2000);
