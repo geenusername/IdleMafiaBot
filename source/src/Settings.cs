@@ -118,8 +118,10 @@ namespace IdleMafiaBot
 
         public bool MarketRelist = false;
 
-        public static readonly bool MarketRelistShown = false;
+        public static readonly bool MarketRelistShown = true;
+
         public int MarketMinutes = 30;
+        public const int MarketMinutesLeast = 30;
 
         public string MarketPending = "";
 
@@ -158,8 +160,11 @@ namespace IdleMafiaBot
         public bool DefendHeal = false;
         public const int MaxTraining = 2;
         public const int Perfect = 45;
+        public const int PerfectForbidden = 70;
         public static readonly int[] StatsGoals = { 0, Perfect };
-        public static readonly string[] StatsGoalNames = { "Off: stop at the best rarity", "On: until every one is 45/45" };
+        public static readonly string[] StatsGoalNames = { "Off: stop at the best rarity", "On: until every one is perfect" };
+
+        public static int PerfectFor(int rarity) { return rarity >= (int)Rarity.Forbidden ? PerfectForbidden : Perfect; }
 
         public static string StatsGoalText(int n) { return n >= Perfect ? Perfect + " attack and defense" : n + "+ attack and defense"; }
 

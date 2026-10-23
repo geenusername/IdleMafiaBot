@@ -216,6 +216,31 @@ namespace IdleMafiaBot
 
         internal Point AnyToastX(Frame f, out string text) { Rectangle box; return TerritoryToastX(f, out text, out box, k => k.Length > 0); }
 
+        internal static Point GreenToastX(Frame f)
+        {
+            double hs = Math.Max(0.6, f.Height / 1009.0), row = 34.5 * hs;
+            int xs = Math.Max(0, f.Width - (int)(2.5 * row)), yEnd = Math.Min(f.Height - 1, (int)(260 * hs));
+            int left = (int)(0.6 * row), right = (int)(0.35 * row);
+            for (int y = 1; y < yEnd; y++)
+                for (int x = xs; x < f.Width - right - 1; x++)
+                {
+                    if (!IsToastWhite(f.Pixel(x, y)) || !IsToastGreen(f.Pixel(x - left, y)) || !IsToastGreen(f.Pixel(x + right, y))) continue;
+
+                    int x0 = x, x1 = x, y0 = y, y1 = y;
+                    for (int yy = y; yy < Math.Min(f.Height, y + (int)row); yy++)
+                        for (int xx = Math.Max(0, x - (int)(row / 2)); xx < Math.Min(f.Width, x + (int)(row / 2)); xx++)
+                            if (IsToastWhite(f.Pixel(xx, yy))) { x0 = Math.Min(x0, xx); x1 = Math.Max(x1, xx); y1 = Math.Max(y1, yy); }
+                    if (x1 - x0 < 3 || y1 - y0 < 3 || x1 - x0 > row / 2 || y1 - y0 > row / 2) continue;
+                    if (!IsToastGreen(f.Pixel(Math.Max(0, x0 - 3), (y0 + y1) / 2)) || !IsToastGreen(f.Pixel(Math.Min(f.Width - 1, x1 + 3), (y0 + y1) / 2))) continue;
+                    return new Point((x0 + x1) / 2, (y0 + y1) / 2);
+                }
+            return Point.Empty;
+        }
+
+        static bool IsToastGreen(Color c) { return c.G >= 75 && c.G <= 140 && c.G - c.R >= 30 && c.G - c.B >= 30 && c.R < 80; }
+
+        static bool IsToastWhite(Color c) { return Math.Min(c.R, Math.Min(c.G, c.B)) >= 200; }
+
         static string Short(string words)
         {
             words = Regex.Replace(Regex.Replace(words ?? "", @"\s+", " ").Trim(), @"^[xX×]\s+|\s+[xX×]$", "");
@@ -226,6 +251,8 @@ namespace IdleMafiaBot
         {
             string text;
             var x = AnyToastX(f, out text);
+
+            if (x.IsEmpty) { x = GreenToastX(f); text = "a green one"; }
             if (x.IsEmpty) return false;
             log("Closing the game's notification (\"" + Short(text) + "\") with its x - it covered the bars");
             Click(x.X, x.Y, 500);
@@ -235,11 +262,15 @@ namespace IdleMafiaBot
         public bool CloseTerritoryToasts()
         {
             bool any = false;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 6; i++)
             {
                 Point x;
                 string text;
-                using (var f = Capture()) x = AnyToastX(f, out text);
+                using (var f = Capture())
+                {
+                    x = AnyToastX(f, out text);
+                    if (x.IsEmpty) { x = GreenToastX(f); text = "a green one"; }
+                }
                 if (x.IsEmpty) break;
                 log("Closing the game's notification (\"" + Short(text) + "\") with its x - it covered the page");
                 Click(x.X, x.Y, 500);

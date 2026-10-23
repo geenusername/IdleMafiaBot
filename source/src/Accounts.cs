@@ -29,6 +29,16 @@ namespace IdleMafiaBot
             return !char.IsDigit(x[i]) && !char.IsDigit(y[i]);
         }
 
+        public static string Tidy(string name) { return name == null ? null : name.Trim().Replace('-', '_'); }
+
+        public static bool Part(string whole, string part)
+        {
+            if (whole == null || part == null || part.Trim().Length < 3 || !whole.Contains("_")) return false;
+            string p = Profile.Key(part.Trim());
+            return !string.Equals(Profile.Key(whole.Trim()), p, StringComparison.OrdinalIgnoreCase)
+                   && Array.Exists(whole.Trim().Split('_'), w => w.Length > 0 && string.Equals(Profile.Key(w), p, StringComparison.OrdinalIgnoreCase));
+        }
+
         static string Plain(string s)
         {
             var sb = new System.Text.StringBuilder();

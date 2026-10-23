@@ -16,7 +16,7 @@ namespace IdleMafiaBot
     static class Program
     {
 
-        public const string Version = "1.8.3";
+        public const string Version = "1.8.4";
 
         [STAThread]
         static void Main(string[] args)

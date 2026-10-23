@@ -81,9 +81,21 @@ namespace IdleMafiaBot
         internal OcrLine MarketTab(Frame f, List<OcrLine> lines, string name)
         {
             var area = PageArea(f);
-            var browse = lines.FirstOrDefault(l => Parse.Key(l.Text) == "BROWSE" && l.CenterY < area.Top + area.Height * 0.3);
+
+            var browse = lines.FirstOrDefault(l => Parse.Key(l.Text).EndsWith("BROWSE") && l.CenterY < area.Top + area.Height * 0.3);
             if (browse == null) return null;
-            return lines.FirstOrDefault(l => Parse.Key(l.Text) == Parse.Key(name) && Math.Abs(l.CenterY - browse.CenterY) <= browse.Box.Height && l.Box.Left > browse.Box.Right);
+            var tab = lines.FirstOrDefault(l => Parse.Key(l.Text) == Parse.Key(name) && Math.Abs(l.CenterY - browse.CenterY) <= browse.Box.Height && l.Box.Left > browse.Box.Right);
+            if (tab != null) return tab;
+
+            int h = Math.Max(8, browse.Box.Height);
+            var strip = Rectangle.Intersect(Rectangle.FromLTRB(browse.Box.Right + 2, browse.Box.Top - h / 2, browse.Box.Right + 25 * h, browse.Box.Bottom + h / 2), new Rectangle(0, 0, f.Width, f.Height));
+            if (strip.Width <= 0 || strip.Height <= 0) return null;
+            foreach (var t in new[] { Tuple.Create(2, Prep.None), Tuple.Create(2, Prep.Contrast), Tuple.Create(3, Prep.None) })
+            {
+                tab = Ocr.Read(f, strip, t.Item1, t.Item2).FirstOrDefault(l => Parse.Key(l.Text) == Parse.Key(name));
+                if (tab != null) return tab;
+            }
+            return null;
         }
 
         internal enum Prices { None, Top, Last, All }
@@ -183,10 +195,15 @@ namespace IdleMafiaBot
                 return reads.Count(x => x == n) >= 2 && reads.All(x => x == n);
             };
             bool sure = false;
-            foreach (var t in new[] { Tuple.Create(3, Prep.None), Tuple.Create(4, Prep.None) })
+
+            foreach (var t in new[] { Tuple.Create(3, Prep.None), Tuple.Create(4, Prep.None), Tuple.Create(5, Prep.None), Tuple.Create(2, Prep.None), Tuple.Create(3, Prep.Contrast), Tuple.Create(4, Prep.Contrast) })
             {
-                var m = Regex.Match(Ocr.ReadText(f, around, t.Item1, t.Item2), @"[0-9][0-9,]*");
-                if (add(m.Success ? Num(m.Value) : -1)) { sure = true; break; }
+                string text = Ocr.ReadText(f, around, t.Item1, t.Item2);
+                if (Trace != null) Trace("price text at " + t.Item1 + "/" + t.Item2 + ": '" + text + "'");
+
+                var m = Regex.Match(text, @"(?<![A-Za-z])[0-9IlS|][0-9IlSO,|]*(?![A-Za-z])");
+                string digits = m.Success && m.Value.Any(char.IsDigit) ? m.Value.Replace('I', '1').Replace('l', '1').Replace('|', '1').Replace('S', '5').Replace('O', '0') : "";
+                if (add(digits.Length > 0 ? Num(digits) : -1)) { sure = true; break; }
             }
             if (!sure)
                 foreach (var crop in new[] { ink, Rectangle.Inflate(ink, 1, 1), Rectangle.Inflate(ink, 2, 1) })
@@ -195,10 +212,42 @@ namespace IdleMafiaBot
                         if (add(ReadLoneNumber(f, crop, new[] { copies }))) { sure = true; break; }
                     if (sure) break;
                 }
+
+            if (!sure)
+                foreach (int copies in new[] { 2, 3 })
+                    foreach (int zoom in new[] { 3, 4 })
+                        if (!sure && add(InkNumber(f, ink, gold, copies, zoom))) sure = true;
             if (Trace != null) Trace("price ink " + ink + " reads " + string.Join(",", reads));
             var groups = reads.GroupBy(n => n).OrderByDescending(g => g.Count()).ToList();
             if (groups.Count == 0 || groups[0].Count() < 2 || (groups.Count > 1 && groups[1].Count() * 2 >= groups[0].Count())) return -1;
             return groups[0].Key <= 10000000 ? groups[0].Key : -1;
+        }
+
+        static int InkNumber(Frame f, Rectangle ink, Func<int, int, bool> isInk, int copies, int zoom)
+        {
+            int pad = Math.Max(4, ink.Height) * zoom, w = ink.Width * zoom, h = ink.Height * zoom;
+            var bmp = new Bitmap(2 * pad + copies * w + (copies - 1) * pad, h + 2 * pad, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(bmp)) g.Clear(Color.White);
+            for (int y = 0; y < ink.Height; y++)
+                for (int x = 0; x < ink.Width; x++)
+                {
+                    if (!isInk(ink.X + x, ink.Y + y)) continue;
+                    for (int k = 0; k < copies; k++)
+                        for (int dy = 0; dy < zoom; dy++)
+                            for (int dx = 0; dx < zoom; dx++)
+                                bmp.SetPixel(pad + k * (w + pad) + x * zoom + dx, pad + y * zoom + dy, Color.Black);
+                }
+            using (var copy = new Frame(bmp))
+            {
+                string text = Ocr.ReadText(copy, new Rectangle(0, 0, copy.Width, copy.Height), 1, Prep.None);
+                if (Trace != null) Trace("ink number x" + copies + " zoom " + zoom + ": '" + text + "'");
+
+                var words = Regex.Split(text, @"\s+").Select(s => Regex.Replace(s, "[^0-9IlSO|]", "")).Where(s => s.Length > 0).ToList();
+                if (words.Count != copies) return -1;
+                var nums = words.Select(s => s.Replace('I', '1').Replace('l', '1').Replace('|', '1').Replace('S', '5').Replace('O', '0')).ToList();
+                int n;
+                return nums.All(s => s == nums[0]) && nums[0].Length <= 7 && words.Any(s => s.Any(char.IsDigit)) && int.TryParse(nums[0], out n) ? n : -1;
+            }
         }
 
         internal sealed class RemoveWindow { public string Name; public OcrLine Remove, Cancel; }
@@ -423,11 +472,22 @@ namespace IdleMafiaBot
             return null;
         }
 
+        public int KeptSpotMinutes = -1;
+
+        static readonly Regex KeptSpotRx = new Regex(@"old\s*spot.*?in\s+([0-9]{1,3})\s*m", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+        internal static int KeptSpot(string toast)
+        {
+            var m = KeptSpotRx.Match(toast ?? "");
+            return m.Success ? int.Parse(m.Groups[1].Value) : -1;
+        }
+
         public const string NotTradable = "it isn't among your tradable items";
 
         public string ListItem(string name, int qty, int price, out int listed)
         {
             listed = 0;
+            KeptSpotMinutes = -1;
             var p = OpenSell();
             if (p == null) return "the SELL tab didn't open";
             SellRow row = null;
@@ -484,6 +544,8 @@ namespace IdleMafiaBot
             }
             PressMarket(p.Button, "PUT IN YOUR SHOP", 1500);
 
+            KeptSpotMinutes = KeptSpot(ReadToast(2500, t => Parse.Has(t, "LISTED")));
+
             for (int look = 0; look < 8; look++)
             {
                 Wait(800);
@@ -495,14 +557,17 @@ namespace IdleMafiaBot
                 }
             }
 
-            var again = OpenMyShop(Prices.Top);
-            if (again != null)
-            {
-                var top = again.Rows.FirstOrDefault();
-                if (top != null && SameItem(top.Name, name) && top.Left == want && top.Price == price) { listed = want; return null; }
-            }
             Snapshot("market listing not seen", 60);
-            return "it didn't show in MY SHOP after PUT IN YOUR SHOP";
+            listed = want;
+            return NotSeenAfterPut;
+        }
+
+        public const string NotSeenAfterPut = "it didn't show in MY SHOP after PUT IN YOUR SHOP";
+
+        public bool OnTop(Frame f, string name, int qty, int price)
+        {
+            var top = ReadMyShop(f, Prices.Top).Rows.FirstOrDefault();
+            return top != null && SameItem(top.Name, name) && top.Left == qty && top.Price == price;
         }
 
         internal static bool FormSays(SellPage p, string name, int qty, int price)

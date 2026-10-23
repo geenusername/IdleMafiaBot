@@ -162,7 +162,7 @@ namespace IdleMafiaBot
                 var l = Label(left, kv.Value);
                 if (l != null && l.Box.X < stripW * 2 / 3) v.Tabs[kv.Key] = l;
             }
-            KeepInOrder(v.Tabs);
+            KeepInOrder(v, v.Tabs);
             v.others.Clear();
             v.NoteOthers(left);
             if (v.Tabs.Count < 3)
@@ -171,10 +171,10 @@ namespace IdleMafiaBot
                 return false;
             }
 
-            var ys = v.Tabs.OrderBy(t => (int)t.Key).Select(t => new { T = (int)t.Key, Y = t.Value.CenterY }).ToList();
+            var ys = v.Tabs.OrderBy(t => v.Rank(t.Key)).Select(t => new { T = v.Rank(t.Key), Tab = t.Key, Y = t.Value.CenterY }).ToList();
             var steps = new List<double>();
             for (int i = 1; i < ys.Count; i++)
-                if (ys[i].T - ys[i - 1].T == 1 && ys[i].T != (int)Tab.Heists) steps.Add(ys[i].Y - ys[i - 1].Y);
+                if (ys[i].T - ys[i - 1].T == 1 && ys[i].Tab != Tab.Heists) steps.Add(ys[i].Y - ys[i - 1].Y);
             if (steps.Count > 0) v.MenuScale = steps.OrderBy(s => s).ElementAt(steps.Count / 2) / 50.0;
             else
             {
@@ -215,11 +215,48 @@ namespace IdleMafiaBot
             v.EventsOpen = v.EventsBar != null && v.others.Any(y => y > v.EventsBar.CenterY);
         }
 
-        static void KeepInOrder(Dictionary<Tab, OcrLine> tabs)
+        static readonly int[] DefaultOrder = TabLabels.Keys.Select(t => (int)t).ToArray();
+        static int[] learnedOrder;
+        int[] rank = Ranks(DefaultOrder);
+
+        static int[] Ranks(int[] order) { var r = new int[order.Length]; for (int i = 0; i < order.Length; i++) r[order[i]] = i; return r; }
+
+        public int Rank(Tab t) { return rank[(int)t]; }
+
+        static void KeepInOrder(View v, Dictionary<Tab, OcrLine> tabs)
         {
             var byY = tabs.OrderBy(kv => kv.Value.CenterY).ToList();
+            var learned = learnedOrder;
+            int[] best = DefaultOrder;
+            var keep = InOrder(byY, Ranks(DefaultOrder));
+            if (learned != null)
+            {
+                var k2 = InOrder(byY, Ranks(learned));
+                if (k2.Count > keep.Count) { keep = k2; best = learned; }
+            }
+            if (keep.Count < byY.Count && byY.Count >= 8 && OneColumn(v, byY))
+            {
+                var order = byY.Select(kv => (int)kv.Key).ToList();
+                foreach (int t in DefaultOrder)
+                {
+                    if (order.Contains(t)) continue;
+                    int at = Array.IndexOf(DefaultOrder, t), after = -1;
+                    for (int j = at - 1; j >= 0 && after < 0; j--) after = order.IndexOf(DefaultOrder[j]);
+                    order.Insert(after + 1, t);
+                }
+                best = order.ToArray();
+                learnedOrder = best;
+                keep = new HashSet<Tab>(byY.Select(kv => kv.Key));
+            }
+            v.rank = Ranks(best);
+            foreach (var kv in byY) if (!keep.Contains(kv.Key)) tabs.Remove(kv.Key);
+        }
+
+        static HashSet<Tab> InOrder(List<KeyValuePair<Tab, OcrLine>> byY, int[] r)
+        {
             int n = byY.Count;
-            if (n < 2) return;
+            var keep = new HashSet<Tab>();
+            if (n == 0) return keep;
             var len = new int[n];
             var prev = new int[n];
             int best = 0;
@@ -227,13 +264,21 @@ namespace IdleMafiaBot
             {
                 len[i] = 1; prev[i] = -1;
                 for (int j = 0; j < i; j++)
-                    if ((int)byY[j].Key < (int)byY[i].Key && len[j] + 1 > len[i]) { len[i] = len[j] + 1; prev[i] = j; }
+                    if (r[(int)byY[j].Key] < r[(int)byY[i].Key] && len[j] + 1 > len[i]) { len[i] = len[j] + 1; prev[i] = j; }
                 if (len[i] > len[best]) best = i;
             }
-            if (len[best] == n) return;
-            var keep = new HashSet<Tab>();
             for (int i = best; i >= 0; i = prev[i]) keep.Add(byY[i].Key);
-            foreach (var kv in byY) if (!keep.Contains(kv.Key)) tabs.Remove(kv.Key);
+            return keep;
+        }
+
+        static bool OneColumn(View v, List<KeyValuePair<Tab, OcrLine>> byY)
+        {
+            var xs = byY.Select(kv => kv.Value.Box.X).OrderBy(x => x).ToList();
+            int mid = xs[xs.Count / 2], slack = Math.Max(8, (int)(0.15 * v.stripW));
+            if (xs.Any(x => Math.Abs(x - mid) > slack)) return false;
+            var gaps = byY.Skip(1).Select((kv, i) => kv.Value.CenterY - byY[i].Value.CenterY).ToList();
+            int median = gaps.OrderBy(g => g).ElementAt(gaps.Count / 2);
+            return median > 8 && gaps.All(g => g >= median * 0.7);
         }
 
         double menuStep;
@@ -279,19 +324,19 @@ namespace IdleMafiaBot
         {
             OcrLine own;
             if (Tabs.TryGetValue(t, out own)) return new Place { Spot = Spot.Read, Label = own };
-            int i = (int)t, half = (int)(menuStep / 2);
-            var before = Tabs.Where(kv => (int)kv.Key < i).OrderByDescending(kv => (int)kv.Key).FirstOrDefault();
-            var after = Tabs.Where(kv => (int)kv.Key > i).OrderBy(kv => (int)kv.Key).FirstOrDefault();
+            int i = Rank(t), half = (int)(menuStep / 2);
+            var before = Tabs.Where(kv => Rank(kv.Key) < i).OrderByDescending(kv => Rank(kv.Key)).FirstOrDefault();
+            var after = Tabs.Where(kv => Rank(kv.Key) > i).OrderBy(kv => Rank(kv.Key)).FirstOrDefault();
             if (before.Value != null && after.Value != null)
             {
 
                 int slots = (int)Math.Round((after.Value.CenterY - before.Value.CenterY) / menuStep) - 1;
                 if (slots <= 0) return new Place { Spot = Spot.Absent, Why = TabLabels[before.Key] + " and " + TabLabels[after.Key] + " are next to each other" };
-                int known = TabLabels.Keys.Count(k => (int)k > (int)before.Key && (int)k < (int)after.Key);
+                int known = TabLabels.Keys.Count(k => Rank(k) > Rank(before.Key) && Rank(k) < Rank(after.Key));
                 return new Place
                 {
                     Spot = Spot.Hidden, Area = Rectangle.FromLTRB(0, before.Value.CenterY + half, stripW, after.Value.CenterY - half),
-                    Y = slots == known ? (int)Math.Round(before.Value.CenterY + (i - (int)before.Key) * menuStep) : -1,
+                    Y = slots == known ? (int)Math.Round(before.Value.CenterY + (i - Rank(before.Key)) * menuStep) : -1,
                     Why = slots + " unread between " + TabLabels[before.Key] + " and " + TabLabels[after.Key],
                 };
             }
@@ -333,7 +378,7 @@ namespace IdleMafiaBot
             {
                 var p = Where(f, t);
                 if (p.Spot != Spot.Up && p.Spot != Spot.Down) return p;
-                var edge = dir > 0 ? Tabs.OrderBy(kv => (int)kv.Key).Last() : Tabs.OrderBy(kv => (int)kv.Key).First();
+                var edge = dir > 0 ? Tabs.OrderBy(kv => Rank(kv.Key)).Last() : Tabs.OrderBy(kv => Rank(kv.Key)).First();
                 int y = ButtonBeyond(f, edge.Value, dir);
                 if (y < 0) return new Place { Spot = Spot.Absent, Why = dir > 0 ? "the list ends after " + TabLabels[edge.Key] : "the list starts with " + TabLabels[edge.Key] };
                 int half = (int)(menuStep / 2);
@@ -375,7 +420,7 @@ namespace IdleMafiaBot
                     var l = Label(lines, kv.Value);
                     if (l == null || l.Box.X >= stripW * 2 / 3 || !area.Contains(l.CenterX, l.CenterY)) continue;
 
-                    if (Tabs.Any(o => ((int)o.Key < (int)kv.Key) != (o.Value.CenterY < l.CenterY))) continue;
+                    if (Tabs.Any(o => (Rank(o.Key) < Rank(kv.Key)) != (o.Value.CenterY < l.CenterY))) continue;
                     Tabs[kv.Key] = l;
                     found = true;
                 }
@@ -392,7 +437,7 @@ namespace IdleMafiaBot
             double y = Tabs.Values.Min(l => l.CenterY);
             while (y - menuStep >= Menu.Top + 0.15 * menuStep) y -= menuStep;
             OcrLine first;
-            double top = Tabs.TryGetValue(Tab.Safehouse, out first) ? first.CenterY - menuStep / 2 : double.MinValue;
+            double top = Tabs.TryGetValue(TabLabels.Keys.First(k => Rank(k) == 0), out first) ? first.CenterY - menuStep / 2 : double.MinValue;
             int n = 0;
             for (; y <= Height - 0.15 * menuStep; y += menuStep)
             {

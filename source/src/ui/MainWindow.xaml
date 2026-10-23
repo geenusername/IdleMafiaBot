@@ -580,8 +580,11 @@
               <Border Grid.Row="2" Style="{StaticResource Card}" Padding="0,14,0,6" Background="#B31A1A1C">
                 <DockPanel>
                   <Grid DockPanel.Dock="Top" Margin="20,0,20,0">
-                    <TextBlock Text="Activity" FontFamily="{StaticResource Deco}" FontSize="17"/>
-                    <TextBlock x:Name="FeedCount" Text="" FontSize="12" Foreground="{StaticResource Text3}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    <TextBlock Text="Activity" FontFamily="{StaticResource Deco}" FontSize="17" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                      <TextBlock x:Name="FeedCount" Text="" FontSize="12" Foreground="{StaticResource Text3}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                      <ComboBox x:Name="FeedFilter" Width="130" Height="30" VerticalAlignment="Center" ToolTip="Show only one part's messages"/>
+                    </StackPanel>
                   </Grid>
                   <TextBlock x:Name="FeedEmpty" DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="20,12,20,4"
                              Text="Nothing yet. Press Start and everything the bot does shows up here."/>
@@ -1311,7 +1314,7 @@
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0"><TextBlock Text="After the best rarity" FontSize="14"/>
-                      <TextBlock Text="Keep rerolling for each one's own attack and defense." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
+                      <TextBlock Text="Keep rerolling for each one's own attack and defense: 45/45, a Forbidden 70/70." Style="{StaticResource Hint}" FontSize="12.5"/></StackPanel>
                     <ComboBox x:Name="cmb_CrewRerollStats" Grid.Column="1" Width="240" Height="36" VerticalAlignment="Center"/>
                   </Grid>
                 </Border>
@@ -1618,9 +1621,9 @@
                       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                       <StackPanel>
                         <TextBlock Text="Relist every" FontWeight="SemiBold" FontSize="15"/>
-                        <TextBlock Text="5 to 60 minutes. You make the listings, the bot only puts them back up." Style="{StaticResource Hint}"/>
+                        <TextBlock Text="30 to 60 minutes: the game moves a listing to the top once per 30 minutes. You make the listings, the bot only puts them back up." Style="{StaticResource Hint}" TextWrapping="Wrap"/>
                       </StackPanel>
-                      <ContentControl x:Name="num_MarketMinutes" Grid.Column="1" Tag="5,60,5,min" VerticalAlignment="Center"/>
+                      <ContentControl x:Name="num_MarketMinutes" Grid.Column="1" Tag="30,60,5,min" VerticalAlignment="Center"/>
                     </Grid>
                   </StackPanel>
                 </HeaderedContentControl>

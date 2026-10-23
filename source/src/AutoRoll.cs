@@ -287,7 +287,13 @@ namespace IdleMafiaBot
         {
             AutoRollWhy = null; AutoRollNoPass = false; AutoRollSeen = null;
             if (row == null || row.Auto == null) { AutoRollWhy = "no AUTO button on its row"; return false; }
-            if (!row.AutoActive) { AutoRollNoPass = true; AutoRollWhy = "its AUTO button is greyed (the game's Auto Roll pass isn't on this account)"; return false; }
+            if (!row.AutoActive)
+            {
+                AutoRollNoPass = true; AutoRollWhy = "its AUTO button is greyed (the game's Auto Roll pass isn't on this account)";
+
+                Snapshot("crew auto roll greyed", 60);
+                return false;
+            }
             PressCrew(row.Auto, row.AutoActive && (row.Empty ? Parse.Key(row.Auto.Text) == "AUTOROII" : row.Auto.Text == "AUTO"), "not a row's own AUTO");
             AutoRollWindow w = null;
             for (int look = 0; look < 4 && w == null; look++)

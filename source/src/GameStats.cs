@@ -102,6 +102,8 @@ namespace IdleMafiaBot
                     title = StatsTitle(f);
                     if (title == null) break;
                     var close = StatsClose(f, title);
+
+                    if (close.IsEmpty && attempt < 2 && CloseTerritoryToasts()) { Wait(1200); continue; }
                     if (close.IsEmpty) { Snapshot("stats no close mark", 60); break; }
                     Click(close.X, close.Y, 900);
                 }

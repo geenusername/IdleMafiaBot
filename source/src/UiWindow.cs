@@ -142,6 +142,9 @@ namespace IdleMafiaBot
         readonly Bot bot;
         readonly string dir;
         readonly ObservableCollection<FeedItem> feed = new ObservableCollection<FeedItem>();
+
+        readonly List<FeedItem> feedAll = new List<FeedItem>();
+        string feedPart;
         readonly ObservableCollection<OpsRow> ops = new ObservableCollection<OpsRow>();
         readonly ObservableCollection<JobRow> jobRows = new ObservableCollection<JobRow>();
         readonly ObservableCollection<PerkView> perkRows = new ObservableCollection<PerkView>();
@@ -201,6 +204,7 @@ namespace IdleMafiaBot
             WireTiles();
             WirePresets();
             El<ItemsControl>("Feed").ItemsSource = feed;
+            WireFeedFilter();
             WireHome();
             El<ItemsControl>("OpsList").ItemsSource = ops;
             El<ItemsControl>("JobList").ItemsSource = jobRows;
@@ -1295,6 +1299,7 @@ namespace IdleMafiaBot
 
         void WireSettings()
         {
+            s.MarketMinutes = Math.Max(Settings.MarketMinutesLeast, Math.Min(60, s.MarketMinutes));
             foreach (var f in typeof(Settings).GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
                 var field = f;
@@ -2748,17 +2753,45 @@ namespace IdleMafiaBot
             bool bad = raw.Contains(": DEFEAT") || lower.Contains("couldn't") || lower.Contains("problem") || lower.Contains("didn't")
                     || lower.Contains("not recognised") || lower.Contains("refused") || lower.Contains("stopped and") || lower.Contains("is low");
             var color = Hex(crew.Color);
-            feed.Insert(0, new FeedItem
+            var item = new FeedItem
             {
                 Who = crew.Name, Color = color, Time = time, Text = text,
                 Stripe = bad ? Res("Red") : good ? Res("Green") : color,
                 Icon = (Geometry)Window.FindResource(crew.Icon),
-            });
-            while (feed.Count > 60) feed.RemoveAt(feed.Count - 1);
-            El<TextBlock>("FeedEmpty").Visibility = Visibility.Collapsed;
+            };
+            feedAll.Insert(0, item);
+            if (feedAll.Count > FeedKept) feedAll.RemoveAt(feedAll.Count - 1);
+            if (feedPart == null || feedPart == item.Who)
+            {
+                feed.Insert(0, item);
+                while (feed.Count > 60) feed.RemoveAt(feed.Count - 1);
+                El<TextBlock>("FeedEmpty").Visibility = Visibility.Collapsed;
+            }
             El<TextBlock>("FeedCount").Text = "since " + started.ToString("HH:mm");
             UpdateTotals();
             if (lower.Contains("screenshot")) UpdateProblems();
+        }
+
+        const int FeedKept = 1000;
+
+        void WireFeedFilter()
+        {
+            var box = El<ComboBox>("FeedFilter");
+            box.Items.Add("All");
+            foreach (var c in new[] { Runner, Fixer, Enforcer, Capo, Accountant, Consigliere, Collector, Items, Landlord, Underboss, Henchmen, Don })
+                box.Items.Add(c.Name);
+            box.SelectedIndex = 0;
+            box.SelectionChanged += (a, b) =>
+            {
+                feedPart = box.SelectedIndex <= 0 ? null : (string)box.SelectedItem;
+                feed.Clear();
+                foreach (var f in feedAll.Where(f => feedPart == null || f.Who == feedPart).Take(60)) feed.Add(f);
+                var empty = El<TextBlock>("FeedEmpty");
+                empty.Text = feedAll.Count == 0 ? "Nothing yet. Press Start and everything the bot does shows up here."
+                                                : "Nothing from " + feedPart + " since " + started.ToString("HH:mm") + ".";
+                empty.Visibility = feed.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+                El<ScrollViewer>("FeedScroll").ScrollToTop();
+            };
         }
 
         static Crew CrewFor(string text)

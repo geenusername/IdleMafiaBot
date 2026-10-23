@@ -601,7 +601,8 @@ namespace IdleMafiaBot
                         if (row.Hire[t] != null && row.Hire[t - 1] != null && row.HirePrice[t] <= row.HirePrice[t - 1]) { row.Hire[t] = null; row.HirePrice[t] = -1; }
 
                     row.Auto = lines.FirstOrDefault(l => inBand(l) && Parse.Key(l.Text) == "AUTOROII" && l.CenterX < area.X + area.Width / 2);
-                    if (row.Auto != null) row.AutoActive = LightInk(f, row.Auto.Box);
+
+                    if (row.Auto != null) row.AutoActive = LightInk(f, row.Auto.Box) || BrightInk(f, row.Auto.Box);
                 }
                 else if (row.AutoRolling) ReadRoll(f, area, lines, row, inBand);
                 else if (row.Locked)
@@ -1683,7 +1684,7 @@ namespace IdleMafiaBot
 
         internal static bool FirstNameLost(string window, string row)
         {
-            var m = Regex.Match(window ?? "", @"^\s*[^A-Za-z0-9\s""“”„″]*\s*([""“”„″][A-Za-z].*)$");
+            var m = Regex.Match(window ?? "", @"^\s*[^A-Za-z0-9\s""“”„″]*\s*([""“”„″']?[A-Za-z].*)$");
             if (!m.Success || Regex.IsMatch(window.TrimStart(), "^[A-Za-z]")) return false;
             string rest = m.Groups[1].Value, rowRest = Regex.Replace((row ?? "").Trim(), @"^[A-Za-z]+\s+(?=[""“”„″'•-])", "");
             if (rowRest == (row ?? "").Trim() || Parse.Key(rest).Length < 10) return false;

@@ -642,7 +642,11 @@ namespace IdleMafiaBot
         {
             double row = 34.5 * v.HeaderScale;
             int x = ToastProbeX(v) - 8;
-            return Ocr.ReadText(f, new Rectangle(x, (int)(v.Energy.CenterY - row / 2), v.Width - x, (int)row), View.ScaleFor(20 * v.HeaderScale), Prep.None);
+            string t = Ocr.ReadText(f, new Rectangle(x, (int)(v.Energy.CenterY - row / 2), v.Width - x, (int)row), View.ScaleFor(20 * v.HeaderScale), Prep.None);
+            if (!string.IsNullOrWhiteSpace(t)) return t;
+
+            var two = Rectangle.Intersect(new Rectangle(x, (int)(v.Energy.CenterY - row / 2), v.Width - x, (int)(2 * row)), new Rectangle(0, 0, f.Width, f.Height));
+            return Ocr.ReadText(f, two, View.ScaleFor(20 * v.HeaderScale), Prep.None);
         }
 
         static Rectangle GoldToastBox(Frame f, View v, int y)
@@ -1365,6 +1369,36 @@ namespace IdleMafiaBot
             log("Closing Roblox's \"Join Event\" window with its X - it was over the game");
             Snapshot("roblox join event window", 0, true, false);
             Click(x.X, x.Y, 800);
+            Win.Park();
+            return true;
+        }
+
+        internal static OcrLine NotifyPromptCancel(Frame f)
+        {
+            var area = PopupArea(f);
+            string titleKey = Parse.Key("Turn on Notifications"), cancelKey = Parse.Key("Cancel"), yesKey = Parse.Key("Yes");
+            foreach (int s in new[] { 1, 2 })
+            {
+                var lines = Ocr.Read(f, area, s, Prep.None);
+                var title = lines.FirstOrDefault(l => View.Distance(Parse.Key(l.Text), titleKey) <= 3);
+                if (title == null) continue;
+                int h = Math.Max(6, title.Box.Height);
+                var cancel = lines.FirstOrDefault(l => Parse.Key(l.Text) == cancelKey && l.CenterY > title.Box.Bottom && l.CenterY < title.CenterY + 12 * h
+                                                       && l.CenterX < title.CenterX && l.CenterX > title.CenterX - title.Box.Width);
+                if (cancel == null) continue;
+                if (lines.Any(l => Parse.Key(l.Text) == yesKey && Math.Abs(l.CenterY - cancel.CenterY) < h && l.CenterX > title.CenterX && l.CenterX < title.CenterX + title.Box.Width))
+                    return cancel;
+            }
+            return null;
+        }
+
+        public bool CloseNotifyPrompt(Frame f)
+        {
+            var cancel = NotifyPromptCancel(f);
+            if (cancel == null) return false;
+            log("Closing Roblox's \"Turn on Notifications\" window with Cancel - it dimmed the game, so the bars didn't read");
+            Snapshot("roblox turn on notifications window", 0, true, false);
+            Click(cancel.CenterX, cancel.CenterY, 800);
             Win.Park();
             return true;
         }
@@ -3554,6 +3588,7 @@ namespace IdleMafiaBot
             int fee = -1;
             string feeLine;
             Header before = null;
+            double cardBanked = -1;
             for (int look = 0; ; look++)
             {
                 using (var f = Capture())
@@ -3562,12 +3597,15 @@ namespace IdleMafiaBot
                     fee = ReadBankFee(f, out feeLine);
                     before = ReadHeader(f);
                     if (box.Why == null) reads = AmountBoxReads(f, box.Box);
+                    if (cardBanked < 0) cardBanked = BankCardAmount(f, true);
                 }
                 if ((box.Why == null && fee >= 0) || look >= 2) break;
                 Wait(600);
             }
             if (box.Why != null) { why = box.Why; return null; }
             if (fee < 0) { why = "its fee line didn't read"; return null; }
+
+            if (CardTooLow(cardBanked, amount)) { why = "the bank card shows only " + SafehouseInfo.Money(cardBanked) + " banked"; return null; }
 
             if (!reads.Any(t => AmountWord(t) || AmountNumber(t) >= 0)) { why = "the Amount box didn't read" + (reads.Count > 0 ? " (\"" + reads[0] + "\")" : ""); return null; }
             if (OnlyNavigate) RefuseInCheck("Amount");
@@ -3606,6 +3644,8 @@ namespace IdleMafiaBot
             if (!seen && toast != null && moved == BankUnread) seen = true;
             return toast != null ? toast.Trim() + (seen && moved != BankUnread ? " - " + moved : "") : moved;
         }
+
+        internal static bool CardTooLow(double cardBanked, long amount) { return cardBanked >= 0 && cardBanked < amount; }
 
         string AmountMoved(Header before, long amount, out bool seen)
         {
@@ -4961,8 +5001,10 @@ namespace IdleMafiaBot
             Rectangle box;
             CrewTotals before;
             using (var f = Capture()) { before = ReadCrewTotals(f); button = FindUnequipAll(f, out box, out why); }
-            for (int again = 0; again < 2 && button == null; again++)
+            for (int again = 0; again < 4 && button == null; again++)
             {
+
+                CloseTerritoryToasts();
                 Wait(1500);
                 using (var f = Capture()) { before = ReadCrewTotals(f); button = FindUnequipAll(f, out box, out why); }
             }
@@ -5085,10 +5127,10 @@ namespace IdleMafiaBot
                 CrewTotals before;
                 using (var f = Capture()) { before = ReadCrewTotals(f); button = FindAutoEquip(f, out box, out why); }
 
-                for (int again = 0; again < 2 && button == null; again++)
+                for (int again = 0; again < 4 && button == null; again++)
                 {
 
-                    if (again == 0) CloseTerritoryToasts();
+                    CloseTerritoryToasts();
                     Wait(1500);
                     using (var f = Capture()) { before = ReadCrewTotals(f); button = FindAutoEquip(f, out box, out why); }
                 }
@@ -5207,7 +5249,7 @@ namespace IdleMafiaBot
                     double v;
                     if (Regex.IsMatch(it.PriceText, @"R\s?\$")) continue;
 
-                    if (it.PriceText.Contains("$")) { v = LastMoney(it.PriceText); if (v >= 0 && GreenInk(f, price.Box)) it.Price = v; }
+                    if (it.PriceText.Contains("$")) { v = ShopLinePrice(it.PriceText); if (v >= 0 && GreenInk(f, price.Box)) it.Price = v; }
                     else
                     {
 
@@ -5291,11 +5333,37 @@ namespace IdleMafiaBot
                 foreach (var l in Ocr.Read(f, band, t.Item1, t.Item2).OrderByDescending(l => l.Box.Right))
                 {
                     double v;
-                    if (!l.Text.Contains("$") || Regex.IsMatch(l.Text, @"R\s?\$") || (v = LastMoney(l.Text)) < 0 || !GreenInk(f, l.Box)) continue;
+                    if (!l.Text.Contains("$") || Regex.IsMatch(l.Text, @"R\s?\$") || (v = ShopLinePrice(l.Text)) < 0 || !GreenInk(f, l.Box)) continue;
                     text = l.Text.Trim();
                     return v;
                 }
+
+            var g = GreenBox(f, band);
+            if (g.Width >= 6 && g.Height >= 4)
+                foreach (var t in new[] { Tuple.Create(s + 1, Prep.None), Tuple.Create(s + 2, Prep.None), Tuple.Create(s + 1, Prep.Contrast) })
+                    foreach (var l in Ocr.Read(f, g, t.Item1, t.Item2))
+                    {
+                        double v;
+                        if (!l.Text.Contains("$") || Regex.IsMatch(l.Text, @"R\s?\$") || (v = ShopLinePrice(l.Text)) < 0) continue;
+                        text = l.Text.Trim();
+                        return v;
+                    }
             return -1;
+        }
+
+        static Rectangle GreenBox(Frame f, Rectangle band)
+        {
+            band.Intersect(new Rectangle(0, 0, f.Width, f.Height));
+            int l = int.MaxValue, t = int.MaxValue, r = -1, b = -1;
+            for (int y = band.Top; y < band.Bottom; y++)
+                for (int x = band.Left; x < band.Right; x++)
+                {
+                    var c = f.Pixel(x, y);
+                    if (c.G >= 100 && c.G - c.R >= 30 && c.G - c.B >= 30) { l = Math.Min(l, x); t = Math.Min(t, y); r = Math.Max(r, x); b = Math.Max(b, y); }
+                }
+            if (r < 0) return Rectangle.Empty;
+            int pad = Math.Max(3, (b - t) / 3);
+            return Rectangle.Intersect(Rectangle.FromLTRB(l - pad, t - pad, r + pad + 1, b + pad + 1), band);
         }
 
         internal static int ShopRarityOf(string text)
@@ -5312,6 +5380,25 @@ namespace IdleMafiaBot
                 if (x.Length >= 5 && w.Length >= x.Length - 1 && View.Distance(w.Substring(0, Math.Min(w.Length, x.Length)), x) <= 1) return i;
             }
             return -1;
+        }
+
+        internal static double ShopLinePrice(string text)
+        {
+            var parts = Regex.Split(Regex.Replace((text ?? "").Trim(), @"\$\s+", "$"), @"\s+").Where(p => Regex.IsMatch(p, "[0-9]")).ToList();
+            if (parts.Count == 0) return -1;
+            Func<string, string> tidy = p => Regex.IsMatch(p, @"^\$?[0-9]{1,3}(?:\.[0-9]{3})+$") ? p.Replace('.', ',') : p;
+            string last = tidy(parts[parts.Count - 1]);
+            double v;
+            if (last.Contains("$")) return Parse.Money(last.Substring(last.IndexOf('$')), out v) ? v : -1;
+            if (parts.Count < 2) return -1;
+            string before = tidy(parts[parts.Count - 2]);
+            double old;
+            var five = Regex.Match(last, @"^5([0-9][0-9.,]*\s*[KMBT]?)$", RegexOptions.IgnoreCase);
+            if (!five.Success || !before.Contains("$") || !Parse.Money(before.Substring(before.IndexOf('$')), out old) || old <= 0) return -1;
+            var fits = new List<double>();
+            foreach (var c in new[] { "$" + five.Groups[1].Value, "$1" + five.Groups[1].Value })
+                if (Parse.Money(c, out v) && v < old && v >= old * 0.4) fits.Add(v);
+            return fits.Count == 1 ? fits[0] : -1;
         }
 
         internal static double LastMoney(string text)
@@ -6516,6 +6603,19 @@ namespace IdleMafiaBot
             var up = lines.FirstOrDefault(l => priceOf(l) > 0)
                      ?? JoinWrapped(Ocr.Read(f, area, scale, Prep.DarkText), t => Parse.Key(t) == "UPGRADE", t => Regex.IsMatch(t, @"^\s*\$\s?[0-9OoIlS]")).FirstOrDefault(l => priceOf(l) > 0)
                      ?? RereadUpgrade(f, lines, area, scale, priceOf);
+
+            if (up == null)
+            {
+                var five = lines.FirstOrDefault(l => l.CenterX >= area.X + area.Width / 2 && Regex.IsMatch(l.Text, @"^\s*UPGRADE\s*5[0-9]{1,2}(?:[.,][0-9])?\s*[KMBT]\s*$", RegexOptions.IgnoreCase));
+                double v;
+                string rest = five == null ? "" : Regex.Match(five.Text, @"5([0-9.,]+\s*[KMBT])", RegexOptions.IgnoreCase).Groups[1].Value.Replace(" ", "");
+                if (five != null && GoldFace(f, five.Box) && Parse.Money("$1" + rest, out v) && v >= 1e6)
+                {
+                    r.Price = v;
+                    r.Gold = true;
+                    return new OcrLine { Text = "UPGRADE $1" + rest, Box = five.Box };
+                }
+            }
             if (up == null)
             {
                 r.Seen = string.Join(" / ", lines.Where(l => Parse.Key(l.Text).Contains("UPGRADE") && l.CenterX >= area.X + area.Width / 2).Select(l => l.Text.Trim()));

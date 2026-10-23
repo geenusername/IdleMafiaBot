@@ -532,11 +532,11 @@ namespace IdleMafiaBot
                 bool xpUp = h.Level <= 0 && h.XpNext > 0 && h.XpNext == xpNextLast && xpNextSeen > 0 && h.XpNext > xpNextSeen;
                 if (h.XpNext > 0 && h.XpNext == xpNextLast) xpNextSeen = h.XpNext;
                 xpNextLast = h.XpNext;
-                if (xpUp) { game.MenuChanged(); PropertiesLevelUp(); nextBosses = DateTime.UtcNow; }
+                if (xpUp) { game.MenuChanged(); PropertiesLevelUp(); nextBosses = DateTime.UtcNow; S.BossesDoneUntil = ""; }
                 if (h.Level > 0)
                 {
 
-                    if (h.Level > level) { game.MenuChanged(); PropertiesLevelUp(); if (level > 0) nextBosses = DateTime.UtcNow; }
+                    if (h.Level > level) { game.MenuChanged(); PropertiesLevelUp(); if (level > 0) { nextBosses = DateTime.UtcNow; S.BossesDoneUntil = ""; } }
                     level = h.Level;
                     S.LastLevel = level;
                     LevelPing(h.Level, h.XpNext);
@@ -892,15 +892,15 @@ namespace IdleMafiaBot
             if (S.Jobs && S.JobMode == JobMode.OneJob) NoteOneJob(h); else oneJobSaid = null;
             if (S.Jobs && now >= nextJobs && JobReady(h) && Can(Tab.Jobs) && !HeistEnergyHeld(h)) due.Add("jobs");
 
-            if (crewQuiet && (S.CrewSlots || S.CrewFill || S.CrewReroll || S.TrainCrew)) { crewQuiet = false; nextCrew = now; }
-            if (Can(Tab.Crew) && (now >= nextCrew || (S.CrewSlots && crewSlotPrice > 0 && spend >= crewSlotPrice + PropertyKeep() && now >= nextCrewSlot))) due.Add("crew");
+            if (crewQuiet && (S.CrewFill || S.CrewReroll || S.TrainCrew)) { crewQuiet = false; nextCrew = now; }
+            if (Can(Tab.Crew) && (now >= nextCrew || (BuySlots && crewSlotPrice > 0 && spend >= crewSlotPrice + PropertyKeep() && now >= nextCrewSlot))) due.Add("crew");
 
             if (S.Fights && !bare && now >= nextFights && FightsMayUse(h) && Can(Tab.Fight)) due.Add("fights");
             if (S.FamilyWatch && now >= nextFamily && Can(Tab.Family)) due.Add("family");
 
             if (Settings.MarketRelistShown && (S.MarketRelist || S.MarketPending.Length > 0) && now >= nextMarket && Can(Tab.BlackMarket)) due.Add("relist");
 
-            bool bankTime = S.BankAt > 0 && !cashOut ? h.Cash >= S.BankAt : now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1));
+            bool bankTime = S.BankAt > 0 && !cashOut ? h.Cash >= S.BankAt && now - lastBank >= TimeSpan.FromSeconds(30) : now >= nextBank || (due.Count > 0 && now >= lastBank.AddMinutes(1));
             if (S.Bank && bankTime && Can(Tab.Bank) && !AutoRollHoldsBank()) due.Add("bank");
 
             bool lucky = RerollsLead();
@@ -1283,7 +1283,7 @@ namespace IdleMafiaBot
         void DoRelist()
         {
             var now = DateTime.UtcNow;
-            nextMarket = now.AddMinutes(Math.Max(5, Math.Min(60, S.MarketMinutes)));
+            nextMarket = now.AddMinutes(Math.Max(Settings.MarketMinutesLeast, Math.Min(60, S.MarketMinutes)));
             if (!PendingBackUp()) return;
             if (!S.MarketRelist) { Neutral(); return; }
             var shop = game.OpenMyShop();
@@ -1337,17 +1337,28 @@ namespace IdleMafiaBot
                 }
                 int listed;
                 string why = game.ListItem(last.Name, last.Left, last.Price, out listed);
+                if (why == Game.NotSeenAfterPut && WaitForCheck(last.Name, listed, last.Price)) why = null;
+                else if (why == Game.NotSeenAfterPut) { CheckNotDone(last.Name); break; }
                 if (why != null)
                 {
-                    Log("Black Market: " + last.Name + " is in your inventory again but didn't go back up (" + why + ") - trying again in 2 minutes, no collection deposit meanwhile");
+
+                    Log("Black Market: " + last.Name + " is in your inventory again but didn't go back up (" + why + ") - trying again in " + MarketRetryMinutes + " minutes, no collection deposit meanwhile");
                     game.NoteFailure("Black Market: " + last.Name + " didn't go back up");
-                    nextMarket = DateTime.UtcNow.AddMinutes(2);
+                    MarketPing(last.Name, why);
+                    nextMarket = DateTime.UtcNow.AddMinutes(MarketRetryMinutes);
                     break;
                 }
                 S.MarketPending = "";
                 SaveSettings();
                 turned.Add(Parse.Key(last.Name) + "|" + listed + "|" + last.Price);
                 done.Add(last.Name + " (" + listed + (listed < last.Left ? " of " + last.Left : "") + " at " + last.Price + ")");
+
+                if (game.KeptSpotMinutes >= 0)
+                {
+                    Log("Black Market: the game kept " + last.Name + " in its old spot - it moves to the top only in " + game.KeptSpotMinutes + " min, so the next relist waits for that");
+                    nextMarket = DateTime.UtcNow.AddMinutes(Math.Max(game.KeptSpotMinutes + 1, Settings.MarketMinutesLeast));
+                    break;
+                }
             }
             if (done.Count > 0) Log("Black Market: relisted " + string.Join(", ", done) + " - back on top");
         }
@@ -1373,10 +1384,21 @@ namespace IdleMafiaBot
                 Log("Black Market: " + name + " is up in your shop already");
                 S.MarketPending = "";
                 SaveSettings();
+                checkUndoneAt = DateTime.MinValue;
                 return true;
             }
+
+            if (DateTime.UtcNow - checkUndoneAt < TimeSpan.FromHours(3))
+            {
+                SayOnce("market check wait " + checkUndoneAt.Ticks, "Black Market: " + name + " isn't up yet - the bot puts it up again 3 hours after the bot check, and looks every 30 minutes meanwhile");
+                nextMarket = DateTime.UtcNow.AddMinutes(MarketRetryMinutes);
+                return false;
+            }
+            checkUndoneAt = DateTime.MinValue;
             int listed;
             string why = game.ListItem(name, qty, price, out listed);
+            if (why == Game.NotSeenAfterPut && WaitForCheck(name, listed, price)) why = null;
+            else if (why == Game.NotSeenAfterPut) { CheckNotDone(name); return false; }
             if (why == null)
             {
                 Log("Black Market: put " + name + " back up (" + listed + " at " + price + " each)");
@@ -1391,11 +1413,50 @@ namespace IdleMafiaBot
                 SaveSettings();
                 return true;
             }
-            Log("Black Market: " + name + " still didn't go back up (" + why + ") - again in 2 minutes, no collection deposit meanwhile");
+            Log("Black Market: " + name + " still didn't go back up (" + why + ") - again in " + MarketRetryMinutes + " minutes, no collection deposit meanwhile");
             game.NoteFailure("Black Market: " + name + " didn't go back up");
-            nextMarket = DateTime.UtcNow.AddMinutes(2);
+            MarketPing(name, why);
+            nextMarket = DateTime.UtcNow.AddMinutes(MarketRetryMinutes);
             return false;
         }
+
+        void MarketPing(string name, string why)
+        {
+            Discord.Problem("market relist", "⚠️ Black Market: " + name + " didn't go back up",
+                "(" + why + ")\nIf the game shows a bot check, do it yourself in the game. The item is in your inventory; the bot tries again in "
+                + MarketRetryMinutes + " minutes.", Shot, false, 30);
+        }
+
+        const int CheckWaitMinutes = 2;
+
+        DateTime checkUndoneAt = DateTime.MinValue;
+
+        bool WaitForCheck(string name, int qty, int price)
+        {
+            Log("Black Market: " + name + " didn't show in your shop after PUT IN YOUR SHOP - if the game asks a bot check, do it in the game: the bot leaves the game alone up to " + CheckWaitMinutes + " minutes for it");
+            Discord.Problem("market check", "⚠️ Black Market: the game may want a bot check",
+                "The bot put " + name + " up, but it didn't show in your shop. If the game asks a bot check, do it yourself in the game: the bot waits "
+                + CheckWaitMinutes + " minutes without touching the game, then relists the rest. Not done by then: it plays on and puts the item up again in 3 hours.", Shot, false, 30);
+            var until = DateTime.UtcNow.AddMinutes(CheckWaitMinutes);
+            while (!stop && DateTime.UtcNow < until)
+            {
+                Sleep(15000);
+                if (stop) break;
+                try { using (var f = game.Capture()) if (game.OnTop(f, name, qty, price)) { Log("Black Market: " + name + " is up - thanks, relisting goes on"); return true; } }
+                catch (Exception) { }
+            }
+            return false;
+        }
+
+        void CheckNotDone(string name)
+        {
+            Log("Black Market: " + name + " still isn't up after " + CheckWaitMinutes + " minutes - it's in your inventory; the bot plays on, looks every 30 minutes whether it's up and puts it up again in 3 hours, no collection deposit meanwhile");
+            game.NoteFailure("Black Market: " + name + " didn't go back up");
+            checkUndoneAt = DateTime.UtcNow;
+            nextMarket = DateTime.UtcNow.AddMinutes(MarketRetryMinutes);
+        }
+
+        const int MarketRetryMinutes = 30;
 
         bool NeedLearn()
         {
@@ -1800,7 +1861,30 @@ namespace IdleMafiaBot
 
         internal static bool HeistsUsedUp(string toast)
         {
-            return toast != null && Parse.Has(toast, "ALREADY STARTED") && Parse.Has(toast, "HEISTS TODAY");
+
+            return toast != null && (Parse.Has(toast, "ALREADY STARTED") || Parse.Has(toast, "ALREADY ATTEMPTED")) && Parse.Has(toast, "HEISTS TODAY");
+        }
+
+        internal static TimeSpan? HeistsResetIn(string words)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(words ?? "", @"RESET\s*IN\s*(\d{1,2})\s*[:.]\s*(\d{2})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            int hh = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), mm = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
+            if (hh > 24 || mm > 59) return null;
+            return new TimeSpan(hh, mm, 0);
+        }
+
+        bool HeistsUsedUpSaid(string words)
+        {
+            if (!HeistsUsedUp(words)) return false;
+            heistEnergy = 0;
+            S.HeistsToday = HeistDay() + "|" + HeistsPerDay;
+            SaveSettings();
+            var left = HeistsResetIn(words);
+            nextHeistStart = left.HasValue ? DateTime.UtcNow.Add(left.Value).AddMinutes(2) : DateTime.UtcNow.Date.AddDays(1).AddMinutes(2);
+            SayOnce("heists used " + HeistDay(), "Heists: the game says the day's " + HeistsPerDay + " heists are used (\"" + Cut(words.Trim(), 140) + "\") - the next one "
+                + (left.HasValue ? "in " + (int)left.Value.TotalHours + "h" + left.Value.Minutes.ToString("00") : "after midnight UTC") + ", the energy goes to the jobs");
+            return true;
         }
 
         int HeistsToday()
@@ -1932,13 +2016,15 @@ namespace IdleMafiaBot
             }
             OcrLine button;
             string own = "";
-            using (var f = game.Capture()) { button = game.NoActiveHeist(f); if (button == null) own = game.OwnHeistWords(f); }
+            using (var f = game.Capture()) { button = game.NoActiveHeist(f); own = game.OwnHeistWords(f); }
 
             if (button != null)
             {
                 game.Wait(800);
-                using (var f = game.Capture()) { button = game.NoActiveHeist(f); if (button == null) own = game.OwnHeistWords(f); }
+                using (var f = game.Capture()) { button = game.NoActiveHeist(f); own = game.OwnHeistWords(f); }
             }
+
+            if (HeistsUsedUpSaid(own)) return;
             if (button == null)
             {
 
@@ -2105,10 +2191,7 @@ namespace IdleMafiaBot
                 {
 
                     if (still != null) game.CloseHeistOffers(close);
-                    S.HeistsToday = HeistDay() + "|" + HeistsPerDay;
-                    SaveSettings();
-                    Log("Heists: the game says the day's " + HeistsPerDay + " heists are started (\"" + Cut(toast.Trim(), 120) + "\") - the next one after midnight UTC");
-                    nextHeistStart = DateTime.UtcNow.Date.AddDays(1).AddMinutes(2);
+                    HeistsUsedUpSaid(toast);
                     return;
                 }
                 Log("Heists: START on " + pick.Name + " didn't start it" + (still != null ? " (the window is still open - the day's 2 heists used?)" : "")
@@ -2963,7 +3046,7 @@ namespace IdleMafiaBot
                 {
 
                     string again = (NameAgain ?? ReadNameAgain)();
-                    if (again != name)
+                    if (Accounts.Tidy(again) != name)
                     {
                         SayOnce("account again " + name + "|" + again, "Account: the top bar read \"" + name + "\" for a minute, but once more at another zoom \""
                                 + (again ?? "nothing") + "\" - not taken as another account");
@@ -2971,7 +3054,9 @@ namespace IdleMafiaBot
                     }
                 }
                 if (S.Account.Length == 0) S.Account = whose;
-                SwitchAccount(name);
+
+                if (!known && Accounts.Part(name, S.Account)) RenameAccount(name);
+                else SwitchAccount(name);
                 return true;
             }
         }
@@ -3076,6 +3161,19 @@ namespace IdleMafiaBot
                       : "Account: " + name + " is new here. It gets a new player's settings and the game's job list; " + before + "'s are kept for when it's back.");
             var cc = CatalogChanged;
             if (cc != null) cc();
+            var h = AccountChanged;
+            if (h != null) h(name);
+        }
+
+        void RenameAccount(string name)
+        {
+            string before = S.Account, from = Accounts.Folder(dir, before), to = Accounts.Folder(dir, name);
+            try { if (Directory.Exists(from) && !Directory.Exists(to)) Directory.Move(from, to); }
+            catch (Exception e) { Log("Couldn't move " + before + "'s folder to " + name + "'s: " + e.Message); }
+            S.Account = name;
+            memory = new FightMemory(MemoryFile(S.Account));
+            SaveAccount();
+            Log("Account: " + name + " - the same account as \"" + before + "\" (a part of its name was read before). Its settings and job list go on under the whole name (accounts\\" + Profile.Key(name) + ").");
             var h = AccountChanged;
             if (h != null) h(name);
         }
@@ -3552,6 +3650,8 @@ namespace IdleMafiaBot
         public event Action<CrewInfo> CrewRead;
         CrewInfo crewInfo;
 
+        bool BuySlots { get { return S.CrewSlots && S.CrewFill; } }
+
         void DoCrew()
         {
             var info = new CrewInfo { At = DateTime.Now, SlotPrice = crewSlotPrice };
@@ -3573,6 +3673,8 @@ namespace IdleMafiaBot
             if (h != null) h(info);
         }
 
+        DateTime slotWithdrawAfter = DateTime.MinValue;
+
         void DoCrewHere(CrewInfo info, out List<Game.CrewRow> crew)
         {
             crew = null;
@@ -3589,15 +3691,17 @@ namespace IdleMafiaBot
             bool changed = false, more = false;
             double keep = PropertyKeep();
 
-            if (S.CrewSlots)
+            if (BuySlots)
             {
                 double price = -1, cash = CashNow();
                 double paid = cash >= 0 ? game.UnlockCrewSlot(cash, keep, out price) : -1;
                 if (price > 0) crewSlotPrice = info.SlotPrice = price;
 
-                if (paid == 0 && price > 0 && WithdrawFor(price + keep, true))
+                if (paid == 0 && price > 0 && DateTime.UtcNow >= slotWithdrawAfter && WithdrawFor(price + keep, true))
                 {
                     if (game.OpenTab(Tab.Crew)) { cash = CashNow(); paid = cash >= 0 ? game.UnlockCrewSlot(cash, keep, out price) : -1; }
+
+                    if (paid == 0) { slotWithdrawAfter = DateTime.UtcNow.AddHours(6); Log("Crew: the cash taken out still didn't buy the slot - the bank isn't used for it again for 6 hours"); }
                     DepositBack();
                     if (!game.OpenTab(Tab.Crew)) return;
                 }
@@ -3665,7 +3769,7 @@ namespace IdleMafiaBot
             if (sortWasStuck) { sortStuckRounds++; nextCrew = DateTime.UtcNow.AddMinutes(sortStuckRounds == 1 ? 1 : sortStuckRounds == 2 ? 5 : 30); }
             else if (sorted) sortStuckRounds = 0;
 
-            crewQuiet = !S.CrewSlots && !S.CrewFill && !S.CrewReroll && !S.TrainCrew && !more && !sortWasStuck;
+            crewQuiet = !S.CrewFill && !S.CrewReroll && !S.TrainCrew && !more && !sortWasStuck;
             if (crewQuiet) nextCrew = DateTime.UtcNow.AddHours(6);
 
             if (S.TrainCrew && S.TrainAtOnce > 0) TrainCrew(crew, keep, info);
@@ -4273,7 +4377,7 @@ namespace IdleMafiaBot
                         counted = false;
 
                         PingHenchman(got, emptiedRarity >= 0 ? emptiedRarity : crew.Count > 0 ? crew.Min(r => r.Rarity) : -1,
-                            emptiedByStats && got.Rarity >= best && got.Attack >= Settings.Perfect && got.Defense >= Settings.Perfect, crew);
+                            emptiedByStats && got.Rarity >= best && got.Attack >= Settings.PerfectFor(got.Rarity) && got.Defense >= Settings.PerfectFor(got.Rarity), crew);
                         emptiedRarity = -1; emptiedByStats = false;
                         got.Recruit = true;
                         crew.Add(got);
@@ -4310,7 +4414,7 @@ namespace IdleMafiaBot
                     if (worst.Rarity >= best)
                     {
                         string everyone = "everyone is " + Game.RarityTitle(best) + ", the best " + roll + " hires can roll";
-                        int min = S.CrewRerollStats > 0 ? Settings.Perfect : 0;
+                        int min = S.CrewRerollStats > 0 ? Settings.PerfectFor(best) : 0;
                         if (min <= 0) { stop = everyone; done = finished = true; break; }
 
                         if (!S.EquipBest) { stop = everyone + " (rerolls by their own stats need \"Equip the best gear\" on)"; done = true; break; }
@@ -4451,7 +4555,7 @@ namespace IdleMafiaBot
                     if (byStats)
                     {
                         ownStats.Remove(weakOwn);
-                        Log("Crew: dismissed " + worst.Name + " (" + worst.RarityName + ", own " + weakOwn + ", under " + Settings.Perfect + ") to roll a better one");
+                        Log("Crew: dismissed " + worst.Name + " (" + worst.RarityName + ", own " + weakOwn + ", under " + Settings.PerfectFor(worst.Rarity) + ") to roll a better one");
                     }
                     rerollEmpty = true;
                     emptiedRarity = worst.Rarity; emptiedByStats = byStats;
@@ -4504,7 +4608,7 @@ namespace IdleMafiaBot
                     Game.NoteOwn(ownStats, got);
                     lastHired = got;
                     if (got.Rarity > worst.Rarity) better.Add(got.ToString());
-                    PingHenchman(got, worst.Rarity, byStats && got.Rarity >= best && got.Attack >= Settings.Perfect && got.Defense >= Settings.Perfect, crew);
+                    PingHenchman(got, worst.Rarity, byStats && got.Rarity >= best && got.Attack >= Settings.PerfectFor(got.Rarity) && got.Defense >= Settings.PerfectFor(got.Rarity), crew);
                     SnapshotOnce("crew reroll");
                 }
             }
@@ -5130,7 +5234,7 @@ namespace IdleMafiaBot
                 Log("Events: " + (read.Count > 0 ? string.Join(", ", read.Select(e => e + EventPlan(e.Kind))) : badges.Count + " badges, their words didn't read"));
 
             if (eventsOn.ContainsKey(GameEvent.CrateLuck) && !before.Contains(GameEvent.CrateLuck)) nextCrates = now;
-            if (eventsOn.ContainsKey(GameEvent.BossDamage) && !before.Contains(GameEvent.BossDamage)) nextBosses = now;
+            if (eventsOn.ContainsKey(GameEvent.BossDamage) && !before.Contains(GameEvent.BossDamage) && BossesDoneUntil(now) <= now) nextBosses = now;
             if (eventsOn.ContainsKey(GameEvent.RecruitLuck) && !before.Contains(GameEvent.RecruitLuck)) nextReroll = now;
             if (eventsOn.ContainsKey(GameEvent.OpsSpeed) && !before.Contains(GameEvent.OpsSpeed)) nextOps = now;
             EventsToFamily(read, now);
@@ -5765,7 +5869,10 @@ namespace IdleMafiaBot
                             + " - the bot looks again after a level-up or the game's reset" + (st != null && st.Said.Length > 0 ? " (\"" + Cut(st.Said, 160) + "\")" : ""));
                         SnapshotOnce("boss stage locked after the reset");
                     }
-                    nextBosses = DateTime.UtcNow.AddSeconds(Math.Min(3 * 3600, reset + 60));
+
+                    nextBosses = DateTime.UtcNow.AddSeconds(reset + 60);
+                    S.BossesDoneUntil = nextBosses.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+                    SaveSettings();
                     break;
                 case "stamina":
                 case "health":
@@ -5895,10 +6002,13 @@ namespace IdleMafiaBot
             dialog = game.ReadDisconnect(f);
 
             if (dialog == null && !rejoiner.Active) eventWindow = !Game.EventPopupX(f).IsEmpty;
+
+            if (dialog == null && !rejoiner.Active && suspect) notifyWindow = Game.NotifyPromptCancel(f) != null;
             return true;
         }
 
         bool eventWindow;
+        bool notifyWindow;
 
         public event Action<string, int, string, bool, string> TerritoryAttack;
 
@@ -6081,6 +6191,11 @@ namespace IdleMafiaBot
         {
 
             TerritoryCheck();
+            if (notifyWindow)
+            {
+                notifyWindow = false;
+                using (var f = game.Capture()) game.CloseNotifyPrompt(f);
+            }
             if (!eventWindow) return;
             eventWindow = false;
             using (var f = game.Capture()) game.CloseEventPopup(f);
